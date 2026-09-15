@@ -1,0 +1,61 @@
+import { createClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
+import { FileText } from 'lucide-react'
+import DocumentsPanel from './DocumentsPanel'
+
+export default async function DocumentsPage() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
+  const { data: membership } = await supabase
+    .from('workspace_members')
+    .select('workspace_id')
+    .eq('user_id', user.id)
+    .single()
+
+  if (!membership) redirect('/onboarding')
+  const wsId = membership.workspace_id
+
+  const [workspaceRes, projectsRes, docsRes] = await Promise.all([
+    supabase.from('workspaces').select('dropbox_token').eq('id', wsId).single(),
+    supabase.from('projects').select('id, name, status, workspace_id, description, start_date, end_date, created_at')
+      .eq('workspace_id', wsId).eq('status', 'active').order('name'),
+    supabase.from('documents')
+      .select('id, name, specialty, file_url, file_type, status, version, created_at, project:projects(name)')
+      .order('created_at', { ascending: false }),
+  ])
+
+  const dropboxConnected = !!(workspaceRes.data?.dropbox_token)
+  const projects = projectsRes.data || []
+  const documents = docsRes.data || []
+
+  return (
+    <div className="max-w-7xl mx-auto">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-[#1A2744] flex items-center gap-2">
+            <FileText className="w-6 h-6 text-[#00C2FF]" />
+            Documentos
+          </h1>
+          <p className="text-slate-500 text-sm mt-0.5">
+            {documents.length} documento{documents.length !== 1 ? 's' : ''} ·{' '}
+            almacenados en Dropbox
+          </p>
+        </div>
+        {dropboxConnected && (
+          <div className="flex items-center gap-2 text-xs text-green-600 bg-green-50 border border-green-200 px-3 py-1.5 rounded-full font-medium">
+            <div className="w-2 h-2 bg-green-500 rounded-full" />
+            Dropbox conectado
+          </div>
+        )}
+      </div>
+
+      <DocumentsPanel
+        documents={documents as any}
+        projects={projects as any}
+        dropboxConnected={dropboxConnected}
+      />
+    </div>
+  )
+}
