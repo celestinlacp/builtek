@@ -1,6 +1,6 @@
 import { PutObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
-import { r2, R2_BUCKET } from './client'
+import { getR2Client, R2_BUCKET } from './client'
 
 // ── Detección de tipo de archivo por MIME (no por extensión) ─────────────────
 const MIME_TO_TYPE: Record<string, string> = {
@@ -60,12 +60,12 @@ export async function getPresignedUploadUrl(params: {
   fileSizeBytes: number
 }): Promise<string> {
   const command = new PutObjectCommand({
-    Bucket:        R2_BUCKET,
+    Bucket:        R2_BUCKET(),
     Key:           params.storageKey,
     ContentType:   params.contentType,
     ContentLength: params.fileSizeBytes,
   })
-  return getSignedUrl(r2, command, { expiresIn: 300 })
+  return getSignedUrl(getR2Client(), command, { expiresIn: 300 })
 }
 
 /**
