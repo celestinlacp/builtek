@@ -60,10 +60,10 @@ export async function getPresignedUploadUrl(params: {
   fileSizeBytes: number
 }): Promise<string> {
   const command = new PutObjectCommand({
-    Bucket:        R2_BUCKET(),
-    Key:           params.storageKey,
-    ContentType:   params.contentType,
-    ContentLength: params.fileSizeBytes,
+    Bucket:      R2_BUCKET(),
+    Key:         params.storageKey,
+    ContentType: params.contentType,
+    // ContentLength omitido — causa mismatch de firma en algunos clientes
   })
   return getSignedUrl(getR2Client(), command, { expiresIn: 300 })
 }

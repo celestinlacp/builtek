@@ -145,8 +145,16 @@ function UploadModal({
       xhr.upload.onprogress = (e) => {
         if (e.lengthComputable) setUploadPct(Math.round((e.loaded / e.total) * 100))
       }
-      xhr.onload  = () => resolve(xhr.status >= 200 && xhr.status < 300)
-      xhr.onerror = () => resolve(false)
+      xhr.onload  = () => {
+        if (xhr.status < 200 || xhr.status >= 300) {
+          console.error('[R2 Upload] Status:', xhr.status, xhr.responseText)
+        }
+        resolve(xhr.status >= 200 && xhr.status < 300)
+      }
+      xhr.onerror = () => {
+        console.error('[R2 Upload] Network error')
+        resolve(false)
+      }
       xhr.send(file)
     })
 
