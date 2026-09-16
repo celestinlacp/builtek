@@ -95,7 +95,8 @@ function UploadModal({
   const [file,         setFile]         = useState<File | null>(null)
   const [uploading,    setUploading]    = useState(false)
   const [error,        setError]        = useState<string | null>(null)
-  const [progress,     setProgress]     = useState('')
+  const [step,         setStep]         = useState('')   // texto del paso actual
+  const [uploadPct,    setUploadPct]    = useState(0)    // 0-100 porcentaje real de subida
   const inputRef = useRef<HTMLInputElement>(null)
 
   const selectedSpecialty = specialties.find(s => s.id === specialtyId)
@@ -113,10 +114,10 @@ function UploadModal({
 
   async function handleUpload() {
     if (!file || !projectId) { setError('Selecciona proyecto y archivo'); return }
-    setUploading(true); setError(null)
+    setUploading(true); setError(null); setUploadPct(0)
 
     // Paso 1: Obtener URL pre-firmada de R2
-    setProgress('Preparando subida...')
+    setStep('Preparando subida...')
     const presignRes = await fetch('/api/documents/presign', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -132,23 +133,31 @@ function UploadModal({
     const presignData = await presignRes.json()
     if (!presignRes.ok) {
       setError(presignData.error || 'Error al preparar subida')
-      setUploading(false); setProgress(''); return
+      setUploading(false); setStep(''); return
     }
 
-    // Paso 2: Subir directo a R2 desde el browser
-    setProgress('Subiendo archivo...')
-    const uploadRes = await fetch(presignData.uploadUrl, {
-      method: 'PUT',
-      body: file,
-      headers: { 'Content-Type': file.type || 'application/octet-stream' },
+    // Paso 2: Subir directo a R2 con XMLHttpRequest para progreso real
+    setStep('Subiendo archivo...')
+    const uploadOk = await new Promise<boolean>((resolve) => {
+      const xhr = new XMLHttpRequest()
+      xhr.open('PUT', presignData.uploadUrl)
+      xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream')
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) setUploadPct(Math.round((e.loaded / e.total) * 100))
+      }
+      xhr.onload  = () => resolve(xhr.status >= 200 && xhr.status < 300)
+      xhr.onerror = () => resolve(false)
+      xhr.send(file)
     })
-    if (!uploadRes.ok) {
+
+    if (!uploadOk) {
       setError('Error al subir el archivo a R2')
-      setUploading(false); setProgress(''); return
+      setUploading(false); setStep(''); return
     }
 
     // Paso 3: Guardar metadatos en Supabase
-    setProgress('Guardando metadatos...')
+    setStep('Guardando metadatos...')
+    setUploadPct(100)
     const result = await saveDocument({
       project_id:    projectId,
       workspace_id:  workspaceId,
@@ -161,7 +170,7 @@ function UploadModal({
       file_size:     file.size,
     })
 
-    if (result?.error) { setError(result.error); setUploading(false); setProgress(''); return }
+    if (result?.error) { setError(result.error); setUploading(false); setStep(''); return }
     onClose()
   }
 
@@ -257,8 +266,27 @@ function UploadModal({
             />
           </div>
 
-          {error    && <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-600">{error}</div>}
-          {progress && <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 text-sm text-blue-600">{progress}</div>}
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-600">{error}</div>
+          )}
+
+          {uploading && (
+            <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-4 space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-blue-700 font-medium">{step}</span>
+                <span className="text-blue-500 font-bold tabular-nums">{uploadPct}%</span>
+              </div>
+              <div className="w-full bg-blue-100 rounded-full h-2 overflow-hidden">
+                <div
+                  className="bg-[#00C2FF] h-2 rounded-full transition-all duration-200"
+                  style={{ width: `${uploadPct}%` }}
+                />
+              </div>
+              <p className="text-xs text-blue-500">
+                {uploadPct < 100 ? 'No cierres esta ventana mientras se sube el archivo.' : 'Finalizando...'}
+              </p>
+            </div>
+          )}
 
           <div className="flex gap-3 pt-2">
             <button onClick={onClose}
