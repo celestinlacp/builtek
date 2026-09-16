@@ -20,21 +20,36 @@ async function getUser() {
 }
 
 export async function saveDocument(data: {
-  project_id: string
-  name: string
-  specialty: string
-  file_url: string
-  dropbox_path: string
-  file_type: string
-  version: number
+  project_id:    string
+  workspace_id:  string
+  specialty_id:  string | null
+  file_name:     string
+  display_name:  string | null
+  emission_date: string | null
+  storage_key:   string
+  file_type:     string
+  file_size:     number
 }) {
   const { user } = await getUser()
   const admin = getAdminClient()
 
   const { error } = await admin.from('documents').insert({
-    ...data,
-    uploaded_by: user.id,
-    status: 'draft',
+    project_id:       data.project_id,
+    workspace_id:     data.workspace_id,
+    specialty_id:     data.specialty_id,
+    name:             data.display_name || data.file_name,
+    file_name:        data.file_name,
+    display_name:     data.display_name,
+    emission_date:    data.emission_date,
+    storage_key:      data.storage_key,
+    file_url:         data.storage_key, // mantener compat con campo existente
+    file_type:        data.file_type,
+    file_size:        data.file_size,
+    version:          1,
+    status:           'draft',
+    doc_status:       'active',
+    uploaded_by:      user.id,
+    embedding_status: 'pending',
   })
 
   if (error) return { error: error.message }
@@ -46,6 +61,27 @@ export async function updateDocumentStatus(docId: string, status: string) {
   await getUser()
   const admin = getAdminClient()
   const { error } = await admin.from('documents').update({ status }).eq('id', docId)
+  if (error) return { error: error.message }
+  revalidatePath('/documents')
+  return { success: true }
+}
+
+// Soft delete: solicita borrado en lugar de eliminar directamente
+export async function requestDeleteDocument(docId: string, reason?: string) {
+  const { user } = await getUser()
+  const admin = getAdminClient()
+
+  // Marcar doc como pending_delete
+  await admin.from('documents').update({ doc_status: 'pending_delete' }).eq('id', docId)
+
+  // Crear solicitud de borrado para que admin apruebe
+  const { error } = await admin.from('delete_requests').insert({
+    document_id:  docId,
+    requested_by: user.id,
+    reason:       reason || null,
+    status:       'pending',
+  })
+
   if (error) return { error: error.message }
   revalidatePath('/documents')
   return { success: true }
