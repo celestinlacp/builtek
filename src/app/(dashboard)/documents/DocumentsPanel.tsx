@@ -2,9 +2,9 @@
 
 import { useState, useRef } from 'react'
 import { Project } from '@/types'
-import { saveDocument, updateDocumentStatus, requestDeleteDocument, approveDeleteRequest, rejectDeleteRequest } from './actions'
+import { saveDocument, updateDocumentStatus, requestDeleteDocument, approveDeleteRequest, rejectDeleteRequest, deleteDocument } from './actions'
 import {
-  Upload, FileText, Download, Trash2, ChevronDown,
+  Upload, Download, Trash2, ChevronDown,
   FolderOpen, CheckCircle2, Clock, XCircle, Eye, AlertTriangle, ShieldCheck, ShieldX
 } from 'lucide-react'
 
@@ -432,9 +432,14 @@ export default function DocumentsPanel({
 
   const filtered = filter === 'all' ? documents : documents.filter(d => d.status === filter)
 
-  async function handleDelete(id: string) {
-    if (!confirm('¿Solicitar eliminación de este documento? Un administrador deberá aprobarlo.')) return
-    await requestDeleteDocument(id)
+  async function handleDelete(id: string, name: string) {
+    if (isAdmin) {
+      if (!confirm(`¿Eliminar "${name}" permanentemente? Esta acción no se puede deshacer.`)) return
+      await deleteDocument(id)
+    } else {
+      if (!confirm('¿Solicitar eliminación de este documento? Un administrador deberá aprobarlo.')) return
+      await requestDeleteDocument(id)
+    }
   }
 
   return (
@@ -535,10 +540,15 @@ export default function DocumentsPanel({
                     </a>
                   )}
                   {!isPendingDelete && (
-                    <button onClick={() => handleDelete(doc.id)}
-                      className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-amber-50 text-slate-400 hover:text-amber-500"
-                      title="Solicitar eliminación">
-                      <AlertTriangle className="w-3.5 h-3.5" />
+                    <button
+                      onClick={() => handleDelete(doc.id, doc.display_name || doc.file_name || doc.name)}
+                      className={`w-7 h-7 flex items-center justify-center rounded-lg transition-colors text-slate-400 ${
+                        isAdmin
+                          ? 'hover:bg-red-50 hover:text-red-500'
+                          : 'hover:bg-amber-50 hover:text-amber-500'
+                      }`}
+                      title={isAdmin ? 'Eliminar' : 'Solicitar eliminación'}>
+                      {isAdmin ? <Trash2 className="w-3.5 h-3.5" /> : <AlertTriangle className="w-3.5 h-3.5" />}
                     </button>
                   )}
                 </div>
