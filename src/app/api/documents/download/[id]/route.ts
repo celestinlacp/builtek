@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { GetObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
-import { getR2Client, R2_BUCKET } from '@/lib/r2/client'
+import { getR2Client, R2_BUCKET, r2IsConfigured } from '@/lib/r2/client'
 
 /**
  * GET /api/documents/download/[id]
@@ -14,6 +14,10 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
+
+  if (!r2IsConfigured()) {
+    return NextResponse.json({ error: 'R2 no configurado en el servidor' }, { status: 503 })
+  }
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()

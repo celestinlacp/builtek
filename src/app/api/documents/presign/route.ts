@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { buildStorageKey, detectFileType, getPresignedUploadUrl } from '@/lib/r2/upload'
+import { r2IsConfigured } from '@/lib/r2/client'
 import { randomUUID } from 'crypto'
 
 /**
@@ -26,6 +27,10 @@ import { randomUUID } from 'crypto'
  * }
  */
 export async function POST(req: NextRequest) {
+  if (!r2IsConfigured()) {
+    return NextResponse.json({ error: 'R2 no configurado en el servidor' }, { status: 503 })
+  }
+
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
