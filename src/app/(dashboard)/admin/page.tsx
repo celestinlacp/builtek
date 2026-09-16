@@ -55,6 +55,8 @@ export default async function AdminPage() {
     email: m.user_id === user.id ? user.email : null,
   }))
 
+  const currentUserName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Usuario'
+
   return (
     <div className="max-w-7xl mx-auto">
       <div className="mb-6">
@@ -73,6 +75,8 @@ export default async function AdminPage() {
         members={enrichedMembers as any}
         currentUserId={user.id}
         currentUserRole={currentUserRole as any}
+        currentUserEmail={user.email || ''}
+        currentUserName={currentUserName}
         pendingInvites={pendingInvites as any}
         dropboxConnected={dropboxConnected}
       />

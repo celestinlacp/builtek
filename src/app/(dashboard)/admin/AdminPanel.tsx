@@ -562,7 +562,7 @@ function WorkspaceSettings({ workspace, dropboxConnected }: { workspace: Workspa
   }
 
   return (
-    <div className="max-w-lg">
+    <div>
       <form onSubmit={handleSubmit} className="bg-white border border-slate-100 rounded-xl p-6 space-y-4">
         <div>
           <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">Nombre del workspace</label>
@@ -621,14 +621,24 @@ function WorkspaceSettings({ workspace, dropboxConnected }: { workspace: Workspa
 
 type Tab = 'projects' | 'team' | 'settings'
 
+const PLAN_LABELS: Record<string, { label: string; color: string; description: string }> = {
+  free:       { label: 'Free',        color: 'bg-slate-100 text-slate-600',   description: 'Hasta 3 proyectos · 5 miembros · 1 GB' },
+  starter:    { label: 'Starter',     color: 'bg-blue-100 text-blue-700',     description: 'Hasta 10 proyectos · 15 miembros · 10 GB' },
+  pro:        { label: 'Pro',         color: 'bg-purple-100 text-purple-700', description: 'Proyectos ilimitados · 50 miembros · 100 GB' },
+  enterprise: { label: 'Enterprise',  color: 'bg-amber-100 text-amber-700',   description: 'Sin límites · SLA · Soporte dedicado' },
+}
+
 export default function AdminPanel({
-  projects, workspace, members, currentUserId, currentUserRole, pendingInvites, dropboxConnected,
+  projects, workspace, members, currentUserId, currentUserRole,
+  currentUserEmail, currentUserName, pendingInvites, dropboxConnected,
 }: {
   projects: Project[]
   workspace: Workspace
   members: MemberWithProfile[]
   currentUserId: string
   currentUserRole: UserRole
+  currentUserEmail: string
+  currentUserName: string
   pendingInvites: PendingInvite[]
   dropboxConnected: boolean
 }) {
@@ -709,7 +719,45 @@ export default function AdminPanel({
 
       {/* Settings tab */}
       {tab === 'settings' && (
-        <WorkspaceSettings workspace={workspace} dropboxConnected={dropboxConnected} />
+        <div className="max-w-lg space-y-4">
+          {/* Tarjeta de cuenta del usuario */}
+          {(() => {
+            const roleCfg = ROLE_CONFIG[currentUserRole] || ROLE_CONFIG.viewer
+            const RoleIcon = roleCfg.icon
+            const planCfg = PLAN_LABELS[workspace.plan] || PLAN_LABELS.free
+            return (
+              <div className="bg-white border border-slate-100 rounded-xl p-5 space-y-4">
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Mi cuenta</p>
+
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-full bg-[#1A2744]/10 flex items-center justify-center text-xl font-bold text-[#1A2744] flex-shrink-0">
+                    {currentUserName.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-[#1A2744] truncate">{currentUserName}</p>
+                    <p className="text-xs text-slate-400 truncate">{currentUserEmail}</p>
+                  </div>
+                  <span className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium ml-auto flex-shrink-0 ${roleCfg.color}`}>
+                    <RoleIcon className="w-3 h-3" />
+                    {roleCfg.label}
+                  </span>
+                </div>
+
+                <div className="border-t border-slate-100 pt-3">
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Plan actual</p>
+                  <div className="flex items-center justify-between">
+                    <span className={`text-sm font-bold px-3 py-1 rounded-full ${planCfg.color}`}>
+                      {planCfg.label}
+                    </span>
+                    <span className="text-xs text-slate-400">{planCfg.description}</span>
+                  </div>
+                </div>
+              </div>
+            )
+          })()}
+
+          <WorkspaceSettings workspace={workspace} dropboxConnected={dropboxConnected} />
+        </div>
       )}
 
       {(showModal || editProject) && (
