@@ -498,10 +498,11 @@ export default function DocumentsPanel({
             const fileIcon = FILE_ICONS[doc.file_type || 'other'] || '📁'
             const isPendingDelete = doc.doc_status === 'pending_delete'
             const isLast = idx === filtered.length - 1
+            const pendingRequest = isPendingDelete ? deleteRequests.find(r => r.document_id === doc.id) : null
 
             return (
               <div key={doc.id}
-                className={`flex items-center gap-3 px-4 py-3 border-b border-slate-50 hover:bg-slate-50 group ${isPendingDelete ? 'opacity-50' : ''} ${isLast ? 'rounded-b-xl border-b-0' : ''}`}>
+                className={`flex items-center gap-3 px-4 py-3 border-b border-slate-50 hover:bg-slate-50 group ${isPendingDelete ? 'opacity-60' : ''} ${isLast ? 'rounded-b-xl border-b-0' : ''}`}>
                 <span className="text-lg w-6 flex-shrink-0">{fileIcon}</span>
 
                 <div className="flex-1 min-w-0">
@@ -531,13 +532,24 @@ export default function DocumentsPanel({
                   <StatusBadge docId={doc.id} status={doc.status} />
                 </div>
 
-                <div className="flex items-center gap-1 w-20 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="flex items-center gap-1 w-20 justify-end">
                   {doc.storage_key && (
                     <a href={`/api/documents/download/${doc.id}`} target="_blank" rel="noopener noreferrer"
                       className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-200 text-slate-400 hover:text-slate-600"
                       title="Descargar">
                       <Download className="w-3.5 h-3.5" />
                     </a>
+                  )}
+                  {isPendingDelete && isAdmin && pendingRequest && (
+                    <button
+                      onClick={() => {
+                        if (confirm(`¿Confirmar eliminación de "${doc.display_name || doc.file_name || doc.name}"?`))
+                          approveDeleteRequest(pendingRequest.id, doc.id)
+                      }}
+                      className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-50 text-amber-500 hover:text-red-500 transition-colors"
+                      title="Aprobar borrado">
+                      <ShieldX className="w-3.5 h-3.5" />
+                    </button>
                   )}
                   {!isPendingDelete && (
                     <button
