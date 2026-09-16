@@ -1,7 +1,15 @@
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createAdmin } from '@supabase/supabase-js'
 import { redirect } from 'next/navigation'
 import { FileText } from 'lucide-react'
 import DocumentsPanel from './DocumentsPanel'
+
+function getAdminClient() {
+  return createAdmin(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+}
 
 export default async function DocumentsPage() {
   const supabase = await createClient()
@@ -37,7 +45,7 @@ export default async function DocumentsPage() {
       .eq('is_active', true)
       .order('category')
       .order('name'),
-    supabase
+    getAdminClient()
       .from('delete_requests')
       .select('id, document_id, reason, requested_by, created_at, document:documents(id, name, file_name, display_name)')
       .eq('status', 'pending')

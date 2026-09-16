@@ -540,27 +540,29 @@ export default function DocumentsPanel({
                       <Download className="w-3.5 h-3.5" />
                     </a>
                   )}
-                  {isPendingDelete && isAdmin && pendingRequest && (
+                  {isAdmin ? (
+                    // Owner/admin: siempre pueden borrar (aprueba el request si existe, o borra directo)
                     <button
-                      onClick={() => {
-                        if (confirm(`¿Confirmar eliminación de "${doc.display_name || doc.file_name || doc.name}"?`))
-                          approveDeleteRequest(pendingRequest.id, doc.id)
+                      onClick={async () => {
+                        const name = doc.display_name || doc.file_name || doc.name
+                        if (!confirm(`¿Eliminar "${name}" permanentemente?`)) return
+                        if (pendingRequest) {
+                          await approveDeleteRequest(pendingRequest.id, doc.id)
+                        } else {
+                          await deleteDocument(doc.id)
+                        }
                       }}
-                      className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-50 text-amber-500 hover:text-red-500 transition-colors"
-                      title="Aprobar borrado">
-                      <ShieldX className="w-3.5 h-3.5" />
+                      className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-500 transition-colors"
+                      title="Eliminar">
+                      <Trash2 className="w-3.5 h-3.5" />
                     </button>
-                  )}
-                  {!isPendingDelete && (
+                  ) : !isPendingDelete && (
+                    // Miembro normal: solo puede solicitar borrado si el doc está activo
                     <button
                       onClick={() => handleDelete(doc.id, doc.display_name || doc.file_name || doc.name)}
-                      className={`w-7 h-7 flex items-center justify-center rounded-lg transition-colors text-slate-400 ${
-                        isAdmin
-                          ? 'hover:bg-red-50 hover:text-red-500'
-                          : 'hover:bg-amber-50 hover:text-amber-500'
-                      }`}
-                      title={isAdmin ? 'Eliminar' : 'Solicitar eliminación'}>
-                      {isAdmin ? <Trash2 className="w-3.5 h-3.5" /> : <AlertTriangle className="w-3.5 h-3.5" />}
+                      className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-amber-50 text-slate-400 hover:text-amber-500 transition-colors"
+                      title="Solicitar eliminación">
+                      <AlertTriangle className="w-3.5 h-3.5" />
                     </button>
                   )}
                 </div>
