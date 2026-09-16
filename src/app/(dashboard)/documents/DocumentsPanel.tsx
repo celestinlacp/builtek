@@ -2,10 +2,10 @@
 
 import { useState, useRef } from 'react'
 import { Project } from '@/types'
-import { saveDocument, updateDocumentStatus, requestDeleteDocument } from './actions'
+import { saveDocument, updateDocumentStatus, requestDeleteDocument, approveDeleteRequest, rejectDeleteRequest } from './actions'
 import {
   Upload, FileText, Download, Trash2, ChevronDown,
-  FolderOpen, CheckCircle2, Clock, XCircle, Eye, AlertTriangle
+  FolderOpen, CheckCircle2, Clock, XCircle, Eye, AlertTriangle, ShieldCheck, ShieldX
 } from 'lucide-react'
 
 type Specialty = { id: string; name: string; code: string; category: string }
@@ -20,6 +20,15 @@ const STATUS_CONFIG = {
 const FILE_ICONS: Record<string, string> = {
   pdf: '📄', dwg: '📐', dxf: '📐', xlsx: '📊', xls: '📊',
   docx: '📝', doc: '📝', img: '🖼️', other: '📁',
+}
+
+type DeleteRequest = {
+  id: string
+  document_id: string
+  reason: string | null
+  requested_by: string
+  created_at: string
+  document?: { id: string; name: string; file_name: string | null; display_name: string | null } | null
 }
 
 type Doc = {
@@ -312,16 +321,114 @@ function UploadModal({
   )
 }
 
+function DeleteRequestsPanel({ requests }: { requests: DeleteRequest[] }) {
+  const [loading, setLoading] = useState<string | null>(null)
+  const [rejectNotes, setRejectNotes] = useState<Record<string, string>>({})
+  const [rejectOpen, setRejectOpen] = useState<string | null>(null)
+
+  async function handleApprove(req: DeleteRequest) {
+    if (!confirm(`¿Aprobar eliminación de "${req.document?.display_name || req.document?.file_name || req.document?.name}"? Esta acción no se puede deshacer.`)) return
+    setLoading(req.id)
+    await approveDeleteRequest(req.id, req.document_id)
+    setLoading(null)
+  }
+
+  async function handleReject(req: DeleteRequest) {
+    const note = rejectNotes[req.id] || ''
+    setLoading(req.id)
+    await rejectDeleteRequest(req.id, req.document_id, note)
+    setLoading(null)
+    setRejectOpen(null)
+  }
+
+  if (requests.length === 0) return null
+
+  return (
+    <div className="mb-6 bg-amber-50 border border-amber-200 rounded-xl overflow-hidden">
+      <div className="flex items-center gap-2 px-4 py-3 border-b border-amber-200">
+        <AlertTriangle className="w-4 h-4 text-amber-600" />
+        <span className="text-sm font-bold text-amber-800">
+          Solicitudes de borrado pendientes ({requests.length})
+        </span>
+      </div>
+
+      <div className="divide-y divide-amber-100">
+        {requests.map(req => {
+          const docName = req.document?.display_name || req.document?.file_name || req.document?.name || req.document_id
+          const isLoading = loading === req.id
+          const showRejectInput = rejectOpen === req.id
+
+          return (
+            <div key={req.id} className="px-4 py-3 flex items-start gap-3">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-slate-700 truncate">{docName}</p>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {new Date(req.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
+                  {req.reason && <> · <span className="italic">"{req.reason}"</span></>}
+                </p>
+                {showRejectInput && (
+                  <div className="mt-2 flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="Motivo del rechazo (opcional)"
+                      value={rejectNotes[req.id] || ''}
+                      onChange={e => setRejectNotes(prev => ({ ...prev, [req.id]: e.target.value }))}
+                      className="flex-1 text-xs px-2.5 py-1.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-300"
+                    />
+                    <button
+                      onClick={() => handleReject(req)}
+                      disabled={isLoading}
+                      className="text-xs px-3 py-1.5 rounded-lg bg-red-500 text-white font-semibold hover:bg-red-600 disabled:opacity-60">
+                      {isLoading ? '...' : 'Confirmar'}
+                    </button>
+                    <button onClick={() => setRejectOpen(null)} className="text-xs px-2 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-100">
+                      Cancelar
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {!showRejectInput && (
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  <button
+                    onClick={() => handleApprove(req)}
+                    disabled={isLoading}
+                    title="Aprobar eliminación"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-100 text-red-700 text-xs font-semibold hover:bg-red-200 disabled:opacity-60">
+                    <ShieldX className="w-3.5 h-3.5" />
+                    Aprobar borrado
+                  </button>
+                  <button
+                    onClick={() => setRejectOpen(req.id)}
+                    disabled={isLoading}
+                    title="Rechazar solicitud"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-100 text-green-700 text-xs font-semibold hover:bg-green-200 disabled:opacity-60">
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                    Rechazar
+                  </button>
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 export default function DocumentsPanel({
-  documents, projects, specialties, workspaceId
+  documents, projects, specialties, workspaceId, userRole, deleteRequests
 }: {
   documents: Doc[]
   projects: Project[]
   specialties: Specialty[]
   workspaceId: string
+  userRole: string
+  deleteRequests: DeleteRequest[]
 }) {
   const [showUpload, setShowUpload] = useState(false)
   const [filter,     setFilter]     = useState('all')
+  const isAdmin = userRole === 'owner' || userRole === 'admin'
 
   const filtered = filter === 'all' ? documents : documents.filter(d => d.status === filter)
 
@@ -332,6 +439,9 @@ export default function DocumentsPanel({
 
   return (
     <div>
+      {/* Panel de solicitudes de borrado — solo visible para admin/owner */}
+      {isAdmin && <DeleteRequestsPanel requests={deleteRequests} />}
+
       {/* Toolbar */}
       <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
         <div className="flex items-center gap-2">
@@ -367,9 +477,9 @@ export default function DocumentsPanel({
           <p className="text-slate-400 text-sm max-w-xs mx-auto">Sube tu primer documento con el botón de arriba.</p>
         </div>
       ) : (
-        <div className="bg-white rounded-xl border border-slate-100 overflow-hidden">
+        <div className="bg-white rounded-xl border border-slate-100">
           {/* Header */}
-          <div className="flex items-center gap-3 px-4 py-2.5 bg-slate-50 border-b border-slate-100 text-xs font-bold text-slate-500 uppercase tracking-wide">
+          <div className="flex items-center gap-3 px-4 py-2.5 bg-slate-50 border-b border-slate-100 text-xs font-bold text-slate-500 uppercase tracking-wide rounded-t-xl">
             <span className="w-6" />
             <span className="flex-1">Documento</span>
             <span className="hidden sm:block w-32">Proyecto</span>
@@ -379,13 +489,14 @@ export default function DocumentsPanel({
             <span className="w-20 text-right">Acciones</span>
           </div>
 
-          {filtered.map(doc => {
+          {filtered.map((doc, idx) => {
             const fileIcon = FILE_ICONS[doc.file_type || 'other'] || '📁'
             const isPendingDelete = doc.doc_status === 'pending_delete'
+            const isLast = idx === filtered.length - 1
 
             return (
               <div key={doc.id}
-                className={`flex items-center gap-3 px-4 py-3 border-b border-slate-50 hover:bg-slate-50 group ${isPendingDelete ? 'opacity-50' : ''}`}>
+                className={`flex items-center gap-3 px-4 py-3 border-b border-slate-50 hover:bg-slate-50 group ${isPendingDelete ? 'opacity-50' : ''} ${isLast ? 'rounded-b-xl border-b-0' : ''}`}>
                 <span className="text-lg w-6 flex-shrink-0">{fileIcon}</span>
 
                 <div className="flex-1 min-w-0">

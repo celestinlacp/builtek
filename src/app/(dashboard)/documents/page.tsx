@@ -10,14 +10,15 @@ export default async function DocumentsPage() {
 
   const { data: membership } = await supabase
     .from('workspace_members')
-    .select('workspace_id')
+    .select('workspace_id, role')
     .eq('user_id', user.id)
     .single()
 
   if (!membership) redirect('/onboarding')
-  const wsId = membership.workspace_id
+  const wsId    = membership.workspace_id
+  const userRole = membership.role as string
 
-  const [projectsRes, docsRes, specialtiesRes] = await Promise.all([
+  const [projectsRes, docsRes, specialtiesRes, deleteReqRes] = await Promise.all([
     supabase
       .from('projects')
       .select('id, name, status, workspace_id, description, start_date, end_date, created_at')
@@ -36,11 +37,17 @@ export default async function DocumentsPage() {
       .eq('is_active', true)
       .order('category')
       .order('name'),
+    supabase
+      .from('delete_requests')
+      .select('id, document_id, reason, requested_by, created_at, document:documents(id, name, file_name, display_name)')
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false }),
   ])
 
-  const projects     = projectsRes.data    || []
-  const documents    = docsRes.data        || []
-  const specialties  = specialtiesRes.data || []
+  const projects       = projectsRes.data    || []
+  const documents      = docsRes.data        || []
+  const specialties    = specialtiesRes.data || []
+  const deleteRequests = deleteReqRes.data   || []
 
   return (
     <div className="max-w-7xl mx-auto">
@@ -65,6 +72,8 @@ export default async function DocumentsPage() {
         projects={projects as any}
         specialties={specialties}
         workspaceId={wsId}
+        userRole={userRole}
+        deleteRequests={deleteRequests as any}
       />
     </div>
   )

@@ -95,3 +95,36 @@ export async function deleteDocument(docId: string) {
   revalidatePath('/documents')
   return { success: true }
 }
+
+export async function approveDeleteRequest(requestId: string, docId: string) {
+  const { user } = await getUser()
+  const admin = getAdminClient()
+
+  await admin.from('delete_requests').update({
+    status:      'approved',
+    reviewed_by: user.id,
+    reviewed_at: new Date().toISOString(),
+  }).eq('id', requestId)
+
+  await admin.from('documents').update({ doc_status: 'deleted' }).eq('id', docId)
+
+  revalidatePath('/documents')
+  return { success: true }
+}
+
+export async function rejectDeleteRequest(requestId: string, docId: string, note: string) {
+  const { user } = await getUser()
+  const admin = getAdminClient()
+
+  await admin.from('delete_requests').update({
+    status:      'rejected',
+    reviewed_by: user.id,
+    reviewed_at: new Date().toISOString(),
+    review_note: note,
+  }).eq('id', requestId)
+
+  await admin.from('documents').update({ doc_status: 'active' }).eq('id', docId)
+
+  revalidatePath('/documents')
+  return { success: true }
+}
