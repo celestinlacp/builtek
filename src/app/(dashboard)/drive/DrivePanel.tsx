@@ -71,9 +71,32 @@ function ShareModal({ fileId, fileName, workspaceId, onClose }: {
   const [loading,   setLoading]   = useState(false)
   const [token,     setToken]     = useState<string | null>(null)
   const [copied,    setCopied]    = useState(false)
+  const qrRef = useRef<HTMLDivElement>(null)
 
   const appUrl  = process.env.NEXT_PUBLIC_APP_URL || 'https://builtek.app'
   const shareUrl = token ? `${appUrl}/share/${token}` : ''
+
+  function downloadQR() {
+    const svg = qrRef.current?.querySelector('svg')
+    if (!svg) return
+    const svgData  = new XMLSerializer().serializeToString(svg)
+    const canvas   = document.createElement('canvas')
+    const size     = 400
+    canvas.width   = size
+    canvas.height  = size
+    const ctx      = canvas.getContext('2d')!
+    const img      = new Image()
+    img.onload = () => {
+      ctx.fillStyle = '#ffffff'
+      ctx.fillRect(0, 0, size, size)
+      ctx.drawImage(img, 0, 0, size, size)
+      const a   = document.createElement('a')
+      a.href     = canvas.toDataURL('image/png')
+      a.download = `qr-${fileName.replace(/\s+/g, '-')}.png`
+      a.click()
+    }
+    img.src = `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svgData)))}`
+  }
 
   async function handleCreate() {
     setLoading(true)
@@ -140,8 +163,15 @@ function ShareModal({ fileId, fileName, workspaceId, onClose }: {
           ) : (
             <>
               {/* QR */}
-              <div className="flex justify-center p-4 bg-white border border-slate-100 rounded-xl">
-                <QRCode value={shareUrl} size={160} />
+              <div className="flex flex-col items-center gap-2 p-4 bg-white border border-slate-100 rounded-xl">
+                <div ref={qrRef}>
+                  <QRCode value={shareUrl} size={160} />
+                </div>
+                <button onClick={downloadQR}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50">
+                  <Download className="w-3.5 h-3.5" />
+                  Descargar QR
+                </button>
               </div>
 
               {/* Link */}
