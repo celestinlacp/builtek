@@ -20,7 +20,7 @@ export default async function TasksPage() {
 
   const wsId = membership.workspace_id
 
-  const [projectsRes, tasksRes] = await Promise.all([
+  const [projectsRes, tasksRes, docsRes, driveRes] = await Promise.all([
     supabase.from('projects')
       .select('id, name, status, workspace_id, description, start_date, end_date, created_at')
       .eq('workspace_id', wsId)
@@ -33,10 +33,23 @@ export default async function TasksPage() {
         project:projects(name)
       `)
       .order('created_at', { ascending: false }),
+    supabase.from('documents')
+      .select('id, name, file_type')
+      .eq('workspace_id', wsId)
+      .order('name'),
+    supabase.from('drive_files')
+      .select('id, name, file_type')
+      .eq('workspace_id', wsId)
+      .order('name'),
   ])
 
   const projects = projectsRes.data || []
   const tasks = (tasksRes.data || []) as any[]
+
+  const availableDocs = [
+    ...(docsRes.data || []).map((d: any) => ({ ...d, source: 'document' as const })),
+    ...(driveRes.data || []).map((d: any) => ({ ...d, source: 'drive' as const })),
+  ]
 
   return (
     <div className="max-w-7xl mx-auto">
@@ -83,7 +96,7 @@ export default async function TasksPage() {
           </Link>
         </div>
       ) : (
-        <TaskBoard tasks={tasks} projects={projects} />
+        <TaskBoard tasks={tasks} projects={projects} availableDocs={availableDocs} currentUserId={user.id} />
       )}
     </div>
   )

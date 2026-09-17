@@ -9,6 +9,14 @@ import {
 } from 'lucide-react'
 import NewTaskModal from './NewTaskModal'
 import EditTaskModal from './EditTaskModal'
+import TaskSlideOver from './TaskSlideOver'
+
+type AvailableDoc = {
+  id: string
+  name: string
+  file_type: string
+  source: 'document' | 'drive'
+}
 
 const SPECIALTIES = [
   '📐 Geométrico', '🪨 Geotecnia', '🏗️ Estructuras',
@@ -71,7 +79,7 @@ function StatusBadge({ status, taskId }: { status: string; taskId: string }) {
   )
 }
 
-function TaskRow({ task, onEdit }: { task: Task & { project?: { name: string } }; onEdit: (t: Task) => void }) {
+function TaskRow({ task, onEdit, onOpen }: { task: Task & { project?: { name: string } }; onEdit: (t: Task) => void; onOpen: (t: Task) => void }) {
   const [menuOpen, setMenuOpen] = useState(false)
 
   async function handleDelete() {
@@ -87,7 +95,12 @@ function TaskRow({ task, onEdit }: { task: Task & { project?: { name: string } }
       <div className={`w-2 h-2 rounded-full flex-shrink-0 ${PRIORITY_DOT[task.priority]}`} />
 
       {/* Name */}
-      <p className="flex-1 text-sm text-slate-700 font-medium truncate">{task.name}</p>
+      <button
+        onClick={() => onOpen(task)}
+        className="flex-1 text-sm text-slate-700 font-medium truncate text-left hover:text-[#00C2FF] transition-colors"
+      >
+        {task.name}
+      </button>
 
       {/* Project */}
       {task.project && (
@@ -140,11 +153,12 @@ function TaskRow({ task, onEdit }: { task: Task & { project?: { name: string } }
 }
 
 function SpecialtyGroup({
-  specialty, tasks, onEdit
+  specialty, tasks, onEdit, onOpen
 }: {
   specialty: string
   tasks: (Task & { project?: { name: string } })[]
   onEdit: (t: Task) => void
+  onOpen: (t: Task) => void
 }) {
   const [collapsed, setCollapsed] = useState(false)
   const done = tasks.filter(t => t.status === 'done').length
@@ -170,7 +184,7 @@ function SpecialtyGroup({
       {!collapsed && (
         <div>
           {tasks.map(task => (
-            <TaskRow key={task.id} task={task} onEdit={onEdit} />
+            <TaskRow key={task.id} task={task} onEdit={onEdit} onOpen={onOpen} />
           ))}
         </div>
       )}
@@ -181,15 +195,18 @@ function SpecialtyGroup({
 type ExtendedTask = Task & { project?: { name: string } }
 
 export default function TaskBoard({
-  tasks, projects
+  tasks, projects, availableDocs, currentUserId
 }: {
   tasks: ExtendedTask[]
   projects: Project[]
+  availableDocs: AvailableDoc[]
+  currentUserId: string
 }) {
   const [view, setView] = useState<'board' | 'list'>('board')
   const [filter, setFilter] = useState<string>('all')
   const [showNew, setShowNew] = useState(false)
   const [editTask, setEditTask] = useState<Task | null>(null)
+  const [slideTask, setSlideTask] = useState<ExtendedTask | null>(null)
 
   const filtered = filter === 'all' ? tasks
     : tasks.filter(t => t.status === filter)
@@ -287,6 +304,7 @@ export default function TaskBoard({
                 specialty={specialty}
                 tasks={groupTasks}
                 onEdit={setEditTask}
+                onOpen={setSlideTask}
               />
             ))}
           </div>
@@ -306,7 +324,7 @@ export default function TaskBoard({
           {filtered.length === 0
             ? <p className="text-center text-sm text-slate-400 py-10">Sin tareas</p>
             : filtered.map(task => (
-              <TaskRow key={task.id} task={task} onEdit={setEditTask} />
+              <TaskRow key={task.id} task={task} onEdit={setEditTask} onOpen={setSlideTask} />
             ))
           }
         </div>
@@ -324,6 +342,14 @@ export default function TaskBoard({
           task={editTask}
           specialties={SPECIALTIES}
           onClose={() => setEditTask(null)}
+        />
+      )}
+      {slideTask && (
+        <TaskSlideOver
+          task={slideTask}
+          availableDocs={availableDocs}
+          currentUserId={currentUserId}
+          onClose={() => setSlideTask(null)}
         />
       )}
     </div>

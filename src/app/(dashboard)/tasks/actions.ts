@@ -84,3 +84,48 @@ export async function deleteTask(taskId: string) {
   revalidatePath('/tasks')
   return { success: true }
 }
+
+export async function addComment(taskId: string, content: string) {
+  const { userId } = await getWorkspaceId()
+  const admin = getAdminClient()
+  const { error } = await admin.from('comments').insert({
+    task_id: taskId,
+    user_id: userId,
+    content: content.trim(),
+  })
+  if (error) return { error: error.message }
+  return { success: true }
+}
+
+export async function deleteComment(commentId: string) {
+  await getWorkspaceId()
+  const admin = getAdminClient()
+  const { error } = await admin.from('comments').delete().eq('id', commentId)
+  if (error) return { error: error.message }
+  return { success: true }
+}
+
+export async function linkDocument(data: {
+  task_id:       string
+  document_id?:  string
+  drive_file_id?: string
+}) {
+  const { userId } = await getWorkspaceId()
+  const admin = getAdminClient()
+  const { error } = await admin.from('task_documents').insert({
+    task_id:       data.task_id,
+    document_id:   data.document_id   || null,
+    drive_file_id: data.drive_file_id || null,
+    linked_by:     userId,
+  })
+  if (error) return { error: error.message }
+  return { success: true }
+}
+
+export async function unlinkDocument(taskDocId: string) {
+  await getWorkspaceId()
+  const admin = getAdminClient()
+  const { error } = await admin.from('task_documents').delete().eq('id', taskDocId)
+  if (error) return { error: error.message }
+  return { success: true }
+}
