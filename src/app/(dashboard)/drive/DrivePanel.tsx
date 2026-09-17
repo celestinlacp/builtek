@@ -441,7 +441,7 @@ function LinksPanel({ workspaceId }: { workspaceId: string }) {
 
   useEffect(() => {
     getWorkspaceShares(workspaceId).then(res => {
-      setShares((res.shares as DriveShare[]) ?? [])
+      setShares((res.shares as unknown as DriveShare[]) ?? [])
       setLoading(false)
     })
   }, [workspaceId])
