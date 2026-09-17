@@ -93,3 +93,47 @@ export async function renameFolder(folderId: string, name: string) {
   revalidatePath('/drive')
   return { success: true }
 }
+
+export async function createShare(data: {
+  workspace_id: string
+  file_id:      string
+  label?:       string
+  expires_at?:  string | null
+}) {
+  const { user } = await getUser()
+  const admin = getAdminClient()
+
+  const { data: share, error } = await admin.from('drive_shares').insert({
+    workspace_id: data.workspace_id,
+    file_id:      data.file_id,
+    label:        data.label || null,
+    expires_at:   data.expires_at || null,
+    created_by:   user.id,
+  }).select('token').single()
+
+  if (error) return { error: error.message }
+  revalidatePath('/drive')
+  return { token: share.token }
+}
+
+export async function revokeShare(shareId: string) {
+  await getUser()
+  const admin = getAdminClient()
+  const { error } = await admin.from('drive_shares').update({ is_active: false }).eq('id', shareId)
+  if (error) return { error: error.message }
+  revalidatePath('/drive')
+  return { success: true }
+}
+
+export async function getWorkspaceShares(workspaceId: string) {
+  await getUser()
+  const admin = getAdminClient()
+  const { data, error } = await admin
+    .from('drive_shares')
+    .select('id, token, label, is_active, expires_at, access_count, last_accessed, created_at, drive_files(name, file_type)')
+    .eq('workspace_id', workspaceId)
+    .eq('is_active', true)
+    .order('created_at', { ascending: false })
+  if (error) return { error: error.message }
+  return { shares: data }
+}
