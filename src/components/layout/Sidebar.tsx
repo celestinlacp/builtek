@@ -6,16 +6,17 @@ import { logout } from '@/app/(auth)/actions'
 import Logo from '@/components/Logo'
 import {
   LayoutDashboard, CheckSquare, Calendar, Package,
-  FileText, Bot, Settings, LogOut, ChevronRight
+  FileText, Bot, Settings, LogOut, ChevronRight, HardDrive
 } from 'lucide-react'
 
 const NAV = [
-  { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { href: '/tasks', icon: CheckSquare, label: 'Tareas' },
-  { href: '/calendar', icon: Calendar, label: 'Calendario' },
-  { href: '/deliverables', icon: Package, label: 'Entregables' },
-  { href: '/documents', icon: FileText, label: 'Documentos' },
-  { href: '/ai-agent', icon: Bot, label: 'Agente AI', badge: 'NEW' },
+  { href: '/dashboard',  icon: LayoutDashboard, label: 'Dashboard' },
+  { href: '/tasks',      icon: CheckSquare,     label: 'Tareas' },
+  { href: '/calendar',   icon: Calendar,        label: 'Calendario' },
+  { href: '/deliverables', icon: Package,       label: 'Entregables' },
+  { href: '/documents',  icon: FileText,        label: 'Documentos' },
+  { href: '/drive',      icon: HardDrive,       label: 'Drive', badge: 'NEW' },
+  { href: '/ai-agent',   icon: Bot,             label: 'Agente AI' },
 ]
 
 export default function Sidebar({ workspaceName }: { workspaceName: string }) {
