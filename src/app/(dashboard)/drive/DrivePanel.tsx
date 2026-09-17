@@ -751,9 +751,9 @@ export default function DrivePanel({ workspaceId, userRole }: { workspaceId: str
       <div className="w-48 flex-shrink-0">
         <div className="bg-white rounded-xl border border-slate-100 overflow-hidden">
           <button
-            onClick={() => setBreadcrumb([{ id: null, name: 'Mi Drive' }])}
+            onClick={() => { setBreadcrumb([{ id: null, name: 'Mi Drive' }]); setActiveTab('drive') }}
             className={`w-full flex items-center gap-2.5 px-4 py-3 text-sm font-semibold transition-colors ${
-              breadcrumb.length === 1 ? 'bg-[#00C2FF]/10 text-[#00C2FF]' : 'text-slate-600 hover:bg-slate-50'
+              activeTab === 'drive' ? 'bg-[#00C2FF]/10 text-[#00C2FF]' : 'text-slate-600 hover:bg-slate-50'
             }`}>
             <HardDrive className="w-4 h-4 flex-shrink-0" />
             Mi Drive
