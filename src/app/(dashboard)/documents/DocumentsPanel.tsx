@@ -5,7 +5,7 @@ import { Project } from '@/types'
 import { saveDocument, updateDocumentStatus, requestDeleteDocument, approveDeleteRequest, rejectDeleteRequest, deleteDocument } from './actions'
 import {
   Upload, Download, Trash2, ChevronDown,
-  FolderOpen, CheckCircle2, Clock, XCircle, Eye, AlertTriangle, ShieldCheck, ShieldX
+  FolderOpen, CheckCircle2, Clock, XCircle, Eye, AlertTriangle, ShieldCheck, ShieldX, X, Loader2
 } from 'lucide-react'
 
 type Specialty = { id: string; name: string; code: string; category: string }
@@ -321,6 +321,58 @@ function UploadModal({
   )
 }
 
+function PdfViewerModal({ docId, docName, onClose }: { docId: string; docName: string; onClose: () => void }) {
+  const [loading, setLoading] = useState(true)
+
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col bg-black/90">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 bg-[#1A2744] flex-shrink-0">
+        <div className="flex items-center gap-3 min-w-0">
+          <span className="text-lg">📄</span>
+          <span className="text-white text-sm font-semibold truncate">{docName}</span>
+          <span className="text-xs text-slate-400 uppercase font-medium flex-shrink-0">PDF</span>
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <a
+            href={`/api/documents/download/${docId}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 text-white text-xs font-medium hover:bg-white/20 transition-colors"
+          >
+            <Download className="w-3.5 h-3.5" />
+            Descargar
+          </a>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/10 text-white hover:bg-white/20 transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* Visor */}
+      <div className="flex-1 relative">
+        {loading && (
+          <div className="absolute inset-0 flex items-center justify-center bg-slate-900">
+            <div className="flex flex-col items-center gap-3">
+              <Loader2 className="w-8 h-8 text-[#00C2FF] animate-spin" />
+              <p className="text-slate-400 text-sm">Cargando documento...</p>
+            </div>
+          </div>
+        )}
+        <iframe
+          src={`/api/documents/view/${docId}`}
+          className="w-full h-full border-0"
+          onLoad={() => setLoading(false)}
+          title={docName}
+        />
+      </div>
+    </div>
+  )
+}
+
 function DeleteRequestsPanel({ requests }: { requests: DeleteRequest[] }) {
   const [loading, setLoading] = useState<string | null>(null)
   const [rejectNotes, setRejectNotes] = useState<Record<string, string>>({})
@@ -426,8 +478,9 @@ export default function DocumentsPanel({
   userRole: string
   deleteRequests: DeleteRequest[]
 }) {
-  const [showUpload, setShowUpload] = useState(false)
-  const [filter,     setFilter]     = useState('all')
+  const [showUpload,  setShowUpload]  = useState(false)
+  const [filter,      setFilter]      = useState('all')
+  const [viewingDoc,  setViewingDoc]  = useState<{ id: string; name: string } | null>(null)
   const isAdmin = userRole === 'owner' || userRole === 'admin'
 
   const filtered = filter === 'all' ? documents : documents.filter(d => d.status === filter)
@@ -506,9 +559,18 @@ export default function DocumentsPanel({
                 <span className="text-lg w-6 flex-shrink-0">{fileIcon}</span>
 
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-700 truncate">
-                    {doc.display_name || doc.file_name || doc.name}
-                  </p>
+                  {doc.file_type === 'pdf' ? (
+                    <button
+                      onClick={() => setViewingDoc({ id: doc.id, name: doc.display_name || doc.file_name || doc.name })}
+                      className="text-sm font-medium text-slate-700 truncate block w-full text-left hover:text-[#00C2FF] transition-colors"
+                    >
+                      {doc.display_name || doc.file_name || doc.name}
+                    </button>
+                  ) : (
+                    <p className="text-sm font-medium text-slate-700 truncate">
+                      {doc.display_name || doc.file_name || doc.name}
+                    </p>
+                  )}
                   <p className="text-xs text-slate-400">
                     {doc.file_name && doc.display_name ? doc.file_name + ' · ' : ''}
                     v{doc.version} · {doc.file_type?.toUpperCase() || '—'} · {formatSize(doc.file_size)}
@@ -578,6 +640,14 @@ export default function DocumentsPanel({
           specialties={specialties}
           workspaceId={workspaceId}
           onClose={() => setShowUpload(false)}
+        />
+      )}
+
+      {viewingDoc && (
+        <PdfViewerModal
+          docId={viewingDoc.id}
+          docName={viewingDoc.name}
+          onClose={() => setViewingDoc(null)}
         />
       )}
     </div>
