@@ -26,6 +26,8 @@ export async function saveDocument(data: {
   file_name:     string
   display_name:  string | null
   emission_date: string | null
+  author:        string
+  notes:         string | null
   storage_key:   string
   file_type:     string
   file_size:     number
@@ -41,8 +43,10 @@ export async function saveDocument(data: {
     file_name:        data.file_name,
     display_name:     data.display_name,
     emission_date:    data.emission_date,
+    author:           data.author,
+    notes:            data.notes,
     storage_key:      data.storage_key,
-    file_url:         data.storage_key, // mantener compat con campo existente
+    file_url:         data.storage_key,
     file_type:        data.file_type,
     file_size:        data.file_size,
     version:          1,

@@ -6,7 +6,7 @@ import { Project } from '@/types'
 import { saveDocument, updateDocumentStatus, requestDeleteDocument, approveDeleteRequest, rejectDeleteRequest, deleteDocument } from './actions'
 import {
   Upload, Download, Trash2, ChevronDown, ChevronRight, ArrowLeft, Package,
-  FolderOpen, CheckCircle2, Clock, XCircle, Eye, AlertTriangle, ShieldCheck, ShieldX, X, Loader2,
+  FolderOpen, CheckCircle2, Clock, XCircle, Eye, AlertTriangle, ShieldCheck, ShieldX, X, Loader2, Info,
 } from 'lucide-react'
 
 type Specialty = { id: string; name: string; code: string; category: string }
@@ -45,6 +45,8 @@ type Doc = {
   doc_status: string
   version: number
   emission_date: string | null
+  author: string | null
+  notes: string | null
   created_at: string
   project?: { name: string } | null
   specialty?: { name: string; code: string; category: string } | null
@@ -104,6 +106,8 @@ function UploadModal({
   const [specialtyId,  setSpecialtyId]  = useState('')
   const [displayName,  setDisplayName]  = useState('')
   const [emissionDate, setEmissionDate] = useState('')
+  const [author,       setAuthor]       = useState('')
+  const [notes,        setNotes]        = useState('')
   const [file,         setFile]         = useState<File | null>(null)
   const [uploading,    setUploading]    = useState(false)
   const [error,        setError]        = useState<string | null>(null)
@@ -125,6 +129,7 @@ function UploadModal({
 
   async function handleUpload() {
     if (!file || !projectId) { setError('Selecciona proyecto y archivo'); return }
+    if (!author.trim()) { setError('El campo Autor es requerido'); return }
     setUploading(true); setError(null); setUploadPct(0)
 
     setStep('Preparando subida...')
@@ -172,6 +177,8 @@ function UploadModal({
       file_name:     file.name,
       display_name:  displayName.trim() || null,
       emission_date: emissionDate || null,
+      author:        author.trim(),
+      notes:         notes.trim() || null,
       storage_key:   presignData.storageKey,
       file_type:     presignData.fileType,
       file_size:     file.size,
@@ -244,6 +251,24 @@ function UploadModal({
 
           <div>
             <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
+              Autor <span className="text-red-400">*</span>
+            </label>
+            <input type="text" value={author} onChange={e => setAuthor(e.target.value)}
+              placeholder="Nombre del autor del documento"
+              className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50" />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
+              Fecha de versión <span className="text-red-400">*</span>
+            </label>
+            <input type="date" value={emissionDate} onChange={e => setEmissionDate(e.target.value)}
+              className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50" />
+            <p className="text-xs text-slate-400 mt-1">Fecha de emisión o versión del documento original</p>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
               Nombre descriptivo <span className="text-slate-400 font-normal">(opcional)</span>
             </label>
             <input type="text" value={displayName} onChange={e => setDisplayName(e.target.value)}
@@ -253,10 +278,11 @@ function UploadModal({
 
           <div>
             <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
-              Fecha de emisión <span className="text-slate-400 font-normal">(opcional)</span>
+              Nota <span className="text-slate-400 font-normal">(opcional)</span>
             </label>
-            <input type="date" value={emissionDate} onChange={e => setEmissionDate(e.target.value)}
-              className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50" />
+            <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2}
+              placeholder="Observaciones, contexto o instrucciones sobre este documento..."
+              className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50 resize-none" />
           </div>
 
           {error && <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-600">{error}</div>}
@@ -281,7 +307,7 @@ function UploadModal({
               className="flex-1 py-2.5 rounded-lg border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50">
               Cancelar
             </button>
-            <button onClick={handleUpload} disabled={uploading || !file || !projectId}
+            <button onClick={handleUpload} disabled={uploading || !file || !projectId || !author.trim() || !emissionDate}
               className="flex-1 py-2.5 rounded-lg bg-[#1A2744] text-white text-sm font-bold hover:bg-[#243660] disabled:opacity-60">
               {uploading ? 'Subiendo...' : 'Subir a R2'}
             </button>
@@ -412,6 +438,69 @@ function DeleteRequestsPanel({ requests }: { requests: DeleteRequest[] }) {
   )
 }
 
+// ── Popover de trazabilidad ────────────────────────────────────────────────────
+
+function DocInfoPopover({ doc }: { doc: Doc }) {
+  const [open, setOpen] = useState(false)
+
+  return (
+    <div className="relative">
+      <button onClick={() => setOpen(v => !v)}
+        title="Ver información del documento"
+        className={`w-7 h-7 flex items-center justify-center rounded-lg transition-colors ${
+          open ? 'bg-[#00C2FF]/10 text-[#00C2FF]' : 'hover:bg-slate-100 text-slate-400 hover:text-[#00C2FF]'
+        }`}>
+        <Info className="w-3.5 h-3.5" />
+      </button>
+
+      {open && (
+        <>
+          <div className="fixed inset-0 z-20" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 top-9 z-30 bg-white border border-slate-200 rounded-xl shadow-xl p-4 w-72 space-y-2.5 text-xs">
+            <p className="font-bold text-[#1A2744] text-sm mb-1">Trazabilidad del documento</p>
+
+            <div className="space-y-2 divide-y divide-slate-100">
+              <div className="space-y-1.5 pb-2">
+                <Row label="Autor" value={doc.author || '—'} />
+                <Row label="Versión" value={`v${doc.version}`} />
+                <Row label="Fecha de versión"
+                  value={doc.emission_date
+                    ? new Date(doc.emission_date).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })
+                    : '—'} />
+                <Row label="Subido el"
+                  value={new Date(doc.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })} />
+              </div>
+
+              <div className="space-y-1.5 pt-2 pb-2">
+                <Row label="Tipo" value={doc.file_type?.toUpperCase() || '—'} />
+                <Row label="Tamaño" value={formatSize(doc.file_size)} />
+                <Row label="Disciplina"
+                  value={doc.specialty ? `[${doc.specialty.code}] ${doc.specialty.name}` : '—'} />
+              </div>
+
+              {doc.notes && (
+                <div className="pt-2">
+                  <p className="text-slate-400 mb-1">Nota</p>
+                  <p className="text-slate-600 italic leading-relaxed">{doc.notes}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+function Row({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-start justify-between gap-3">
+      <span className="text-slate-400 flex-shrink-0">{label}</span>
+      <span className="font-medium text-slate-700 text-right">{value}</span>
+    </div>
+  )
+}
+
 // ── Vista raíz: selector de proyectos ─────────────────────────────────────────
 
 function ProjectsView({
@@ -488,17 +577,25 @@ function ProjectDetailView({
   onBack: () => void
   onUpload: () => void
 }) {
-  const [selected,     setSelected]     = useState<Set<string>>(new Set())
-  const [filterStatus, setFilterStatus] = useState('all')
-  const [viewingDoc,   setViewingDoc]   = useState<{ id: string; name: string } | null>(null)
-  const [downloading,  setDownloading]  = useState(false)
+  const [selected,        setSelected]        = useState<Set<string>>(new Set())
+  const [filterStatus,    setFilterStatus]    = useState('all')
+  const [filterSpecialty, setFilterSpecialty] = useState('all')
+  const [viewingDoc,      setViewingDoc]      = useState<{ id: string; name: string } | null>(null)
+  const [downloading,     setDownloading]     = useState(false)
   const isAdmin = userRole === 'owner' || userRole === 'admin'
 
   const projectDocs = documents.filter(d => d.project_id === project.id)
 
-  let filtered = filterStatus === 'all'
-    ? projectDocs
-    : projectDocs.filter(d => d.status === filterStatus)
+  // Especialidades usadas en este proyecto
+  const usedSpecialties = [...new Map(
+    projectDocs.filter(d => d.specialty).map(d => [d.specialty!.code, d.specialty!])
+  ).values()].sort((a, b) => a.code.localeCompare(b.code))
+
+  let filtered = projectDocs
+  if (filterStatus !== 'all')    filtered = filtered.filter(d => d.status === filterStatus)
+  if (filterSpecialty !== 'all') filtered = filtered.filter(d =>
+    filterSpecialty === 'none' ? !d.specialty : d.specialty?.code === filterSpecialty
+  )
 
   // Agrupar por disciplina
   const grouped: Record<string, Doc[]> = {}
@@ -588,6 +685,20 @@ function ProjectDetailView({
             Seleccionar todos
           </label>
 
+          {/* Filtro de especialidad */}
+          {usedSpecialties.length > 0 && (
+            <select value={filterSpecialty} onChange={e => setFilterSpecialty(e.target.value)}
+              className="text-xs px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 font-medium focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/40">
+              <option value="all">Todas las disciplinas</option>
+              {usedSpecialties.map(s => (
+                <option key={s.code} value={s.code}>[{s.code}] {s.name}</option>
+              ))}
+              {projectDocs.some(d => !d.specialty) && (
+                <option value="none">Sin disciplina</option>
+              )}
+            </select>
+          )}
+
           {/* Filtros de estado */}
           {(['all', 'draft', 'review', 'approved'] as const).map(f => (
             <button key={f} onClick={() => setFilterStatus(f)}
@@ -648,9 +759,10 @@ function ProjectDetailView({
                   <span className="w-5" />
                   <span className="w-5" />
                   <span className="flex-1">Documento</span>
-                  <span className="hidden lg:block w-24">Emisión</span>
+                  <span className="hidden lg:block w-28">Autor</span>
+                  <span className="hidden lg:block w-24">Versión</span>
                   <span className="w-28">Estado</span>
-                  <span className="w-16 text-right">Acciones</span>
+                  <span className="w-20 text-right">Acciones</span>
                 </div>
 
                 {docs.map((doc, idx) => {
@@ -688,7 +800,12 @@ function ProjectDetailView({
                         </p>
                       </div>
 
-                      {/* Fecha emisión */}
+                      {/* Autor */}
+                      <span className="hidden lg:block text-xs text-slate-500 w-28 truncate">
+                        {doc.author || '—'}
+                      </span>
+
+                      {/* Fecha de versión */}
                       <span className="hidden lg:block text-xs text-slate-400 w-24">
                         {doc.emission_date ? new Date(doc.emission_date).toLocaleDateString('es-MX') : '—'}
                       </span>
@@ -699,7 +816,8 @@ function ProjectDetailView({
                       </div>
 
                       {/* Acciones */}
-                      <div className="flex items-center gap-1 w-16 justify-end">
+                      <div className="flex items-center gap-0.5 w-20 justify-end">
+                        <DocInfoPopover doc={doc} />
                         {doc.storage_key && (
                           <a href={`/api/documents/download/${doc.id}`} target="_blank" rel="noopener noreferrer"
                             title="Descargar"
