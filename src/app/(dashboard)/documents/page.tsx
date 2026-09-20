@@ -35,7 +35,7 @@ export default async function DocumentsPage() {
       .order('name'),
     supabase
       .from('documents')
-      .select('id, name, file_name, display_name, specialty_id, storage_key, file_type, file_size, status, doc_status, version, emission_date, created_at, project:projects(name), specialty:specialties(name, code, category)')
+      .select('id, name, file_name, display_name, specialty_id, project_id, storage_key, file_type, file_size, status, doc_status, version, emission_date, created_at, project:projects(name), specialty:specialties(name, code, category)')
       .eq('workspace_id', wsId)
       .neq('doc_status', 'deleted')
       .order('created_at', { ascending: false }),
@@ -66,7 +66,7 @@ export default async function DocumentsPage() {
             Documentos
           </h1>
           <p className="text-slate-500 text-sm mt-0.5">
-            {documents.length} documento{documents.length !== 1 ? 's' : ''} · almacenados en Cloudflare R2
+            Documentos de proyecto organizados por disciplina · {documents.length} archivo{documents.length !== 1 ? 's' : ''} en Cloudflare R2
           </p>
         </div>
         <div className="flex items-center gap-2 text-xs text-green-600 bg-green-50 border border-green-200 px-3 py-1.5 rounded-full font-medium">
