@@ -54,19 +54,49 @@ function parseOficioFilename(fileName: string): {
 } {
   const name  = fileName.replace(/\.[^/.]+$/, '')
   const parts = name.split('-')
-  if (parts.length < 3) return {}
+  if (parts.length < 2) return {}
 
+  // 1. Date: first segment (YYYYMMDD or YYYYMDDD)
   const fecha_documento = parseDatePart(parts[0]) ?? undefined
-  const espCode         = parts[2]?.trim().toUpperCase()
-  const especialidad    = ESPECIALIDAD_CODE_MAP[espCode] ?? undefined
 
+  // 2. Skip "OF" separator if present (e.g. 20260315-OF-ARQ-1040-...)
+  const ofSepIdx = parts.findIndex((p, i) => i > 0 && p.trim().toUpperCase() === 'OF')
+  const startIdx = ofSepIdx !== -1 ? ofSepIdx + 1 : 1
+
+  // 3. Asunto: first segment that contains a space
   let asuntoIdx = -1
-  for (let i = 3; i < parts.length; i++) {
+  for (let i = startIdx; i < parts.length; i++) {
     if (parts[i].includes(' ')) { asuntoIdx = i; break }
   }
+  const asunto = asuntoIdx !== -1 ? parts.slice(asuntoIdx).join('-').trim() : undefined
 
-  const no_oficio = parts.slice(2, asuntoIdx === -1 ? undefined : asuntoIdx).join('-') || undefined
-  const asunto    = asuntoIdx !== -1 ? parts.slice(asuntoIdx).join('-').trim() : undefined
+  const noOficioParts = parts.slice(startIdx, asuntoIdx !== -1 ? asuntoIdx : undefined)
+
+  // 4. no_oficio — three strategies in priority order
+  let no_oficio: string | undefined = noOficioParts.join('-') || undefined
+
+  // A: SEDENA format  →  LFMQ-F12-1040
+  const sedenaMatch = name.match(/\b(LFMQ-F\d+-\d+)\b/i)
+  if (sedenaMatch) no_oficio = sedenaMatch[1].toUpperCase()
+
+  // B: Slash-separated institutional  →  ATTRAPI/1.4.746/2026
+  if (!sedenaMatch) {
+    const slashMatch = name.match(/\b([A-Z]{3,10}\/[\w.\-\/]+\d{4})\b/i)
+    if (slashMatch) no_oficio = slashMatch[1]
+  }
+
+  // C: Generic CODE-CODE-NUM-NUM  →  AIFA-MC-26-629 (already covered by noOficioParts join)
+
+  // 5. Specialty — scan oficio parts first, then full name as fallback
+  let especialidad: string | undefined
+  for (const part of noOficioParts) {
+    const code = ESPECIALIDAD_CODE_MAP[part.trim().toUpperCase()]
+    if (code) { especialidad = code; break }
+  }
+  if (!especialidad) {
+    const m = name.match(/\b(ARQ|EST|HID|SAN|ELE|MEC|TOP|CIV|INS|GEN)\b/i)
+    if (m) especialidad = ESPECIALIDAD_CODE_MAP[m[1].toUpperCase()]
+  }
 
   return { fecha_documento, especialidad, no_oficio, asunto }
 }

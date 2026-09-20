@@ -28,20 +28,49 @@ function parseDate(s: string): string | null {
 function parseFilename(fileName: string) {
   const name  = fileName.replace(/\.[^/.]+$/, '')
   const parts = name.split('-')
-  if (parts.length < 3) return {}
+  if (parts.length < 2) return {}
 
+  // 1. Date: first segment
   const fecha_documento = parseDate(parts[0])
-  const espCode         = parts[2]?.trim().toUpperCase()
-  const especialidad    = ESPECIALIDAD_MAP[espCode] || null
 
-  // Asunto: primer segmento desde índice 3 que contiene espacios
+  // 2. Skip "OF" separator if present
+  const ofSepIdx = parts.findIndex((p, i) => i > 0 && p.trim().toUpperCase() === 'OF')
+  const startIdx = ofSepIdx !== -1 ? ofSepIdx + 1 : 1
+
+  // 3. Asunto: first segment with a space
   let asuntoIdx = -1
-  for (let i = 3; i < parts.length; i++) {
+  for (let i = startIdx; i < parts.length; i++) {
     if (parts[i].includes(' ')) { asuntoIdx = i; break }
   }
+  const asunto = asuntoIdx !== -1 ? parts.slice(asuntoIdx).join('-').trim() : null
 
-  const no_oficio = parts.slice(2, asuntoIdx === -1 ? undefined : asuntoIdx).join('-') || null
-  const asunto    = asuntoIdx !== -1 ? parts.slice(asuntoIdx).join('-').trim() : null
+  const noOficioParts = parts.slice(startIdx, asuntoIdx !== -1 ? asuntoIdx : undefined)
+
+  // 4. no_oficio — three strategies
+  let no_oficio: string | null = noOficioParts.join('-') || null
+
+  // A: SEDENA  →  LFMQ-F12-1040
+  const sedenaMatch = name.match(/\b(LFMQ-F\d+-\d+)\b/i)
+  if (sedenaMatch) no_oficio = sedenaMatch[1].toUpperCase()
+
+  // B: Slash-separated  →  ATTRAPI/1.4.746/2026
+  if (!sedenaMatch) {
+    const slashMatch = name.match(/\b([A-Z]{3,10}\/[\w.\-\/]+\d{4})\b/i)
+    if (slashMatch) no_oficio = slashMatch[1]
+  }
+
+  // C: Generic CODE-CODE-NUM-NUM  →  AIFA-MC-26-629 (covered by noOficioParts join)
+
+  // 5. Specialty — parts first, then full name
+  let especialidad: string | null = null
+  for (const part of noOficioParts) {
+    const code = ESPECIALIDAD_MAP[part.trim().toUpperCase()]
+    if (code) { especialidad = code; break }
+  }
+  if (!especialidad) {
+    const m = name.match(/\b(ARQ|EST|HID|SAN|ELE|MEC|TOP|CIV|INS|GEN)\b/i)
+    if (m) especialidad = ESPECIALIDAD_MAP[m[1].toUpperCase()] || null
+  }
 
   return { fecha_documento, especialidad, no_oficio, asunto }
 }
