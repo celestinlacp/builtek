@@ -53,7 +53,7 @@ export default async function OficiosPage() {
     supabase
       .from('oficios')
       .select(`
-        id, tipo, no_oficio, asunto, fecha_documento,
+        id, tipo, no_oficio, asunto, fecha_documento, fecha_recepcion,
         proyecto_id, especialidad, estado,
         remitente, destinatario, assignee_id,
         storage_key, file_name, file_type, file_size,

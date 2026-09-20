@@ -30,18 +30,19 @@ async function getUser() {
 export async function createOficio(data: {
   tipo:            'entrada' | 'salida'
   asunto:          string
-  no_oficio?:      string | null
+  no_oficio?:       string | null
   fecha_documento?: string | null
-  proyecto_id?:    string | null
-  especialidad?:   string | null
-  remitente?:      string | null
-  destinatario?:   string | null
-  assignee_id?:    string | null
-  storage_key?:    string | null
-  file_name?:      string | null
-  file_type?:      string | null
-  file_size?:      number | null
-  notas?:          string | null
+  fecha_recepcion?: string | null
+  proyecto_id?:     string | null
+  especialidad?:    string | null
+  remitente?:       string | null
+  destinatario?:    string | null
+  assignee_id?:     string | null
+  storage_key?:     string | null
+  file_name?:       string | null
+  file_type?:       string | null
+  file_size?:       number | null
+  notas?:           string | null
 }) {
   const { user, workspaceId } = await getUser()
   const admin = getAdminClient()
@@ -50,19 +51,20 @@ export async function createOficio(data: {
     workspace_id:    workspaceId,
     tipo:            data.tipo,
     asunto:          data.asunto,
-    no_oficio:       data.no_oficio || null,
+    no_oficio:       data.no_oficio       || null,
     fecha_documento: data.fecha_documento || null,
-    proyecto_id:     data.proyecto_id || null,
-    especialidad:    data.especialidad || null,
+    fecha_recepcion: data.fecha_recepcion || null,
+    proyecto_id:     data.proyecto_id     || null,
+    especialidad:    data.especialidad    || null,
     estado:          'pendiente',
-    remitente:       data.remitente || null,
-    destinatario:    data.destinatario || null,
-    assignee_id:     data.assignee_id || null,
-    storage_key:     data.storage_key || null,
-    file_name:       data.file_name || null,
-    file_type:       data.file_type || null,
-    file_size:       data.file_size || null,
-    notas:           data.notas || null,
+    remitente:       data.remitente       || null,
+    destinatario:    data.destinatario    || null,
+    assignee_id:     data.assignee_id     || null,
+    storage_key:     data.storage_key     || null,
+    file_name:       data.file_name       || null,
+    file_type:       data.file_type       || null,
+    file_size:       data.file_size       || null,
+    notas:           data.notas           || null,
     created_by:      user.id,
   })
 
@@ -72,16 +74,17 @@ export async function createOficio(data: {
 }
 
 export async function updateOficio(id: string, data: {
-  asunto?:         string
-  no_oficio?:      string | null
+  asunto?:          string
+  no_oficio?:       string | null
   fecha_documento?: string | null
-  proyecto_id?:    string | null
-  especialidad?:   string | null
-  estado?:         string
-  remitente?:      string | null
-  destinatario?:   string | null
-  assignee_id?:    string | null
-  notas?:          string | null
+  fecha_recepcion?: string | null
+  proyecto_id?:     string | null
+  especialidad?:    string | null
+  estado?:          string
+  remitente?:       string | null
+  destinatario?:    string | null
+  assignee_id?:     string | null
+  notas?:           string | null
 }) {
   await getUser()
   const admin = getAdminClient()

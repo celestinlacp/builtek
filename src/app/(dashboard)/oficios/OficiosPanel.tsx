@@ -1,10 +1,11 @@
 'use client'
 
 import { useState, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   Plus, X, Pencil, Trash2, Eye, Upload, Loader2,
   FileText, Filter, ChevronDown, Check, ArrowDownToLine,
-  ArrowUpFromLine, Search
+  ArrowUpFromLine, Search, Sparkles
 } from 'lucide-react'
 import { createOficio, updateOficio, deleteOficio, updateOficioStatus } from './actions'
 
@@ -16,6 +17,7 @@ type Oficio = {
   no_oficio: string | null
   asunto: string
   fecha_documento: string | null
+  fecha_recepcion: string | null
   proyecto_id: string | null
   especialidad: string | null
   estado: 'pendiente' | 'en_atencion' | 'respondido' | 'archivado'
@@ -30,6 +32,43 @@ type Oficio = {
   created_at: string
   proyecto?: { id: string; name: string } | null
   assignee?: { id: string; full_name: string; initials: string | null } | null
+}
+
+// ── Parser de filename ─────────────────────────────────────────────────────────
+
+const ESPECIALIDAD_CODE_MAP: Record<string, string> = {
+  ARQ: 'Arquitectura', EST: 'Estructuras', HID: 'Hidráulica',
+  SAN: 'Sanitaria',   ELE: 'Eléctrica',   MEC: 'Mecánica',
+  TOP: 'Topografía',  CIV: 'Civil',        INS: 'Instalaciones',
+  GEN: 'General',
+}
+
+function parseDatePart(s: string): string | null {
+  if (/^\d{8}$/.test(s)) return `${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}`
+  if (/^\d{7}$/.test(s)) return `${s.slice(0,4)}-${s.slice(4,5).padStart(2,'0')}-${s.slice(5,7)}`
+  return null
+}
+
+function parseOficioFilename(fileName: string): {
+  fecha_documento?: string; especialidad?: string; no_oficio?: string; asunto?: string
+} {
+  const name  = fileName.replace(/\.[^/.]+$/, '')
+  const parts = name.split('-')
+  if (parts.length < 3) return {}
+
+  const fecha_documento = parseDatePart(parts[0]) ?? undefined
+  const espCode         = parts[2]?.trim().toUpperCase()
+  const especialidad    = ESPECIALIDAD_CODE_MAP[espCode] ?? undefined
+
+  let asuntoIdx = -1
+  for (let i = 3; i < parts.length; i++) {
+    if (parts[i].includes(' ')) { asuntoIdx = i; break }
+  }
+
+  const no_oficio = parts.slice(2, asuntoIdx === -1 ? undefined : asuntoIdx).join('-') || undefined
+  const asunto    = asuntoIdx !== -1 ? parts.slice(asuntoIdx).join('-').trim() : undefined
+
+  return { fecha_documento, especialidad, no_oficio, asunto }
 }
 
 type Project = { id: string; name: string }
@@ -166,15 +205,76 @@ function OficioModal({
   onClose: () => void
 }) {
   const isEdit = !!oficio
-  const [loading,   setLoading]   = useState(false)
-  const [error,     setError]     = useState<string | null>(null)
-  const [file,      setFile]      = useState<File | null>(null)
-  const [uploading, setUploading] = useState(false)
+
+  // Campos controlados
+  const [asunto,         setAsunto]         = useState(oficio?.asunto || '')
+  const [noOficio,       setNoOficio]       = useState(oficio?.no_oficio || '')
+  const [fechaDoc,       setFechaDoc]       = useState(oficio?.fecha_documento?.slice(0,10) || '')
+  const [fechaRecep,     setFechaRecep]     = useState(oficio?.fecha_recepcion?.slice(0,10) || '')
+  const [remitente,      setRemitente]      = useState(oficio?.remitente || '')
+  const [destinatario,   setDestinatario]   = useState(oficio?.destinatario || '')
+  const [proyectoId,     setProyectoId]     = useState(oficio?.proyecto_id || '')
+  const [especialidad,   setEspecialidad]   = useState(oficio?.especialidad || '')
+  const [assigneeId,     setAssigneeId]     = useState(oficio?.assignee_id || '')
+  const [notas,          setNotas]          = useState(oficio?.notas || '')
+
+  const [file,       setFile]       = useState<File | null>(null)
+  const [loading,    setLoading]    = useState(false)
+  const [uploading,  setUploading]  = useState(false)
+  const [extracting, setExtracting] = useState(false)
+  const [extractMsg, setExtractMsg] = useState<string | null>(null)
+  const [error,      setError]      = useState<string | null>(null)
+
+  // Al seleccionar un archivo: parsear filename + intentar AI
+  async function handleFileSelect(selected: File) {
+    setFile(selected)
+    setExtractMsg(null)
+
+    // 1. Parse filename inmediato
+    const parsed = parseOficioFilename(selected.name)
+    if (parsed.asunto       && !asunto)       setAsunto(parsed.asunto)
+    if (parsed.no_oficio    && !noOficio)     setNoOficio(parsed.no_oficio)
+    if (parsed.fecha_documento && !fechaDoc)  setFechaDoc(parsed.fecha_documento)
+    if (parsed.especialidad && !especialidad) setEspecialidad(parsed.especialidad)
+
+    // 2. Si es PDF, intentar extracción AI
+    if (selected.type === 'application/pdf') {
+      setExtracting(true)
+      setExtractMsg('Analizando documento con IA...')
+      try {
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader()
+          reader.onload  = () => resolve((reader.result as string).split(',')[1])
+          reader.onerror = reject
+          reader.readAsDataURL(selected)
+        })
+
+        const res = await fetch('/api/oficios/extract', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ pdfBase64: base64, fileName: selected.name }),
+        })
+
+        if (res.ok) {
+          const ext = await res.json()
+          if (ext.asunto)          setAsunto(ext.asunto)
+          if (ext.no_oficio)       setNoOficio(ext.no_oficio)
+          if (ext.fecha_documento) setFechaDoc(ext.fecha_documento)
+          if (ext.especialidad)    setEspecialidad(ext.especialidad)
+          setExtractMsg(ext.source === 'ai' ? '✓ Datos extraídos con IA' : '✓ Datos extraídos del nombre del archivo')
+        }
+      } catch {
+        setExtractMsg('Extracción manual — verifica los campos')
+      } finally {
+        setExtracting(false)
+      }
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
+    if (!asunto.trim()) { setError('El asunto es requerido'); return }
     setLoading(true); setError(null)
-    const fd = new FormData(e.currentTarget)
 
     let storageKey = oficio?.storage_key || null
     let fileType   = oficio?.file_type   || null
@@ -194,15 +294,16 @@ function OficioModal({
 
     const payload = {
       tipo,
-      asunto:          fd.get('asunto') as string,
-      no_oficio:       (fd.get('no_oficio') as string) || null,
-      fecha_documento: (fd.get('fecha_documento') as string) || null,
-      proyecto_id:     (fd.get('proyecto_id') as string) || null,
-      especialidad:    (fd.get('especialidad') as string) || null,
-      remitente:       (fd.get('remitente') as string) || null,
-      destinatario:    (fd.get('destinatario') as string) || null,
-      assignee_id:     (fd.get('assignee_id') as string) || null,
-      notas:           (fd.get('notas') as string) || null,
+      asunto:          asunto.trim(),
+      no_oficio:       noOficio       || null,
+      fecha_documento: fechaDoc       || null,
+      fecha_recepcion: fechaRecep     || null,
+      proyecto_id:     proyectoId     || null,
+      especialidad:    especialidad   || null,
+      remitente:       remitente      || null,
+      destinatario:    destinatario   || null,
+      assignee_id:     assigneeId     || null,
+      notas:           notas          || null,
       storage_key:     storageKey,
       file_name:       fileName,
       file_type:       fileType,
@@ -235,75 +336,8 @@ function OficioModal({
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          {/* No. oficio + Fecha */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={labelCls}>No. oficio</label>
-              <input name="no_oficio" defaultValue={oficio?.no_oficio || ''} placeholder="Ej: OF-001-2026" className={inputCls} />
-            </div>
-            <div>
-              <label className={labelCls}>Fecha del documento</label>
-              <input name="fecha_documento" type="date" defaultValue={oficio?.fecha_documento?.slice(0, 10) || ''} className={inputCls} />
-            </div>
-          </div>
 
-          {/* Asunto */}
-          <div>
-            <label className={labelCls}>Asunto *</label>
-            <input name="asunto" required defaultValue={oficio?.asunto || ''} placeholder="Descripción del asunto..." className={inputCls} />
-          </div>
-
-          {/* Remitente / Destinatario */}
-          <div>
-            <label className={labelCls}>{tipo === 'entrada' ? 'Remitente' : 'Destinatario'}</label>
-            {tipo === 'entrada'
-              ? <input name="remitente"    defaultValue={oficio?.remitente    || ''} placeholder="Empresa o dependencia que lo envía" className={inputCls} />
-              : <input name="destinatario" defaultValue={oficio?.destinatario || ''} placeholder="A quién va dirigido" className={inputCls} />
-            }
-          </div>
-
-          {/* Proyecto + Especialidad */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={labelCls}>Proyecto</label>
-              <select name="proyecto_id" defaultValue={oficio?.proyecto_id || ''} className={inputCls}>
-                <option value="">— Sin proyecto —</option>
-                {projects.map(p => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className={labelCls}>Especialidad</label>
-              <select name="especialidad" defaultValue={oficio?.especialidad || ''} className={inputCls}>
-                <option value="">— Sin especialidad —</option>
-                {ESPECIALIDADES.map(e => (
-                  <option key={e} value={e}>{e}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* Asignado (solo entrada) */}
-          {tipo === 'entrada' && (
-            <div>
-              <label className={labelCls}>Asignar a</label>
-              <select name="assignee_id" defaultValue={oficio?.assignee_id || ''} className={inputCls}>
-                <option value="">— Sin asignar —</option>
-                {members.map(m => {
-                  const name     = m.user?.full_name || m.user_id
-                  const initials = getInitials(m.user?.full_name, m.user?.initials)
-                  return (
-                    <option key={m.user_id} value={m.user_id}>
-                      {initials} — {name}
-                    </option>
-                  )
-                })}
-              </select>
-            </div>
-          )}
-
-          {/* Archivo adjunto */}
+          {/* Archivo adjunto — va primero para auto-rellenar campos */}
           <div>
             <label className={labelCls}>
               Archivo {tipo === 'entrada' ? '(PDF o anexo)' : '(PDF o Word)'}
@@ -317,33 +351,105 @@ function OficioModal({
             )}
             <label className="flex items-center gap-2 px-3 py-2.5 rounded-lg border border-dashed border-slate-300 bg-slate-50 hover:bg-slate-100 cursor-pointer transition-colors text-sm text-slate-500">
               <Upload className="w-4 h-4 flex-shrink-0" />
-              <span className="truncate">{file ? file.name : 'Seleccionar archivo...'}</span>
-              <input
-                type="file"
-                accept=".pdf,.doc,.docx,.xlsx,.xls,.png,.jpg,.jpeg,.zip"
-                className="hidden"
-                onChange={e => setFile(e.target.files?.[0] || null)}
-              />
+              <span className="truncate flex-1">{file ? file.name : 'Seleccionar archivo...'}</span>
+              {extracting && <Loader2 className="w-3.5 h-3.5 animate-spin text-[#00C2FF] flex-shrink-0" />}
+              <input type="file" accept=".pdf,.doc,.docx,.xlsx,.xls,.png,.jpg,.jpeg,.zip" className="hidden"
+                onChange={e => { const f = e.target.files?.[0]; if (f) handleFileSelect(f) }} />
             </label>
+            {extractMsg && (
+              <p className={`flex items-center gap-1.5 text-xs mt-1.5 ${extractMsg.startsWith('✓') ? 'text-green-600' : 'text-slate-400'}`}>
+                {extractMsg.startsWith('✓') && <Sparkles className="w-3 h-3" />}
+                {extractMsg}
+              </p>
+            )}
           </div>
+
+          {/* No. oficio */}
+          <div>
+            <label className={labelCls}>No. oficio</label>
+            <input value={noOficio} onChange={e => setNoOficio(e.target.value)}
+              placeholder="Ej: ARQ-1040-AIFA" className={inputCls} />
+          </div>
+
+          {/* Asunto */}
+          <div>
+            <label className={labelCls}>Asunto *</label>
+            <input value={asunto} onChange={e => setAsunto(e.target.value)} required
+              placeholder="Descripción del asunto..." className={inputCls} />
+          </div>
+
+          {/* Fechas */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={labelCls}>Fecha del documento</label>
+              <input type="date" value={fechaDoc} onChange={e => setFechaDoc(e.target.value)} className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>Fecha de recepción</label>
+              <input type="date" value={fechaRecep} onChange={e => setFechaRecep(e.target.value)} className={inputCls} />
+            </div>
+          </div>
+
+          {/* Remitente / Destinatario */}
+          <div>
+            <label className={labelCls}>{tipo === 'entrada' ? 'Remitente' : 'Destinatario'}</label>
+            {tipo === 'entrada'
+              ? <input value={remitente} onChange={e => setRemitente(e.target.value)}
+                  placeholder="Empresa o dependencia que lo envía" className={inputCls} />
+              : <input value={destinatario} onChange={e => setDestinatario(e.target.value)}
+                  placeholder="A quién va dirigido" className={inputCls} />
+            }
+          </div>
+
+          {/* Proyecto + Especialidad */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={labelCls}>Proyecto</label>
+              <select value={proyectoId} onChange={e => setProyectoId(e.target.value)} className={inputCls}>
+                <option value="">— Sin proyecto —</option>
+                {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className={labelCls}>Especialidad</label>
+              <select value={especialidad} onChange={e => setEspecialidad(e.target.value)} className={inputCls}>
+                <option value="">— Sin especialidad —</option>
+                {ESPECIALIDADES.map(e => <option key={e} value={e}>{e}</option>)}
+              </select>
+            </div>
+          </div>
+
+          {/* Asignado (solo entrada) */}
+          {tipo === 'entrada' && (
+            <div>
+              <label className={labelCls}>Asignar a</label>
+              <select value={assigneeId} onChange={e => setAssigneeId(e.target.value)} className={inputCls}>
+                <option value="">— Sin asignar —</option>
+                {members.map(m => (
+                  <option key={m.user_id} value={m.user_id}>
+                    {getInitials(m.user?.full_name, m.user?.initials)} — {m.user?.full_name || m.user_id}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* Notas */}
           <div>
             <label className={labelCls}>Notas internas</label>
-            <textarea name="notas" rows={2} defaultValue={oficio?.notas || ''} placeholder="Observaciones..." className={`${inputCls} resize-none`} />
+            <textarea value={notas} onChange={e => setNotas(e.target.value)} rows={2}
+              placeholder="Observaciones..." className={`${inputCls} resize-none`} />
           </div>
 
           {error && <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-600">{error}</div>}
 
           <div className="flex gap-3 pt-2">
-            <button type="button" onClick={onClose} className="flex-1 py-2.5 rounded-lg border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50">
+            <button type="button" onClick={onClose}
+              className="flex-1 py-2.5 rounded-lg border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50">
               Cancelar
             </button>
-            <button
-              type="submit"
-              disabled={loading || uploading}
-              className="flex-1 py-2.5 rounded-lg bg-[#1A2744] text-white text-sm font-bold hover:bg-[#243660] disabled:opacity-60 flex items-center justify-center gap-2"
-            >
+            <button type="submit" disabled={loading || uploading || extracting}
+              className="flex-1 py-2.5 rounded-lg bg-[#1A2744] text-white text-sm font-bold hover:bg-[#243660] disabled:opacity-60 flex items-center justify-center gap-2">
               {(loading || uploading) && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
               {uploading ? 'Subiendo...' : loading ? 'Guardando...' : isEdit ? 'Guardar cambios' : 'Crear oficio'}
             </button>
@@ -454,9 +560,14 @@ function OficioRow({
         </div>
       </td>
 
-      {/* Fecha */}
+      {/* Fecha documento */}
       <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">
         {formatDate(oficio.fecha_documento)}
+      </td>
+
+      {/* Fecha recepción */}
+      <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">
+        {formatDate(oficio.fecha_recepcion)}
       </td>
 
       {/* Proyecto / Especialidad */}
@@ -540,6 +651,7 @@ export default function OficiosPanel({
   currentUserId: string
   currentUserRole: string
 }) {
+  const router = useRouter()
   const [tab,        setTab]        = useState<Tab>('entrada')
   const [showModal,  setShowModal]  = useState(false)
   const [editOficio, setEditOficio] = useState<Oficio | null>(null)
@@ -585,6 +697,7 @@ export default function OficiosPanel({
   function closeModal() {
     setShowModal(false)
     setEditOficio(null)
+    router.refresh()
   }
 
   const inputCls = 'px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/40 bg-white'
@@ -714,6 +827,7 @@ export default function OficiosPanel({
                   <th className="px-4 py-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">No. oficio</th>
                   <th className="px-4 py-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Asunto</th>
                   <th className="px-4 py-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">Fecha doc.</th>
+                  <th className="px-4 py-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">Recepción</th>
                   <th className="px-4 py-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Proyecto / Especialidad</th>
                   <th className="px-4 py-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Estado</th>
                   <th className="px-4 py-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Asignado</th>
