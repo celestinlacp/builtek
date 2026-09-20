@@ -94,39 +94,44 @@ export async function inviteMember(formData: FormData) {
   }
 
   const email = (formData.get('email') as string).trim().toLowerCase()
-  const role = formData.get('role') as string
-
+  const role  = formData.get('role') as string
   const admin = getAdminClient()
 
-  // Guardar invitación en DB (genera token automáticamente)
-  const { data: invite, error: inviteError } = await admin
-    .from('workspace_invitations')
-    .upsert({ workspace_id: workspaceId, email, role, invited_by: userId },
-      { onConflict: 'workspace_id,email' })
-    .select('token')
-    .single()
+  try {
+    // 1. Guardar invitación en DB
+    const { data: invite, error: inviteError } = await admin
+      .from('workspace_invitations')
+      .upsert({ workspace_id: workspaceId, email, role, invited_by: userId },
+        { onConflict: 'workspace_id,email' })
+      .select('token')
+      .single()
 
-  if (inviteError) return { error: inviteError.message }
+    if (inviteError) return { error: inviteError.message }
+    if (!invite?.token) return { error: 'No se pudo generar el token de invitación' }
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
-  const redirectTo = `${appUrl}/api/auth/callback?next=/invite/accept?token=${invite.token}`
+    // 2. Enviar email de invitación vía Supabase Auth
+    const appUrl     = (process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/$/, '')
+    const redirectTo = appUrl
+      ? `${appUrl}/api/auth/callback?next=/invite/accept?token=${invite.token}`
+      : undefined
 
-  // Enviar invite vía Supabase Auth
-  const { error: authError } = await admin.auth.admin.inviteUserByEmail(email, {
-    redirectTo,
-    data: { workspace_id: workspaceId, role },
-  })
+    const { error: authError } = await admin.auth.admin.inviteUserByEmail(email, {
+      ...(redirectTo ? { redirectTo } : {}),
+      data: { workspace_id: workspaceId, role },
+    })
 
-  if (authError) {
-    // Si el usuario ya existe, igual lo agregamos al workspace directamente
-    if (authError.message.includes('already been registered')) {
-      return { error: 'Este email ya tiene cuenta en Builtek. Pide al usuario que inicie sesión y use el link de invitación.' }
+    if (authError) {
+      if (authError.message.toLowerCase().includes('already been registered')) {
+        return { error: 'Este email ya tiene cuenta. El usuario debe iniciar sesión y aceptar la invitación desde Configuración.' }
+      }
+      return { error: authError.message }
     }
-    return { error: authError.message }
-  }
 
-  revalidatePath('/admin')
-  return { success: true }
+    revalidatePath('/admin')
+    return { success: true }
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : 'Error inesperado al enviar la invitación' }
+  }
 }
 
 export async function cancelInvite(inviteId: string) {
