@@ -3,6 +3,8 @@ import { redirect } from 'next/navigation'
 import { FileText } from 'lucide-react'
 import OficiosPanel from './OficiosPanel'
 
+export const dynamic = 'force-dynamic'
+
 export default async function OficiosPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
