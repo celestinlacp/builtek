@@ -6,7 +6,7 @@ import { createProject, updateProject, deleteProject, updateWorkspace, updateMem
 import {
   Plus, Pencil, Trash2, X, FolderOpen, Users, Settings,
   Calendar, CheckCircle2, PauseCircle, Archive, Shield, Crown, UserCog, Eye, Wrench,
-  Mail, Clock, Send, Link2, LinkIcon, Building2, Zap
+  Mail, Clock, Send, Link2, LinkIcon, Building2, Zap, HardDrive, FileText, Files
 } from 'lucide-react'
 
 const ROLE_CONFIG: Record<UserRole, { label: string; color: string; icon: React.ElementType }> = {
@@ -619,7 +619,139 @@ function WorkspaceSettings({ workspace, dropboxConnected }: { workspace: Workspa
   )
 }
 
-type Tab = 'projects' | 'team' | 'settings' | 'workspace'
+// ── Almacenamiento ────────────────────────────────────────────────────────────
+
+const PLAN_STORAGE_BYTES: Record<string, number> = {
+  free:       1   * 1024 * 1024 * 1024,
+  starter:    10  * 1024 * 1024 * 1024,
+  pro:        100 * 1024 * 1024 * 1024,
+  enterprise: 1000 * 1024 * 1024 * 1024,
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`
+}
+
+function StorageGauge({ pct }: { pct: number }) {
+  const fill  = Math.min(pct, 1)
+  const color = fill > 0.9 ? '#ef4444' : fill > 0.7 ? '#f59e0b' : '#00C2FF'
+  return (
+    <svg width="200" height="114" viewBox="0 0 200 114" className="overflow-visible">
+      <path d="M 20 100 A 80 80 0 0 1 180 100"
+        fill="none" stroke="#e2e8f0" strokeWidth="16" strokeLinecap="round" />
+      <path d="M 20 100 A 80 80 0 0 1 180 100"
+        fill="none" stroke={color} strokeWidth="16" strokeLinecap="round"
+        pathLength="100"
+        strokeDasharray="100"
+        strokeDashoffset={100 - fill * 100}
+        style={{ transition: 'stroke-dashoffset 0.6s ease-out, stroke 0.3s' }}
+      />
+    </svg>
+  )
+}
+
+function StoragePanel({
+  workspace, storageUsed, storageByModule,
+}: {
+  workspace: Workspace
+  storageUsed: number
+  storageByModule: { documents: number; oficios: number }
+}) {
+  const limit     = PLAN_STORAGE_BYTES[workspace.plan] || PLAN_STORAGE_BYTES.free
+  const pct       = storageUsed / limit
+  const available = Math.max(limit - storageUsed, 0)
+
+  const modules = [
+    { label: 'Documentos', bytes: storageByModule.documents, icon: Files,    color: 'bg-[#00C2FF]' },
+    { label: 'Oficios',    bytes: storageByModule.oficios,   icon: FileText, color: 'bg-indigo-400' },
+  ]
+
+  return (
+    <div className="max-w-lg space-y-4">
+
+      {/* Gauge */}
+      <div className="bg-white border border-slate-100 rounded-xl p-6 flex flex-col items-center">
+        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2 self-start">
+          Uso de almacenamiento
+        </p>
+        <div className="relative mt-2">
+          <StorageGauge pct={pct} />
+          <div className="absolute bottom-0 left-0 right-0 flex flex-col items-center">
+            <span className="text-3xl font-black text-[#1A2744] leading-none">
+              {(pct * 100).toFixed(1)}%
+            </span>
+            <span className="text-xs text-slate-400 mt-1">
+              {formatBytes(storageUsed)} de {formatBytes(limit)}
+            </span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-3 gap-3 w-full mt-5">
+          <div className="bg-slate-50 rounded-xl px-3 py-3 text-center">
+            <p className="text-[10px] text-slate-400 mb-0.5 uppercase tracking-wide">Usado</p>
+            <p className="text-sm font-bold text-[#1A2744]">{formatBytes(storageUsed)}</p>
+          </div>
+          <div className="bg-slate-50 rounded-xl px-3 py-3 text-center">
+            <p className="text-[10px] text-slate-400 mb-0.5 uppercase tracking-wide">Libre</p>
+            <p className="text-sm font-bold text-green-600">{formatBytes(available)}</p>
+          </div>
+          <div className="bg-slate-50 rounded-xl px-3 py-3 text-center">
+            <p className="text-[10px] text-slate-400 mb-0.5 uppercase tracking-wide">Total</p>
+            <p className="text-sm font-bold text-slate-600">{formatBytes(limit)}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Desglose */}
+      <div className="bg-white border border-slate-100 rounded-xl p-5">
+        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-4">
+          Desglose por módulo
+        </p>
+        <div className="space-y-4">
+          {modules.map(({ label, bytes, icon: Icon, color }) => (
+            <div key={label}>
+              <div className="flex items-center justify-between mb-1.5">
+                <div className="flex items-center gap-2">
+                  <Icon className="w-3.5 h-3.5 text-slate-400" />
+                  <span className="text-sm text-slate-600 font-medium">{label}</span>
+                </div>
+                <span className="text-xs font-semibold text-slate-500">{formatBytes(bytes)}</span>
+              </div>
+              <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all duration-500 ${color}`}
+                  style={{ width: `${Math.min((bytes / limit) * 100, 100)}%` }}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Alerta de capacidad */}
+      {pct > 0.8 && (
+        <div className={`border rounded-xl p-4 flex items-start gap-3 ${pct > 0.9 ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200'}`}>
+          <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${pct > 0.9 ? 'bg-red-100' : 'bg-amber-100'}`}>
+            <Zap className={`w-4 h-4 ${pct > 0.9 ? 'text-red-500' : 'text-amber-500'}`} />
+          </div>
+          <div>
+            <p className={`text-sm font-semibold ${pct > 0.9 ? 'text-red-800' : 'text-amber-800'}`}>
+              {pct > 0.9 ? 'Almacenamiento crítico' : 'Almacenamiento casi lleno'}
+            </p>
+            <p className={`text-xs mt-0.5 ${pct > 0.9 ? 'text-red-600' : 'text-amber-600'}`}>
+              Has usado el {(pct * 100).toFixed(0)}% de tu plan {workspace.plan}. Considera actualizar para evitar interrupciones.
+            </p>
+          </div>
+        </div>
+      )}
+
+    </div>
+  )
+}
+
+type Tab = 'projects' | 'team' | 'settings' | 'workspace' | 'storage'
 
 const PLAN_LABELS: Record<string, { label: string; color: string; description: string }> = {
   free:       { label: 'Free',        color: 'bg-slate-100 text-slate-600',   description: 'Hasta 3 proyectos · 5 miembros · 1 GB' },
@@ -745,6 +877,7 @@ function WorkspacePanel({
 export default function AdminPanel({
   projects, workspace, members, currentUserId, currentUserRole,
   currentUserEmail, currentUserName, pendingInvites, dropboxConnected,
+  storageUsed, storageByModule,
 }: {
   projects: Project[]
   workspace: Workspace
@@ -755,16 +888,19 @@ export default function AdminPanel({
   currentUserName: string
   pendingInvites: PendingInvite[]
   dropboxConnected: boolean
+  storageUsed: number
+  storageByModule: { documents: number; oficios: number }
 }) {
   const [tab, setTab] = useState<Tab>('projects')
   const [showModal, setShowModal] = useState(false)
   const [editProject, setEditProject] = useState<Project | null>(null)
 
   const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [
-    { id: 'projects',  label: 'Proyectos', icon: FolderOpen },
-    { id: 'team',      label: 'Equipo',    icon: Users },
-    { id: 'workspace', label: 'Workspace', icon: Building2 },
-    { id: 'settings',  label: 'Config.',   icon: Settings },
+    { id: 'projects',  label: 'Proyectos',      icon: FolderOpen },
+    { id: 'team',      label: 'Equipo',          icon: Users },
+    { id: 'workspace', label: 'Workspace',       icon: Building2 },
+    { id: 'storage',   label: 'Almacenamiento', icon: HardDrive },
+    { id: 'settings',  label: 'Config.',         icon: Settings },
   ]
 
   return (
@@ -835,6 +971,15 @@ export default function AdminPanel({
       {/* Workspace tab */}
       {tab === 'workspace' && (
         <WorkspacePanel workspace={workspace} members={members} projects={projects} />
+      )}
+
+      {/* Storage tab */}
+      {tab === 'storage' && (
+        <StoragePanel
+          workspace={workspace}
+          storageUsed={storageUsed}
+          storageByModule={storageByModule}
+        />
       )}
 
       {/* Settings tab */}

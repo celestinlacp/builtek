@@ -50,6 +50,18 @@ export default async function AdminPage() {
   const pendingInvites = invitesRes.data || []
   const dropboxConnected = !!(workspaceRes.data as any)?.dropbox_token
 
+  // Storage usage
+  const projectIds = projects.map((p: any) => p.id)
+  const [docsStorageRes, oficiosStorageRes] = await Promise.all([
+    projectIds.length > 0
+      ? supabase.from('documents').select('file_size').in('project_id', projectIds)
+      : Promise.resolve({ data: [] as { file_size: number | null }[] }),
+    supabase.from('oficios').select('file_size').eq('workspace_id', wsId),
+  ])
+  const docBytes    = ((docsStorageRes as any).data || []).reduce((s: number, r: any) => s + (r.file_size || 0), 0)
+  const oficioBytes = ((oficiosStorageRes as any).data || []).reduce((s: number, r: any) => s + (r.file_size || 0), 0)
+  const storageUsed = docBytes + oficioBytes
+
   const enrichedMembers = members.map((m: any) => ({
     ...m,
     email: m.user_id === user.id ? user.email : null,
@@ -79,6 +91,8 @@ export default async function AdminPage() {
         currentUserName={currentUserName}
         pendingInvites={pendingInvites as any}
         dropboxConnected={dropboxConnected}
+        storageUsed={storageUsed}
+        storageByModule={{ documents: docBytes, oficios: oficioBytes }}
       />
     </div>
   )
