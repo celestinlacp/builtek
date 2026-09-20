@@ -5,6 +5,7 @@ import {
   Shield, Users, TrendingUp, QrCode, Upload,
   Layers, Menu
 } from 'lucide-react'
+import PricingSection from '@/components/PricingSection'
 
 // ── Blueprint Animation Background ────────────────────────────────────────────
 function ConstructionBg() {
@@ -127,7 +128,7 @@ function Navbar() {
           <a href="#modulos"  className="text-white/50 hover:text-white text-sm font-normal transition-colors">Módulos</a>
           <a href="#ia"       className="text-white/50 hover:text-white text-sm font-normal transition-colors">Agente AI</a>
           <a href="#drive"    className="text-white/50 hover:text-white text-sm font-normal transition-colors">Drive</a>
-          <a href="#contacto" className="text-white/50 hover:text-white text-sm font-normal transition-colors">Paquetes</a>
+          <a href="#precios"  className="text-white/50 hover:text-white text-sm font-normal transition-colors">Precios</a>
         </div>
 
         <div className="flex items-center gap-3">
@@ -206,6 +207,16 @@ function MockDashboard() {
 function Hero() {
   return (
     <section className="min-h-screen bg-[#0D1729] flex flex-col items-center justify-center pt-16 px-6 relative overflow-hidden">
+      {/* Hero background image */}
+      <img
+        src="/hero-bg.jpg"
+        alt=""
+        aria-hidden
+        className="absolute inset-0 w-full h-full object-cover opacity-[0.18] pointer-events-none select-none"
+        style={{ objectPosition: 'center 30%' }}
+      />
+      {/* Dark gradient overlay over image */}
+      <div className="absolute inset-0 bg-gradient-to-b from-[#0D1729]/60 via-[#0D1729]/40 to-[#0D1729] pointer-events-none" />
       {/* Blueprint grid */}
       <div className="absolute inset-0 bg-[linear-gradient(rgba(0,194,255,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(0,194,255,0.04)_1px,transparent_1px)] bg-[size:60px_60px]" />
       {/* Radial glow */}
@@ -235,7 +246,7 @@ function Hero() {
         </p>
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16">
-          <a href="#contacto"
+          <a href="#precios"
             className="flex items-center gap-2 bg-[#00C2FF] text-[#0D1729] px-7 py-3.5 rounded-xl font-semibold text-base hover:bg-white transition-colors shadow-lg shadow-[#00C2FF]/20">
             Solicitar demo gratis
             <ArrowRight className="w-4 h-4" />
@@ -596,7 +607,7 @@ function CTA() {
         <p className="text-[#00C2FF] text-xs font-semibold uppercase tracking-widest mb-5">¿Listo para digitalizar tu obra?</p>
         <h2 className="text-4xl md:text-6xl text-white leading-tight mb-6">
           <span className="font-light">Conoce nuestros</span><br />
-          <span className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#00C2FF] to-[#0077FF]">paquetes</span>
+          <span className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#00C2FF] to-[#0077FF]">Builtek en acción</span>
         </h2>
         <p className="text-white/40 text-lg mb-10 leading-relaxed font-light">
           Desde equipos pequeños hasta grandes proyectos de infraestructura.<br />
@@ -653,7 +664,7 @@ function Footer() {
         <div className="flex items-center gap-6 text-sm text-white/25 font-light">
           <a href="#modulos"  className="hover:text-white/50 transition-colors">Módulos</a>
           <a href="#ia"       className="hover:text-white/50 transition-colors">Agente AI</a>
-          <a href="#contacto" className="hover:text-white/50 transition-colors">Paquetes</a>
+          <a href="#precios" className="hover:text-white/50 transition-colors">Precios</a>
           <Link href="/login" className="hover:text-white/50 transition-colors">Iniciar sesión</Link>
         </div>
 
@@ -673,6 +684,7 @@ export default function LandingPage() {
       <Modules />
       <AIFeature />
       <DriveFeature />
+      <PricingSection />
       <CTA />
       <Footer />
     </main>
