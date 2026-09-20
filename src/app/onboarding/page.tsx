@@ -95,7 +95,7 @@ export default function OnboardingPage() {
                 type="text"
                 value={workspaceName}
                 onChange={e => setWorkspaceName(e.target.value)}
-                placeholder="Ej: Constructora Pérez, ARTF Frente 12..."
+                placeholder="Ej: Constructora Pérez, Grupo Arco Norte..."
                 className="w-full px-4 py-3 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF] focus:border-transparent"
               />
             </div>

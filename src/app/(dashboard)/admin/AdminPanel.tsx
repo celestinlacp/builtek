@@ -879,7 +879,7 @@ export default function AdminPanel({
           {/* Workspace ID — para activar módulos custom en Supabase */}
           <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-1">
             <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Workspace ID</p>
-            <p className="text-xs text-slate-400 mb-2">Usa este ID para activar módulos en Supabase (ej: Oficios para Frente 12)</p>
+            <p className="text-xs text-slate-400 mb-2">Usa este ID para activar módulos en Supabase (ej: Oficios para un workspace)</p>
             <div className="flex items-center gap-2">
               <code className="flex-1 text-xs font-mono bg-white border border-slate-200 rounded-lg px-3 py-2 text-slate-700 select-all">
                 {workspace.id}

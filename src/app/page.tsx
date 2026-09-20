@@ -280,7 +280,7 @@ function Hero() {
 
             <div className="flex-1 bg-[#111d35]">
               <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/5">
-                <p className="text-[11px] font-medium text-white/60">Dashboard — Frente 12 Ferroviario</p>
+                <p className="text-[11px] font-medium text-white/60">Dashboard — Constructora Arco Norte</p>
                 <div className="flex items-center gap-1.5">
                   <div className="w-5 h-5 rounded-full bg-[#00C2FF]/20 flex items-center justify-center">
                     <span className="text-[8px] text-[#00C2FF] font-semibold">LC</span>
