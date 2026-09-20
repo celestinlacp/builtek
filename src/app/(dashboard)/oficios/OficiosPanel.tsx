@@ -306,47 +306,53 @@ function OficioModal({
     if (!asunto.trim()) { setError('El asunto es requerido'); return }
     setLoading(true); setError(null)
 
-    let storageKey = oficio?.storage_key || null
-    let fileType   = oficio?.file_type   || null
-    let fileSize   = oficio?.file_size   || null
-    let fileName   = oficio?.file_name   || null
+    try {
+      let storageKey = oficio?.storage_key || null
+      let fileType   = oficio?.file_type   || null
+      let fileSize   = oficio?.file_size   || null
+      let fileName   = oficio?.file_name   || null
 
-    if (file) {
-      setUploading(true)
-      const uploaded = await uploadFile(file, workspaceId, tipo)
+      if (file) {
+        setUploading(true)
+        const uploaded = await uploadFile(file, workspaceId, tipo)
+        setUploading(false)
+        if (!uploaded) { setError('Error al subir el archivo'); return }
+        storageKey = uploaded.storageKey
+        fileType   = uploaded.fileType
+        fileSize   = file.size
+        fileName   = file.name
+      }
+
+      const payload = {
+        tipo,
+        asunto:          asunto.trim(),
+        no_oficio:       noOficio       || null,
+        fecha_documento: fechaDoc       || null,
+        fecha_recepcion: fechaRecep     || null,
+        proyecto_id:     proyectoId     || null,
+        especialidad:    especialidad   || null,
+        remitente:       remitente      || null,
+        destinatario:    destinatario   || null,
+        assignee_id:     assigneeId     || null,
+        notas:           notas          || null,
+        storage_key:     storageKey,
+        file_name:       fileName,
+        file_type:       fileType,
+        file_size:       fileSize,
+      }
+
+      const result = isEdit
+        ? await updateOficio(oficio!.id, payload)
+        : await createOficio(payload as any)
+
+      if (result?.error) { setError(result.error); return }
+      onClose()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error inesperado al guardar')
+    } finally {
+      setLoading(false)
       setUploading(false)
-      if (!uploaded) { setError('Error al subir el archivo'); setLoading(false); return }
-      storageKey = uploaded.storageKey
-      fileType   = uploaded.fileType
-      fileSize   = file.size
-      fileName   = file.name
     }
-
-    const payload = {
-      tipo,
-      asunto:          asunto.trim(),
-      no_oficio:       noOficio       || null,
-      fecha_documento: fechaDoc       || null,
-      fecha_recepcion: fechaRecep     || null,
-      proyecto_id:     proyectoId     || null,
-      especialidad:    especialidad   || null,
-      remitente:       remitente      || null,
-      destinatario:    destinatario   || null,
-      assignee_id:     assigneeId     || null,
-      notas:           notas          || null,
-      storage_key:     storageKey,
-      file_name:       fileName,
-      file_type:       fileType,
-      file_size:       fileSize,
-    }
-
-    const result = isEdit
-      ? await updateOficio(oficio!.id, payload)
-      : await createOficio(payload as any)
-
-    setLoading(false)
-    if (result?.error) { setError(result.error); return }
-    onClose()
   }
 
   const inputCls = 'w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50 focus:border-[#00C2FF]'
