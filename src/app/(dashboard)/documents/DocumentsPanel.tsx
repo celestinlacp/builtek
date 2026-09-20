@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Project } from '@/types'
 import { saveDocument, updateDocumentStatus, requestDeleteDocument, approveDeleteRequest, rejectDeleteRequest, deleteDocument } from './actions'
 import {
@@ -749,11 +750,21 @@ export default function DocumentsPanel({
   userRole: string
   deleteRequests: DeleteRequest[]
 }) {
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const selectedProjectId = searchParams.get('project')
   const [showUpload, setShowUpload] = useState(false)
   const isAdmin = userRole === 'owner' || userRole === 'admin'
 
   const selectedProject = projects.find(p => p.id === selectedProjectId) ?? null
+
+  function selectProject(id: string) {
+    router.push(`/documents?project=${id}`)
+  }
+
+  function goBack() {
+    router.push('/documents')
+  }
 
   return (
     <div>
@@ -779,7 +790,7 @@ export default function DocumentsPanel({
           <ProjectsView
             projects={projects}
             documents={documents}
-            onSelect={setSelectedProjectId}
+            onSelect={selectProject}
           />
         </>
       )}
@@ -793,7 +804,7 @@ export default function DocumentsPanel({
           workspaceId={workspaceId}
           userRole={userRole}
           deleteRequests={deleteRequests}
-          onBack={() => setSelectedProjectId(null)}
+          onBack={goBack}
           onUpload={() => setShowUpload(true)}
         />
       )}
@@ -804,7 +815,7 @@ export default function DocumentsPanel({
           projects={projects}
           specialties={specialties}
           workspaceId={workspaceId}
-          defaultProjectId={selectedProjectId || undefined}
+          defaultProjectId={selectedProjectId ?? undefined}
           onClose={() => setShowUpload(false)}
         />
       )}
