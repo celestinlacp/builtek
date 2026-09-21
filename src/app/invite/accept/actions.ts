@@ -28,11 +28,6 @@ export async function acceptInvite(token: string) {
 
   if (fetchError || !invite) return { error: 'Invitación inválida o ya utilizada' }
 
-  // Check if email matches (optional but recommended)
-  if (invite.email.toLowerCase() !== user.email?.toLowerCase()) {
-    return { error: 'Esta invitación fue enviada a otra dirección de correo' }
-  }
-
   // Check if already a member
   const { data: existing } = await admin
     .from('workspace_members')
