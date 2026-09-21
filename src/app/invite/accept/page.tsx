@@ -1,6 +1,9 @@
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdmin } from '@supabase/supabase-js'
 import { redirect } from 'next/navigation'
+import AcceptInvitePanel from './AcceptInvitePanel'
+
+export const dynamic = 'force-dynamic'
 
 function getAdminClient() {
   return createAdmin(
@@ -9,66 +12,54 @@ function getAdminClient() {
   )
 }
 
-export default async function InviteAcceptPage({
-  searchParams,
-}: {
+interface Props {
   searchParams: Promise<{ token?: string }>
-}) {
+}
+
+export default async function AcceptInvitePage({ searchParams }: Props) {
   const { token } = await searchParams
 
-  if (!token) {
-    redirect('/login?error=invalid_invite')
+  if (!token) redirect('/')
+
+  const admin = getAdminClient()
+
+  // Load invite + workspace name
+  const { data: invite } = await admin
+    .from('workspace_invitations')
+    .select('id, email, role, accepted_at, workspace:workspaces(name)')
+    .eq('token', token)
+    .single()
+
+  if (!invite || invite.accepted_at) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-8 max-w-md w-full text-center">
+          <div className="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
+            <span className="text-slate-300 font-bold text-xl">B</span>
+          </div>
+          <h1 className="text-xl font-bold text-[#1A2744] mb-2">Invitación no válida</h1>
+          <p className="text-slate-400 text-sm">
+            Este enlace de invitación ya fue utilizado o ha expirado.
+          </p>
+          <a href="/login" className="mt-6 inline-block text-[#00C2FF] text-sm font-medium hover:underline">
+            Ir al inicio de sesión
+          </a>
+        </div>
+      </div>
+    )
   }
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  if (!user) {
-    // No debería ocurrir (el callback de auth lo maneja), pero por seguridad:
-    redirect(`/login?next=/invite/accept?token=${token}`)
-  }
+  const workspaceName = (invite.workspace as any)?.name ?? 'tu workspace'
 
-  const admin = getAdminClient()
-
-  // Buscar la invitación por token
-  const { data: invite, error: inviteError } = await admin
-    .from('workspace_invitations')
-    .select('id, workspace_id, email, role, accepted_at')
-    .eq('token', token)
-    .single()
-
-  if (inviteError || !invite) {
-    redirect('/dashboard?error=invite_not_found')
-  }
-
-  if (invite.accepted_at) {
-    // Ya fue aceptada — redirigir al workspace
-    redirect('/dashboard?info=invite_already_accepted')
-  }
-
-  // Verificar que el email del usuario coincide con la invitación
-  if (user.email?.toLowerCase() !== invite.email.toLowerCase()) {
-    redirect(`/login?error=invite_email_mismatch`)
-  }
-
-  // Agregar al usuario como miembro del workspace
-  const { error: memberError } = await admin
-    .from('workspace_members')
-    .upsert({
-      workspace_id: invite.workspace_id,
-      user_id: user.id,
-      role: invite.role,
-    }, { onConflict: 'workspace_id,user_id' })
-
-  if (memberError) {
-    redirect('/dashboard?error=invite_join_failed')
-  }
-
-  // Marcar invitación como aceptada
-  await admin
-    .from('workspace_invitations')
-    .update({ accepted_at: new Date().toISOString() })
-    .eq('id', invite.id)
-
-  redirect('/dashboard?welcome=1')
+  return (
+    <AcceptInvitePanel
+      token={token}
+      workspaceName={workspaceName}
+      role={invite.role}
+      isLoggedIn={!!user}
+    />
+  )
 }
