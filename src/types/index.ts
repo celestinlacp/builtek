@@ -13,7 +13,7 @@ export interface Workspace {
   name: string
   slug: string
   owner_id: string
-  plan: 'free' | 'pro' | 'enterprise'
+  plan: 'free' | 'pro' | 'contractor' | 'enterprise'
   features: Record<string, boolean>
   created_at: string
 }

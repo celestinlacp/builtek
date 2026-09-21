@@ -622,9 +622,10 @@ function WorkspaceSettings({ workspace, dropboxConnected }: { workspace: Workspa
 // ── Almacenamiento ────────────────────────────────────────────────────────────
 
 const PLAN_STORAGE_BYTES: Record<string, number> = {
-  free:       1   * 1024 * 1024 * 1024,
-  starter:    10  * 1024 * 1024 * 1024,
-  pro:        100 * 1024 * 1024 * 1024,
+  free:       1    * 1024 * 1024 * 1024,
+  starter:    10   * 1024 * 1024 * 1024,
+  pro:        100  * 1024 * 1024 * 1024,
+  contractor: 2000 * 1024 * 1024 * 1024,
   enterprise: 1000 * 1024 * 1024 * 1024,
 }
 
@@ -757,6 +758,7 @@ const PLAN_LABELS: Record<string, { label: string; color: string; description: s
   free:       { label: 'Free',        color: 'bg-slate-100 text-slate-600',   description: 'Hasta 3 proyectos · 5 miembros · 1 GB' },
   starter:    { label: 'Starter',     color: 'bg-blue-100 text-blue-700',     description: 'Hasta 10 proyectos · 15 miembros · 10 GB' },
   pro:        { label: 'Pro',         color: 'bg-purple-100 text-purple-700', description: 'Proyectos ilimitados · 50 miembros · 100 GB' },
+  contractor: { label: 'Contractor',  color: 'bg-cyan-100 text-cyan-700',     description: 'Hasta 20 seats · 2 TB · Soporte prioritario' },
   enterprise: { label: 'Enterprise',  color: 'bg-amber-100 text-amber-700',   description: 'Sin límites · SLA · Soporte dedicado' },
 }
 
