@@ -116,7 +116,7 @@ export async function inviteMember(formData: FormData) {
 
     const resend = new Resend(process.env.RESEND_API_KEY)
     const { error: emailError } = await resend.emails.send({
-      from:    'Builtek <onboarding@resend.dev>',
+      from:    'Builtek <no-reply@builtek.app>',
       to:      email,
       subject: 'Te invitaron a unirte a Builtek',
       html: `
