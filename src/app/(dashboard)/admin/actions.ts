@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdmin } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { Resend } from 'resend'
 
 function getAdminClient() {
   return createAdmin(
@@ -109,23 +110,34 @@ export async function inviteMember(formData: FormData) {
     if (inviteError) return { error: inviteError.message }
     if (!invite?.token) return { error: 'No se pudo generar el token de invitación' }
 
-    // 2. Enviar email de invitación vía Supabase Auth
-    const appUrl     = (process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/$/, '')
-    const redirectTo = appUrl
-      ? `${appUrl}/api/auth/callback?next=/invite/accept?token=${invite.token}`
-      : undefined
+    // 2. Enviar email directamente con Resend
+    const appUrl     = (process.env.NEXT_PUBLIC_APP_URL || 'https://builtek.app').replace(/\/$/, '')
+    const acceptUrl  = `${appUrl}/invite/accept?token=${invite.token}`
 
-    const { error: authError } = await admin.auth.admin.inviteUserByEmail(email, {
-      ...(redirectTo ? { redirectTo } : {}),
-      data: { workspace_id: workspaceId, role },
+    const resend = new Resend(process.env.RESEND_API_KEY)
+    const { error: emailError } = await resend.emails.send({
+      from:    'Builtek <onboarding@resend.dev>',
+      to:      email,
+      subject: 'Te invitaron a unirte a Builtek',
+      html: `
+        <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px">
+          <h2 style="color:#1A2744;margin-bottom:8px">Tienes una invitación</h2>
+          <p style="color:#64748b;margin-bottom:24px">
+            Te invitaron a unirte a un workspace en <strong>Builtek</strong> con el rol
+            <strong>${role}</strong>.
+          </p>
+          <a href="${acceptUrl}"
+            style="display:inline-block;background:#1A2744;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px">
+            Aceptar invitación
+          </a>
+          <p style="color:#94a3b8;font-size:12px;margin-top:24px">
+            Si no esperabas esta invitación, ignora este correo.
+          </p>
+        </div>
+      `,
     })
 
-    if (authError) {
-      if (authError.message.toLowerCase().includes('already been registered')) {
-        return { error: 'Este email ya tiene cuenta. El usuario debe iniciar sesión y aceptar la invitación desde Configuración.' }
-      }
-      return { error: authError.message }
-    }
+    if (emailError) return { error: `Error al enviar email: ${emailError.message}` }
 
     revalidatePath('/admin')
     return { success: true }
