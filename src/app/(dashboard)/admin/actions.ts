@@ -99,11 +99,14 @@ export async function inviteMember(formData: FormData) {
   const admin = getAdminClient()
 
   try {
-    // 1. Guardar invitación en DB
+    // 1. Guardar invitación en DB (siempre genera token nuevo y limpia accepted_at)
+    const newToken = crypto.randomUUID()
     const { data: invite, error: inviteError } = await admin
       .from('workspace_invitations')
-      .upsert({ workspace_id: workspaceId, email, role, invited_by: userId },
-        { onConflict: 'workspace_id,email' })
+      .upsert(
+        { workspace_id: workspaceId, email, role, invited_by: userId, token: newToken, accepted_at: null },
+        { onConflict: 'workspace_id,email' }
+      )
       .select('token')
       .single()
 
