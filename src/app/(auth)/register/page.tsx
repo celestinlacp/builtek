@@ -1,12 +1,14 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { register } from '../actions'
 
 export default function RegisterPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const next = searchParams.get('next')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -25,7 +27,7 @@ export default function RegisterPage() {
       setError(result.error)
       setLoading(false)
     } else {
-      router.push('/onboarding')
+      router.push(next || '/onboarding')
       router.refresh()
     }
   }
