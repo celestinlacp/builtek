@@ -28,6 +28,13 @@ export default async function proxy(request: NextRequest) {
 
   const { pathname } = request.nextUrl
 
+  // /signup es alias de /register — redirigir preservando query params
+  if (pathname === '/signup') {
+    const url = request.nextUrl.clone()
+    url.pathname = '/register'
+    return NextResponse.redirect(url)
+  }
+
   // Rutas protegidas — redirigir a login si no hay sesión
   const isProtected =
     pathname.startsWith('/dashboard') ||
@@ -50,7 +57,7 @@ export default async function proxy(request: NextRequest) {
   }
 
   // Si ya está autenticado y va a login/register, redirigir al dashboard
-  if (user && (pathname === '/login' || pathname === '/register')) {
+  if (user && (pathname === '/login' || pathname === '/register' || pathname === '/signup')) {
     const url = request.nextUrl.clone()
     url.pathname = '/dashboard'
     return NextResponse.redirect(url)
