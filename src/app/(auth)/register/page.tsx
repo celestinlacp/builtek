@@ -11,6 +11,7 @@ export default function RegisterPage() {
   const next = searchParams.get('next')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [needsConfirmation, setNeedsConfirmation] = useState(false)
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -26,10 +27,27 @@ export default function RegisterPage() {
     if (result?.error) {
       setError(result.error)
       setLoading(false)
+    } else if (result?.needsConfirmation) {
+      setNeedsConfirmation(true)
+      setLoading(false)
     } else {
       router.push(next || '/onboarding')
       router.refresh()
     }
+  }
+
+  if (needsConfirmation) {
+    return (
+      <div className="text-center">
+        <div className="w-14 h-14 bg-[#1A2744] rounded-2xl flex items-center justify-center mx-auto mb-6">
+          <span className="text-white font-bold text-xl">B</span>
+        </div>
+        <h1 className="text-2xl font-bold text-[#1A2744] mb-2">Revisa tu correo</h1>
+        <p className="text-slate-500 text-sm">
+          Te enviamos un link de confirmación. Al hacer clic en él serás redirigido automáticamente para completar tu registro.
+        </p>
+      </div>
+    )
   }
 
   return (
@@ -38,6 +56,7 @@ export default function RegisterPage() {
       <p className="text-slate-500 text-sm mb-8">Comienza gratis — sin tarjeta de crédito</p>
 
       <form onSubmit={handleSubmit} className="space-y-4">
+        <input type="hidden" name="next" value={next || '/onboarding'} />
         <div>
           <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
             Nombre completo
