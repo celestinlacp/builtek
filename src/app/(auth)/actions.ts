@@ -42,11 +42,11 @@ export async function register(formData: FormData) {
     return { error: (err as Error)?.message || 'Error de conexión con el servidor' }
   }
 
-  if (error) return { error: error.message || JSON.stringify(error) || 'Error al registrarse' }
+  if (error) return { error: error.message || 'Error al registrarse. Intenta con otro correo o inicia sesión.' }
 
+  // Sin sesión y sin error = email ya registrado (Supabase no lo revela por seguridad)
   if (!data?.session) {
-    // Email confirmations están activadas — el link de confirmación ya lleva el next correcto
-    return { needsConfirmation: true }
+    return { error: 'Este correo ya tiene una cuenta. Usa "Iniciar sesión" en su lugar.' }
   }
 
   // Crear perfil explícitamente (por si el trigger falla)
