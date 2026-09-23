@@ -25,7 +25,7 @@ function RegisterForm() {
     }
     const result = await register(formData)
     if (result?.error) {
-      setError(result.error)
+      setError(typeof result.error === 'string' ? result.error : JSON.stringify(result.error))
       setLoading(false)
     } else if (result?.needsConfirmation) {
       setNeedsConfirmation(true)

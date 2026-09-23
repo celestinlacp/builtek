@@ -28,19 +28,13 @@ export async function register(formData: FormData) {
   const email = formData.get('email') as string
   const password = formData.get('password') as string
   const fullName = formData.get('full_name') as string
-  const next = (formData.get('next') as string) || '/onboarding'
-
-  const appUrl = (process.env.NEXT_PUBLIC_APP_URL || 'https://builtek.app').replace(/\/$/, '')
 
   let data, error
   try {
     const result = await supabase.auth.signUp({
       email,
       password,
-      options: {
-        data: { full_name: fullName },
-        emailRedirectTo: `${appUrl}/api/auth/callback?next=${encodeURIComponent(next)}`,
-      },
+      options: { data: { full_name: fullName } },
     })
     data = result.data
     error = result.error
@@ -48,7 +42,7 @@ export async function register(formData: FormData) {
     return { error: (err as Error)?.message || 'Error de conexión con el servidor' }
   }
 
-  if (error) return { error: error.message || 'Error al registrarse' }
+  if (error) return { error: error.message || JSON.stringify(error) || 'Error al registrarse' }
 
   if (!data?.session) {
     // Email confirmations están activadas — el link de confirmación ya lleva el next correcto
