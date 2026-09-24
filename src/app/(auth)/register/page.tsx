@@ -30,6 +30,8 @@ function RegisterForm() {
 
     try {
       const supabase = createClient()
+
+      // 1. Crear cuenta
       const { error: signUpError } = await supabase.auth.signUp({
         email,
         password,
@@ -42,11 +44,13 @@ function RegisterForm() {
         return
       }
 
-      // Sign in immediately after sign up
+      // 2. Iniciar sesión inmediatamente
       const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
+
       if (signInError) {
-        setError('Cuenta creada. Revisa tu correo para confirmarla e inicia sesión.')
-        setLoading(false)
+        // Si falla el sign-in (ej. email confirmation requerida),
+        // redirigir a login con mensaje
+        router.push(`/login?message=confirm&next=${encodeURIComponent(next || '/onboarding')}`)
         return
       }
 
