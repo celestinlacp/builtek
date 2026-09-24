@@ -3,7 +3,6 @@
 import { Suspense, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { register } from '../actions'
 
 function RegisterForm() {
   const router = useRouter()
@@ -17,18 +16,34 @@ function RegisterForm() {
     setLoading(true)
     setError(null)
     const formData = new FormData(e.currentTarget)
-    if (formData.get('password') !== formData.get('confirm_password')) {
+    const password = formData.get('password') as string
+    const confirm = formData.get('confirm_password') as string
+    if (password !== confirm) {
       setError('Las contraseñas no coinciden')
       setLoading(false)
       return
     }
-    const result = await register(formData)
-    if (result?.error) {
-      setError(result.error)
+    try {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: formData.get('email'),
+          password,
+          full_name: formData.get('full_name'),
+        }),
+      })
+      const result = await res.json()
+      if (result?.error) {
+        setError(result.error)
+        setLoading(false)
+      } else {
+        router.push(next || '/onboarding')
+        router.refresh()
+      }
+    } catch {
+      setError('Error de conexión. Intenta de nuevo.')
       setLoading(false)
-    } else {
-      router.push(next || '/onboarding')
-      router.refresh()
     }
   }
 
