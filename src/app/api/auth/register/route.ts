@@ -28,7 +28,10 @@ export async function POST(request: NextRequest) {
     })
 
     if (createError) {
-      return NextResponse.json({ error: createError.message || 'Error al crear la cuenta' }, { status: 400 })
+      const msg = createError.message && createError.message !== '{}' && createError.message !== ''
+        ? createError.message
+        : `Error Supabase (${createError.status ?? 400}): ${JSON.stringify(createError)}`
+      return NextResponse.json({ error: msg }, { status: 400 })
     }
 
     // Crear perfil
