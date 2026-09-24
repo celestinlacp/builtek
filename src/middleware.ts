@@ -57,7 +57,9 @@ export default async function proxy(request: NextRequest) {
   }
 
   // Si ya está autenticado y va a login/register, redirigir al dashboard
-  if (user && (pathname === '/login' || pathname === '/register' || pathname === '/signup')) {
+  // Excluir Server Actions (POST con header Next-Action) para no bloquear acciones del servidor
+  const isServerAction = request.method === 'POST' && request.headers.has('next-action')
+  if (!isServerAction && user && (pathname === '/login' || pathname === '/register' || pathname === '/signup')) {
     const url = request.nextUrl.clone()
     url.pathname = '/dashboard'
     return NextResponse.redirect(url)
