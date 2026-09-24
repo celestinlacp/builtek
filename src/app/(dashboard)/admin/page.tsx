@@ -1,7 +1,15 @@
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createAdmin } from '@supabase/supabase-js'
 import { redirect } from 'next/navigation'
 import { Settings } from 'lucide-react'
 import AdminPanel from './AdminPanel'
+
+function getAdminClient() {
+  return createAdmin(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+}
 
 export default async function AdminPage() {
   const supabase = await createClient()
@@ -62,9 +70,23 @@ export default async function AdminPage() {
   const oficioBytes = ((oficiosStorageRes as any).data || []).reduce((s: number, r: any) => s + (r.file_size || 0), 0)
   const storageUsed = docBytes + oficioBytes
 
+  // Get auth data (email + last_sign_in_at) for all workspace members
+  const memberUserIds = members.map((m: any) => m.user_id)
+  let authMap: Record<string, { email?: string; last_sign_in_at?: string }> = {}
+  try {
+    const admin = getAdminClient()
+    const { data: { users: authUsers } } = await admin.auth.admin.listUsers({ perPage: 1000 })
+    authMap = Object.fromEntries(
+      (authUsers || [])
+        .filter(u => memberUserIds.includes(u.id))
+        .map(u => [u.id, { email: u.email, last_sign_in_at: u.last_sign_in_at }])
+    )
+  } catch {}
+
   const enrichedMembers = members.map((m: any) => ({
     ...m,
-    email: m.user_id === user.id ? user.email : null,
+    email: authMap[m.user_id]?.email || (m.user_id === user.id ? user.email : null),
+    last_sign_in_at: authMap[m.user_id]?.last_sign_in_at || null,
   }))
 
   const currentUserName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Usuario'

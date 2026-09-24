@@ -115,7 +115,7 @@ function RoleDescription({ role }: { role: string }) {
   )
 }
 
-type MemberWithProfile = WorkspaceMember & { email?: string | null }
+type MemberWithProfile = WorkspaceMember & { email?: string | null; last_sign_in_at?: string | null }
 
 function MemberRow({
   member, currentUserId, currentUserRole, canManage,
@@ -171,6 +171,20 @@ function MemberRow({
             {isSelf && <span className="text-xs text-[#00C2FF] font-medium">(tú)</span>}
           </div>
           {member.email && <p className="text-xs text-slate-400 truncate">{member.email}</p>}
+          <div className="flex items-center gap-3 mt-0.5">
+            {member.last_sign_in_at ? (
+              <p className="text-xs text-slate-400">
+                Última conexión: {new Date(member.last_sign_in_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+              </p>
+            ) : (
+              <p className="text-xs text-slate-300">Sin conexiones registradas</p>
+            )}
+            {member.joined_at && (
+              <p className="text-xs text-slate-300">
+                · Miembro desde {new Date(member.joined_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
+              </p>
+            )}
+          </div>
         </div>
 
         {/* Role badge / selector */}
