@@ -34,7 +34,7 @@ export default async function AdminPage() {
       .eq('workspace_id', wsId)
       .order('created_at', { ascending: false }),
     supabase.from('workspace_members')
-      .select('workspace_id, user_id, role, joined_at, user:profiles(id, full_name, avatar_url)')
+      .select('workspace_id, user_id, role, joined_at')
       .eq('workspace_id', wsId)
       .order('joined_at', { ascending: true }),
     supabase.from('workspace_members')
@@ -53,7 +53,20 @@ export default async function AdminPage() {
 
   const workspace = workspaceRes.data
   const projects = projectsRes.data || []
-  const members = membersRes.data || []
+  const rawMembers = membersRes.data || []
+
+  // Fetch profiles separately (no FK between workspace_members and profiles)
+  const memberUserIds = rawMembers.map((m: any) => m.user_id)
+  const profilesRes = memberUserIds.length > 0
+    ? await supabase.from('profiles').select('id, full_name, avatar_url').in('id', memberUserIds)
+    : { data: [] }
+  const profileMap: Record<string, { id: string; full_name: string | null; avatar_url: string | null }> =
+    Object.fromEntries((profilesRes.data || []).map((p: any) => [p.id, p]))
+
+  const members = rawMembers.map((m: any) => ({
+    ...m,
+    user: profileMap[m.user_id] || null,
+  }))
   const currentUserRole = myRoleRes.data?.role || 'viewer'
   const pendingInvites = invitesRes.data || []
   const dropboxConnected = !!(workspaceRes.data as any)?.dropbox_token
@@ -71,7 +84,6 @@ export default async function AdminPage() {
   const storageUsed = docBytes + oficioBytes
 
   // Get auth data (email + last_sign_in_at) for all workspace members
-  const memberUserIds = members.map((m: any) => m.user_id)
   let authMap: Record<string, { email?: string; last_sign_in_at?: string }> = {}
   try {
     const admin = getAdminClient()
