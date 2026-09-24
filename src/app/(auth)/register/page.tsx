@@ -3,7 +3,6 @@
 import { Suspense, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/client'
 
 function RegisterForm() {
   const router = useRouter()
@@ -29,35 +28,25 @@ function RegisterForm() {
     }
 
     try {
-      const supabase = createClient()
-
-      // 1. Crear cuenta
-      const { error: signUpError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: { data: { full_name } },
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, full_name }),
       })
-
-      if (signUpError) {
-        setError(signUpError.message)
+      const text = await res.text()
+      const result = text ? JSON.parse(text) : {}
+      if (result?.error) {
+        setError(result.error)
         setLoading(false)
-        return
+      } else if (result?.success) {
+        router.push(next || '/onboarding')
+        router.refresh()
+      } else {
+        setError(`Error ${res.status}: ${text.slice(0, 150)}`)
+        setLoading(false)
       }
-
-      // 2. Iniciar sesión inmediatamente
-      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
-
-      if (signInError) {
-        // Si falla el sign-in (ej. email confirmation requerida),
-        // redirigir a login con mensaje
-        router.push(`/login?message=confirm&next=${encodeURIComponent(next || '/onboarding')}`)
-        return
-      }
-
-      router.push(next || '/onboarding')
-      router.refresh()
     } catch (err: unknown) {
-      setError((err as Error)?.message || 'Error inesperado. Intenta de nuevo.')
+      setError((err as Error)?.message || 'Error de conexión.')
       setLoading(false)
     }
   }
