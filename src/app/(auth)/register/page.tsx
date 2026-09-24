@@ -33,16 +33,27 @@ function RegisterForm() {
           full_name: formData.get('full_name'),
         }),
       })
-      const result = await res.json()
+      const rawText = await res.text()
+      let result: { error?: string; success?: boolean } = {}
+      try {
+        result = JSON.parse(rawText)
+      } catch {
+        setError(`Respuesta inesperada del servidor (${res.status}): ${rawText.slice(0, 200)}`)
+        setLoading(false)
+        return
+      }
       if (result?.error) {
         setError(result.error)
         setLoading(false)
-      } else {
+      } else if (result?.success) {
         router.push(next || '/onboarding')
         router.refresh()
+      } else {
+        setError(`Respuesta desconocida (${res.status}): ${rawText.slice(0, 200)}`)
+        setLoading(false)
       }
-    } catch {
-      setError('Error de conexión. Intenta de nuevo.')
+    } catch (err: unknown) {
+      setError(`Error de conexión: ${(err as Error)?.message || 'desconocido'}`)
       setLoading(false)
     }
   }
