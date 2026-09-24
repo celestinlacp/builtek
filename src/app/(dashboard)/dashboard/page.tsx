@@ -19,7 +19,7 @@ async function getWorkspaceData(userId: string) {
 
   const [projects, tasks, documents] = await Promise.all([
     supabase.from('projects').select('id, name, status').eq('workspace_id', wsId),
-    supabase.from('tasks').select('id, name, status, priority, due_date, project_id').order('created_at', { ascending: false }),
+    supabase.from('tasks').select('id, name, status, priority, due_date, project_id, assignee_id').order('created_at', { ascending: false }),
     supabase.from('documents').select('id, name, status, created_at').order('created_at', { ascending: false }).limit(5),
   ])
 
@@ -48,6 +48,7 @@ export default async function DashboardPage() {
   const progressPct = tasks.length ? Math.round((tasksDone / tasks.length) * 100) : 0
 
   const recentTasks = tasks.slice(0, 6)
+  const myTasks = tasks.filter((t: any) => t.assignee_id === user.id && t.status !== 'done').slice(0, 5)
 
   const STATUS_LABEL: Record<string, string> = {
     pending: 'Pendiente', in_progress: 'En curso',
@@ -129,6 +130,34 @@ export default async function DashboardPage() {
             <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-blue-500 inline-block" />{tasksInProgress} en curso</span>
             <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-slate-300 inline-block" />{tasksPending} pendientes</span>
             {tasksBlocked > 0 && <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-red-500 inline-block" />{tasksBlocked} bloqueadas</span>}
+          </div>
+        </div>
+      )}
+
+      {/* Mis tareas */}
+      {myTasks.length > 0 && (
+        <div className="bg-white rounded-xl border border-[#00C2FF]/30 p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-bold text-[#1A2744] flex items-center gap-2">
+              <CheckSquare className="w-4 h-4 text-[#00C2FF]" /> Mis tareas pendientes
+            </h2>
+            <Link href="/tasks" className="text-xs text-[#00C2FF] font-semibold hover:underline">Ver todas →</Link>
+          </div>
+          <div className="space-y-2">
+            {myTasks.map((task: any) => (
+              <div key={task.id} className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors">
+                <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${PRIORITY_COLOR[task.priority]}`} />
+                <p className="text-sm text-slate-700 flex-1 truncate font-medium">{task.name}</p>
+                {task.due_date && (
+                  <span className="text-xs text-slate-400 flex-shrink-0">
+                    {new Date(task.due_date).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}
+                  </span>
+                )}
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${STATUS_COLOR[task.status]}`}>
+                  {STATUS_LABEL[task.status]}
+                </span>
+              </div>
+            ))}
           </div>
         </div>
       )}

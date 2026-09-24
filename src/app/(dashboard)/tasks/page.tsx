@@ -20,7 +20,7 @@ export default async function TasksPage() {
 
   const wsId = membership.workspace_id
 
-  const [projectsRes, tasksRes, docsRes, driveRes] = await Promise.all([
+  const [projectsRes, tasksRes, docsRes, driveRes, membersRes] = await Promise.all([
     supabase.from('projects')
       .select('id, name, status, workspace_id, description, start_date, end_date, created_at')
       .eq('workspace_id', wsId)
@@ -41,10 +41,20 @@ export default async function TasksPage() {
       .select('id, name, file_type')
       .eq('workspace_id', wsId)
       .order('name'),
+    supabase.from('workspace_members')
+      .select('user_id')
+      .eq('workspace_id', wsId),
   ])
 
   const projects = projectsRes.data || []
   const tasks = (tasksRes.data || []) as any[]
+
+  const rawMemberIds = (membersRes.data || []).map((m: any) => m.user_id)
+  const profilesRes = rawMemberIds.length > 0
+    ? await supabase.from('profiles').select('id, full_name').in('id', rawMemberIds)
+    : { data: [] }
+  const profileMap = Object.fromEntries((profilesRes.data || []).map((p: any) => [p.id, p.full_name]))
+  const members = rawMemberIds.map((uid: string) => ({ user_id: uid, full_name: profileMap[uid] || null }))
 
   const availableDocs = [
     ...(docsRes.data || []).map((d: any) => ({ ...d, source: 'document' as const })),
@@ -96,7 +106,7 @@ export default async function TasksPage() {
           </Link>
         </div>
       ) : (
-        <TaskBoard tasks={tasks} projects={projects} availableDocs={availableDocs} currentUserId={user.id} />
+        <TaskBoard tasks={tasks} projects={projects} members={members} availableDocs={availableDocs} currentUserId={user.id} />
       )}
     </div>
   )

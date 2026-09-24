@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { updateTaskStatus, deleteTask } from './actions'
 import { Task, Project } from '@/types'
 import {
@@ -10,6 +10,8 @@ import {
 import NewTaskModal from './NewTaskModal'
 import EditTaskModal from './EditTaskModal'
 import TaskSlideOver from './TaskSlideOver'
+
+type Member = { user_id: string; full_name: string | null }
 
 type AvailableDoc = {
   id: string
@@ -40,7 +42,17 @@ const PRIORITY_DOT: Record<string, string> = {
 function StatusBadge({ status, taskId }: { status: string; taskId: string }) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [dropPos, setDropPos] = useState({ top: 0, left: 0 })
+  const btnRef = useRef<HTMLButtonElement>(null)
   const current = STATUS_OPTIONS.find(s => s.value === status)
+
+  function handleOpen() {
+    if (btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect()
+      setDropPos({ top: rect.bottom + 4, left: rect.left })
+    }
+    setOpen(v => !v)
+  }
 
   async function change(newStatus: string) {
     setLoading(true)
@@ -50,9 +62,10 @@ function StatusBadge({ status, taskId }: { status: string; taskId: string }) {
   }
 
   return (
-    <div className="relative">
+    <div>
       <button
-        onClick={() => setOpen(!open)}
+        ref={btnRef}
+        onClick={handleOpen}
         disabled={loading}
         className={`text-xs px-2.5 py-1 rounded-full font-medium flex items-center gap-1 ${current?.color} hover:opacity-80 transition-opacity`}
       >
@@ -61,8 +74,11 @@ function StatusBadge({ status, taskId }: { status: string; taskId: string }) {
       </button>
       {open && (
         <>
-          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute top-7 left-0 z-20 bg-white rounded-lg shadow-lg border border-slate-100 py-1 w-36">
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div
+            className="fixed z-50 bg-white rounded-lg shadow-lg border border-slate-100 py-1 w-36"
+            style={{ top: dropPos.top, left: dropPos.left }}
+          >
             {STATUS_OPTIONS.map(opt => (
               <button
                 key={opt.value}
@@ -79,7 +95,7 @@ function StatusBadge({ status, taskId }: { status: string; taskId: string }) {
   )
 }
 
-function TaskRow({ task, onEdit, onOpen }: { task: Task & { project?: { name: string } }; onEdit: (t: Task) => void; onOpen: (t: Task) => void }) {
+function TaskRow({ task, members, onEdit, onOpen }: { task: Task & { project?: { name: string } }; members: Member[]; onEdit: (t: Task) => void; onOpen: (t: Task) => void }) {
   const [menuOpen, setMenuOpen] = useState(false)
 
   async function handleDelete() {
@@ -117,6 +133,17 @@ function TaskRow({ task, onEdit, onOpen }: { task: Task & { project?: { name: st
         </div>
       )}
 
+      {/* Assignee */}
+      {task.assignee_id && (() => {
+        const m = members.find(m => m.user_id === task.assignee_id)
+        const initials = m?.full_name?.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() || '?'
+        return (
+          <div title={m?.full_name || ''} className="hidden sm:flex w-6 h-6 rounded-full bg-[#1A2744] text-white text-[9px] font-bold items-center justify-center flex-shrink-0">
+            {initials}
+          </div>
+        )
+      })()}
+
       {/* Status */}
       <StatusBadge status={task.status} taskId={task.id} />
 
@@ -153,10 +180,11 @@ function TaskRow({ task, onEdit, onOpen }: { task: Task & { project?: { name: st
 }
 
 function SpecialtyGroup({
-  specialty, tasks, onEdit, onOpen
+  specialty, tasks, members, onEdit, onOpen
 }: {
   specialty: string
   tasks: (Task & { project?: { name: string } })[]
+  members: Member[]
   onEdit: (t: Task) => void
   onOpen: (t: Task) => void
 }) {
@@ -164,10 +192,10 @@ function SpecialtyGroup({
   const done = tasks.filter(t => t.status === 'done').length
 
   return (
-    <div className="bg-white rounded-xl border border-slate-100 overflow-hidden mb-3">
+    <div className="bg-white rounded-xl border border-slate-100 mb-3">
       <button
         onClick={() => setCollapsed(!collapsed)}
-        className="w-full flex items-center gap-3 px-4 py-3 bg-slate-50 hover:bg-slate-100 transition-colors border-b border-slate-100"
+        className="w-full flex items-center gap-3 px-4 py-3 bg-slate-50 hover:bg-slate-100 transition-colors border-b border-slate-100 rounded-t-xl"
       >
         {collapsed
           ? <ChevronRight className="w-4 h-4 text-slate-400" />
@@ -184,7 +212,7 @@ function SpecialtyGroup({
       {!collapsed && (
         <div>
           {tasks.map(task => (
-            <TaskRow key={task.id} task={task} onEdit={onEdit} onOpen={onOpen} />
+            <TaskRow key={task.id} task={task} members={members} onEdit={onEdit} onOpen={onOpen} />
           ))}
         </div>
       )}
@@ -195,10 +223,11 @@ function SpecialtyGroup({
 type ExtendedTask = Task & { project?: { name: string } }
 
 export default function TaskBoard({
-  tasks, projects, availableDocs, currentUserId
+  tasks, projects, members, availableDocs, currentUserId
 }: {
   tasks: ExtendedTask[]
   projects: Project[]
+  members: Member[]
   availableDocs: AvailableDoc[]
   currentUserId: string
 }) {
@@ -303,6 +332,7 @@ export default function TaskBoard({
                 key={specialty}
                 specialty={specialty}
                 tasks={groupTasks}
+                members={members}
                 onEdit={setEditTask}
                 onOpen={setSlideTask}
               />
@@ -324,7 +354,7 @@ export default function TaskBoard({
           {filtered.length === 0
             ? <p className="text-center text-sm text-slate-400 py-10">Sin tareas</p>
             : filtered.map(task => (
-              <TaskRow key={task.id} task={task} onEdit={setEditTask} onOpen={setSlideTask} />
+              <TaskRow key={task.id} task={task} members={members} onEdit={setEditTask} onOpen={setSlideTask} />
             ))
           }
         </div>
@@ -334,6 +364,7 @@ export default function TaskBoard({
         <NewTaskModal
           projects={projects}
           specialties={SPECIALTIES}
+          members={members}
           onClose={() => setShowNew(false)}
         />
       )}

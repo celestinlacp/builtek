@@ -5,11 +5,14 @@ import { X } from 'lucide-react'
 import { createTask } from './actions'
 import { Project } from '@/types'
 
+type Member = { user_id: string; full_name: string | null }
+
 export default function NewTaskModal({
-  projects, specialties, onClose
+  projects, specialties, members, onClose
 }: {
   projects: Project[]
   specialties: string[]
+  members: Member[]
   onClose: () => void
 }) {
   const [loading, setLoading] = useState(false)
@@ -78,6 +81,19 @@ export default function NewTaskModal({
                 className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50 focus:border-[#00C2FF]" />
             </div>
           </div>
+
+          {members.length > 0 && (
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">Asignar a</label>
+              <select name="assignee_id"
+                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50 focus:border-[#00C2FF]">
+                <option value="">Sin asignar</option>
+                {members.map(m => (
+                  <option key={m.user_id} value={m.user_id}>{m.full_name || m.user_id}</option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div>
             <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">Descripción</label>
