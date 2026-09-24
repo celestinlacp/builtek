@@ -3,6 +3,7 @@
 import { Suspense, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import { createClient } from '@/lib/supabase/client'
 
 function RegisterForm() {
   const router = useRouter()
@@ -16,44 +17,43 @@ function RegisterForm() {
     setLoading(true)
     setError(null)
     const formData = new FormData(e.currentTarget)
+    const email = formData.get('email') as string
     const password = formData.get('password') as string
     const confirm = formData.get('confirm_password') as string
+    const full_name = formData.get('full_name') as string
+
     if (password !== confirm) {
       setError('Las contraseñas no coinciden')
       setLoading(false)
       return
     }
+
     try {
-      const res = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: formData.get('email'),
-          password,
-          full_name: formData.get('full_name'),
-        }),
+      const supabase = createClient()
+      const { error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { data: { full_name } },
       })
-      const rawText = await res.text()
-      let result: { error?: string; success?: boolean } = {}
-      try {
-        result = JSON.parse(rawText)
-      } catch {
-        setError(`Respuesta inesperada del servidor (${res.status}): ${rawText.slice(0, 200)}`)
+
+      if (signUpError) {
+        setError(signUpError.message)
         setLoading(false)
         return
       }
-      if (result?.error) {
-        setError(result.error)
+
+      // Sign in immediately after sign up
+      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
+      if (signInError) {
+        setError('Cuenta creada. Revisa tu correo para confirmarla e inicia sesión.')
         setLoading(false)
-      } else if (result?.success) {
-        router.push(next || '/onboarding')
-        router.refresh()
-      } else {
-        setError(`Respuesta desconocida (${res.status}): ${rawText.slice(0, 200)}`)
-        setLoading(false)
+        return
       }
+
+      router.push(next || '/onboarding')
+      router.refresh()
     } catch (err: unknown) {
-      setError(`Error de conexión: ${(err as Error)?.message || 'desconocido'}`)
+      setError((err as Error)?.message || 'Error inesperado. Intenta de nuevo.')
       setLoading(false)
     }
   }
