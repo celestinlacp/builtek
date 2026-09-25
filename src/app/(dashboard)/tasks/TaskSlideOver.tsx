@@ -8,7 +8,7 @@ import {
   X, MessageSquare, Send, Trash2, Paperclip,
   FileText, HardDrive, ChevronDown, Calendar,
   AlertCircle, Clock, CheckCircle2, XCircle,
-  Eye, Download, Plus, Loader2
+  Eye, Download, Plus, Loader2, User, Timer
 } from 'lucide-react'
 
 // ── Tipos ────────────────────────────────────────────────────────────────────
@@ -30,11 +30,25 @@ type TaskDoc = {
   drive_files?: { id: string; name: string; file_type: string } | null
 }
 
+type Member = { user_id: string; full_name: string | null }
+
 type AvailableDoc = {
   id: string
   name: string
   file_type: string
   source: 'document' | 'drive'
+}
+
+function getCountdown(due_date: string): { label: string; color: string; urgent: boolean } {
+  const now = new Date()
+  const due = new Date(due_date + 'T00:00:00')
+  const diffDays = Math.ceil((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+
+  if (diffDays < 0)  return { label: `Vencida hace ${Math.abs(diffDays)}d`, color: 'bg-red-100 text-red-600',     urgent: true }
+  if (diffDays === 0) return { label: 'Vence hoy',                           color: 'bg-orange-100 text-orange-600', urgent: true }
+  if (diffDays === 1) return { label: 'Vence mañana',                        color: 'bg-orange-100 text-orange-500', urgent: true }
+  if (diffDays <= 7)  return { label: `${diffDays} días`,                    color: 'bg-amber-100 text-amber-600',   urgent: false }
+  return               { label: `${diffDays} días`,                          color: 'bg-slate-100 text-slate-500',   urgent: false }
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -161,12 +175,13 @@ function LinkDocModal({
 // ── TaskSlideOver ─────────────────────────────────────────────────────────────
 
 export default function TaskSlideOver({
-  task, project, availableDocs, currentUserId, onClose
+  task, project, availableDocs, currentUserId, members, onClose
 }: {
   task:           Task & { project?: { name: string } }
   project?:       Project
   availableDocs:  AvailableDoc[]
   currentUserId:  string
+  members?:       Member[]
   onClose:        () => void
 }) {
   const supabase = createClient()
@@ -179,12 +194,16 @@ export default function TaskSlideOver({
   const [showLinkModal, setShowLinkModal] = useState(false)
   const [unlinking,    setUnlinking]    = useState<string | null>(null)
   const [deleting,     setDeleting]     = useState<string | null>(null)
+  const [commentError, setCommentError] = useState<string | null>(null)
   const commentsEndRef = useRef<HTMLDivElement>(null)
   const inputRef       = useRef<HTMLTextAreaElement>(null)
 
   const status   = STATUS_CONFIG[task.status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.pending
   const priority = PRIORITY_CONFIG[task.priority as keyof typeof PRIORITY_CONFIG] || PRIORITY_CONFIG.medium
   const StatusIcon = status.icon
+
+  const assignee = members?.find(m => m.user_id === task.assignee_id)
+  const countdown = task.due_date && task.status !== 'done' ? getCountdown(task.due_date) : null
 
   const loadData = useCallback(async () => {
     const [commentsRes, taskDocsRes] = await Promise.all([
@@ -219,10 +238,20 @@ export default function TaskSlideOver({
   async function handleSend() {
     if (!newComment.trim()) return
     setSending(true)
-    await addComment(task.id, newComment)
-    setNewComment('')
-    setSending(false)
-    await loadData()
+    setCommentError(null)
+    try {
+      const result = await addComment(task.id, newComment)
+      if (result?.error) {
+        setCommentError(result.error)
+      } else {
+        setNewComment('')
+        await loadData()
+      }
+    } catch {
+      setCommentError('No se pudo enviar el comentario. Intenta de nuevo.')
+    } finally {
+      setSending(false)
+    }
   }
 
   async function handleDeleteComment(commentId: string) {
@@ -265,9 +294,23 @@ export default function TaskSlideOver({
               )}
             </div>
             <h2 className="text-lg font-bold text-[#1A2744] leading-snug">{task.name}</h2>
-            {task.project?.name && (
-              <p className="text-xs text-slate-400 mt-1">{task.project.name}</p>
-            )}
+            <div className="flex items-center gap-3 mt-1 flex-wrap">
+              {task.project?.name && (
+                <p className="text-xs text-slate-400">{task.project.name}</p>
+              )}
+              {assignee?.full_name && (
+                <p className="text-xs text-slate-500 flex items-center gap-1">
+                  <User className="w-3 h-3 text-slate-400" />
+                  {assignee.full_name}
+                </p>
+              )}
+              {countdown && (
+                <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full ${countdown.color}`}>
+                  <Timer className="w-3 h-3" />
+                  {countdown.label}
+                </span>
+              )}
+            </div>
           </div>
           <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100 flex-shrink-0">
             <X className="w-4 h-4 text-slate-400" />
@@ -438,7 +481,10 @@ export default function TaskSlideOver({
               </button>
             </div>
           </div>
-          <p className="text-[10px] text-slate-300 mt-1.5 ml-9">Enter para enviar · Shift+Enter para nueva línea</p>
+          {commentError
+            ? <p className="text-[10px] text-red-400 mt-1.5 ml-9">{commentError}</p>
+            : <p className="text-[10px] text-slate-300 mt-1.5 ml-9">Enter para enviar · Shift+Enter para nueva línea</p>
+          }
         </div>
       </div>
 

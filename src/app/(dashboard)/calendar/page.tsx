@@ -26,14 +26,26 @@ export default async function CalendarPage() {
   const projectIds = (projects || []).map(p => p.id)
 
   // Tareas con fecha de terminación, de este workspace
-  const { data: tasks } = projectIds.length > 0
+  const { data: rawTasks } = projectIds.length > 0
     ? await supabase
         .from('tasks')
-        .select('id, name, status, priority, due_date, project:projects(name)')
+        .select('id, name, status, priority, due_date, created_at, assignee_id, project:projects(name)')
         .in('project_id', projectIds)
         .not('due_date', 'is', null)
         .order('due_date')
     : { data: [] }
+
+  // Fetch nombres de assignees
+  const assigneeIds = [...new Set((rawTasks || []).map((t: any) => t.assignee_id).filter(Boolean))]
+  const profilesRes = assigneeIds.length > 0
+    ? await supabase.from('profiles').select('id, full_name').in('id', assigneeIds as string[])
+    : { data: [] }
+  const profileMap = Object.fromEntries((profilesRes.data || []).map((p: any) => [p.id, p.full_name]))
+
+  const tasks = (rawTasks || []).map((t: any) => ({
+    ...t,
+    assignee_name: t.assignee_id ? (profileMap[t.assignee_id] || null) : null,
+  }))
 
   return (
     <div className="max-w-7xl mx-auto">
@@ -47,7 +59,7 @@ export default async function CalendarPage() {
         </p>
       </div>
 
-      <CalendarPanel tasks={(tasks || []) as any} />
+      <CalendarPanel tasks={tasks as any} />
     </div>
   )
 }

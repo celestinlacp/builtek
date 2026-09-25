@@ -9,6 +9,8 @@ type CalendarTask = {
   status: string
   priority: string
   due_date: string
+  created_at?: string
+  assignee_name?: string | null
   project?: { name: string } | null
 }
 
@@ -63,10 +65,129 @@ function buildWeeks(year: number, month: number) {
   return weeks
 }
 
+function GanttView({ tasks, year, month }: { tasks: CalendarTask[]; year: number; month: number }) {
+  const monthStart = new Date(year, month, 1)
+  const monthEnd   = new Date(year, month + 1, 0)
+  const totalDays  = monthEnd.getDate()
+  const today      = new Date()
+  const isSameMonth = today.getFullYear() === year && today.getMonth() === month
+  const todayLeft   = isSameMonth ? ((today.getDate() - 1) / totalDays) * 100 : null
+
+  const visible = tasks
+    .filter(t => {
+      const due   = new Date(t.due_date + 'T00:00:00')
+      const start = t.created_at ? new Date(t.created_at) : due
+      return due >= monthStart && start <= monthEnd
+    })
+    .sort((a, b) => a.due_date.localeCompare(b.due_date))
+
+  if (visible.length === 0) {
+    return (
+      <div className="text-center py-16 text-sm text-slate-400">
+        No hay tareas con fecha límite en este mes
+      </div>
+    )
+  }
+
+  function barPos(task: CalendarTask) {
+    const due    = new Date(task.due_date + 'T00:00:00')
+    const raw    = task.created_at ? new Date(task.created_at) : due
+    const start  = raw < monthStart ? monthStart : raw
+    const end    = due > monthEnd   ? monthEnd   : due
+    const left   = ((start.getDate() - 1) / totalDays) * 100
+    const width  = Math.max(((end.getDate() - start.getDate() + 1) / totalDays) * 100, 2)
+    return { left, width }
+  }
+
+  const dayMarkers = [1, 5, 10, 15, 20, 25, totalDays].filter((v, i, a) => a.indexOf(v) === i)
+
+  return (
+    <div className="px-5 py-5">
+      {/* Day axis */}
+      <div className="flex mb-3">
+        <div className="w-[38%] flex-shrink-0" />
+        <div className="flex-1 relative h-4">
+          {dayMarkers.map(d => (
+            <span key={d} className="absolute text-[10px] text-slate-400 font-medium -translate-x-1/2"
+              style={{ left: `${((d - 1) / totalDays) * 100}%` }}>
+              {d}
+            </span>
+          ))}
+        </div>
+        <div className="w-14 flex-shrink-0" />
+      </div>
+
+      {/* Task rows */}
+      <div className="space-y-2">
+        {visible.map(task => {
+          const { left, width } = barPos(task)
+          const s = STATUS_STYLE[task.status] || STATUS_STYLE.pending
+          const isOverdue = new Date(task.due_date + 'T00:00:00') < today && task.status !== 'done'
+          const initials = task.assignee_name
+            ?.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()
+
+          return (
+            <div key={task.id} className="flex items-center gap-2 h-9">
+              {/* Label */}
+              <div className="w-[38%] flex-shrink-0 pr-2">
+                <p className="text-xs font-medium text-slate-700 truncate leading-tight">{task.name}</p>
+                {task.project?.name && (
+                  <p className="text-[10px] text-slate-400 truncate">{task.project.name}</p>
+                )}
+              </div>
+
+              {/* Bar track */}
+              <div className="flex-1 relative h-6 rounded-full bg-slate-50 overflow-hidden">
+                {todayLeft !== null && (
+                  <div className="absolute top-0 bottom-0 w-px bg-[#00C2FF]/50 z-10"
+                    style={{ left: `${todayLeft}%` }} />
+                )}
+                <div
+                  className={`absolute top-1 bottom-1 rounded-full flex items-center px-1.5 ${s.bar} opacity-80`}
+                  style={{ left: `${left}%`, width: `${width}%` }}
+                  title={`${task.name}${task.assignee_name ? ' · ' + task.assignee_name : ''}`}
+                >
+                  {initials && (
+                    <span className="text-[8px] font-bold text-white truncate">{initials}</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Due date */}
+              <div className="w-14 flex-shrink-0 text-right">
+                <span className={`text-[10px] font-medium ${isOverdue ? 'text-red-500' : 'text-slate-400'}`}>
+                  {new Date(task.due_date + 'T00:00:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}
+                </span>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Legend */}
+      <div className="flex items-center gap-5 mt-5 pt-3 border-t border-slate-100 flex-wrap">
+        {todayLeft !== null && (
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-0.5 bg-[#00C2FF]/60" />
+            <span className="text-[10px] text-slate-400">Hoy</span>
+          </div>
+        )}
+        {Object.entries(STATUS_STYLE).map(([status, s]) => (
+          <div key={status} className="flex items-center gap-1.5">
+            <span className={`w-2 h-2 rounded-full ${s.bar}`} />
+            <span className="text-[10px] text-slate-500">{STATUS_LABEL[status]}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export default function CalendarPanel({ tasks }: { tasks: CalendarTask[] }) {
   const today = new Date()
   const [year, setYear]   = useState(today.getFullYear())
   const [month, setMonth] = useState(today.getMonth())
+  const [calView, setCalView] = useState<'month' | 'gantt'>('month')
 
   function prev() {
     if (month === 0) { setYear(y => y - 1); setMonth(11) }
@@ -118,14 +239,31 @@ export default function CalendarPanel({ tasks }: { tasks: CalendarTask[] }) {
             <ChevronRight className="w-4 h-4" />
           </button>
         </div>
-        <button onClick={goToday}
-          className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors">
-          Hoy
-        </button>
+        <div className="flex items-center gap-2">
+          <div className="flex bg-slate-100 rounded-lg p-0.5">
+            {(['month', 'gantt'] as const).map(v => (
+              <button key={v} onClick={() => setCalView(v)}
+                className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${
+                  calView === v ? 'bg-white text-[#1A2744] shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                }`}>
+                {v === 'month' ? '📅 Mes' : '📊 Gantt'}
+              </button>
+            ))}
+          </div>
+          <button onClick={goToday}
+            className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors">
+            Hoy
+          </button>
+        </div>
       </div>
 
+      {/* ── Gantt view ── */}
+      {calView === 'gantt' && (
+        <GanttView tasks={tasks} year={year} month={month} />
+      )}
+
       {/* ── Calendar grid ── */}
-      <div className="p-4">
+      {calView === 'month' && <div className="p-4">
 
         {/* Weekday headers */}
         <div className="grid grid-cols-7 mb-1">
@@ -192,16 +330,17 @@ export default function CalendarPanel({ tasks }: { tasks: CalendarTask[] }) {
           ))}
         </div>
       </div>
+      }
 
-      {/* ── Leyenda ── */}
-      <div className="flex items-center gap-5 px-6 py-3 border-t border-slate-100 flex-wrap">
+      {/* ── Leyenda (solo vista mes) ── */}
+      {calView === 'month' && <div className="flex items-center gap-5 px-6 py-3 border-t border-slate-100 flex-wrap">
         {Object.entries(STATUS_STYLE).map(([status, s]) => (
           <div key={status} className="flex items-center gap-1.5">
             <span className={`w-2 h-2 rounded-full ${s.bar}`} />
             <span className="text-xs text-slate-500">{STATUS_LABEL[status]}</span>
           </div>
         ))}
-      </div>
+      </div>}
     </div>
   )
 }

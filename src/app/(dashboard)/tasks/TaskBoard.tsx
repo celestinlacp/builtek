@@ -39,6 +39,18 @@ const PRIORITY_DOT: Record<string, string> = {
   high: 'bg-orange-500', urgent: 'bg-red-500',
 }
 
+function CountdownBadge({ due_date }: { due_date: string }) {
+  const now = new Date()
+  const due = new Date(due_date + 'T00:00:00')
+  const diffDays = Math.ceil((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+
+  if (diffDays < 0)   return <span className="hidden md:inline text-[10px] font-semibold text-red-500 bg-red-50 px-1.5 py-0.5 rounded-full flex-shrink-0">Vencida</span>
+  if (diffDays === 0) return <span className="hidden md:inline text-[10px] font-semibold text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded-full flex-shrink-0">Hoy</span>
+  if (diffDays <= 3)  return <span className="hidden md:inline text-[10px] font-semibold text-orange-500 bg-orange-50 px-1.5 py-0.5 rounded-full flex-shrink-0">{diffDays}d</span>
+  if (diffDays <= 7)  return <span className="hidden md:inline text-[10px] font-semibold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full flex-shrink-0">{diffDays}d</span>
+  return <span className="hidden md:inline text-[10px] font-semibold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full flex-shrink-0">{diffDays}d</span>
+}
+
 function StatusBadge({ status, taskId }: { status: string; taskId: string }) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -125,11 +137,12 @@ function TaskRow({ task, members, onEdit, onOpen }: { task: Task & { project?: {
         </span>
       )}
 
-      {/* Due date */}
+      {/* Due date + countdown */}
       {task.due_date && (
-        <div className={`hidden md:flex items-center gap-1 text-xs flex-shrink-0 ${isOverdue ? 'text-red-500' : 'text-slate-400'}`}>
+        <div className={`hidden md:flex items-center gap-1.5 text-xs flex-shrink-0 ${isOverdue ? 'text-red-500' : 'text-slate-400'}`}>
           <Calendar className="w-3 h-3" />
           {new Date(task.due_date).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}
+          {task.status !== 'done' && <CountdownBadge due_date={task.due_date} />}
         </div>
       )}
 
@@ -380,6 +393,7 @@ export default function TaskBoard({
           task={slideTask}
           availableDocs={availableDocs}
           currentUserId={currentUserId}
+          members={members}
           onClose={() => setSlideTask(null)}
         />
       )}
