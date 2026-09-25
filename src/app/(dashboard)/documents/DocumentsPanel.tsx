@@ -60,7 +60,6 @@ type Doc = {
   rejection_note: string | null
   project?: { name: string } | null
   specialty?: { name: string; code: string; category: string } | null
-  approver?: { full_name: string } | null
 }
 
 function formatSize(bytes: number | null) {

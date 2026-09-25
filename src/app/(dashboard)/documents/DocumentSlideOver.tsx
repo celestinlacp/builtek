@@ -30,7 +30,6 @@ type Doc = {
   approved_at?: string | null
   review_requested_at?: string | null
   rejection_note?: string | null
-  approver?: { full_name: string } | null
 }
 
 type Comment = {
@@ -77,15 +76,28 @@ export default function DocumentSlideOver({
   currentUserId: string
   onClose: () => void
 }) {
-  const [tab,         setTab]         = useState<'info' | 'versions' | 'comments'>('info')
-  const [comments,    setComments]    = useState<Comment[]>([])
-  const [versions,    setVersions]    = useState<VersionRow[]>([])
-  const [loadingCmts, setLoadingCmts] = useState(false)
-  const [loadingVers, setLoadingVers] = useState(false)
-  const [newComment,  setNewComment]  = useState('')
-  const [sending,     setSending]     = useState(false)
+  const [tab,           setTab]           = useState<'info' | 'versions' | 'comments'>('info')
+  const [comments,      setComments]      = useState<Comment[]>([])
+  const [versions,      setVersions]      = useState<VersionRow[]>([])
+  const [approverName,  setApproverName]  = useState<string | null>(null)
+  const [loadingCmts,   setLoadingCmts]   = useState(false)
+  const [loadingVers,   setLoadingVers]   = useState(false)
+  const [newComment,    setNewComment]    = useState('')
+  const [sending,       setSending]       = useState(false)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const supabase = createClient()
+
+  // Cargar nombre del aprobador si aplica
+  useEffect(() => {
+    if (doc.approved_by) {
+      supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', doc.approved_by)
+        .single()
+        .then(({ data }) => setApproverName(data?.full_name ?? null))
+    }
+  }, [doc.approved_by])
 
   const docName = doc.display_name || doc.file_name || doc.name
 
@@ -274,9 +286,9 @@ export default function DocumentSlideOver({
                     </div>
                     <div className="flex-1">
                       <p className={`text-[11px] font-semibold ${doc.status === 'approved' ? 'text-slate-600' : 'text-slate-300'}`}>APR — Aprobación</p>
-                      {doc.status === 'approved' && doc.approver?.full_name && (
+                      {doc.status === 'approved' && (
                         <p className="text-[10px] text-slate-400">
-                          {doc.approver.full_name}
+                          {approverName ?? '—'}
                           {doc.approved_at && ` · ${new Date(doc.approved_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}`}
                         </p>
                       )}
