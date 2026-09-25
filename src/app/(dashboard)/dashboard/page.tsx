@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { CheckSquare, FolderOpen, FileText, Bot, TrendingUp, Clock, AlertCircle, CheckCircle2 } from 'lucide-react'
+import { CheckSquare, FolderOpen, FileText, Bot, TrendingUp, Clock, AlertCircle, CheckCircle2, User, Zap } from 'lucide-react'
 import Link from 'next/link'
 
 async function getWorkspaceData(userId: string) {
@@ -50,6 +50,28 @@ export default async function DashboardPage() {
   const recentTasks = tasks.slice(0, 6)
   const myTasks = tasks.filter((t: any) => t.assignee_id === user.id && t.status !== 'done').slice(0, 5)
 
+  // Performance personal
+  const myAll     = tasks.filter((t: any) => t.assignee_id === user.id)
+  const myDone    = myAll.filter(t => t.status === 'done').length
+  const myReview  = myAll.filter(t => t.status === 'review').length
+  const myTotal   = myAll.length
+  const myScore   = myTotal > 0 ? Math.round(((myDone * 1 + myReview * 0.5) / myTotal) * 100) : null
+  const scoreColor = myScore === null ? 'text-slate-400'
+    : myScore >= 70 ? 'text-green-600'
+    : myScore >= 40 ? 'text-amber-500'
+    : 'text-red-500'
+  const scoreBg = myScore === null ? 'bg-slate-50'
+    : myScore >= 70 ? 'bg-green-50'
+    : myScore >= 40 ? 'bg-amber-50'
+    : 'bg-red-50'
+
+  const now = new Date()
+  const myUrgent = myAll.filter((t: any) => {
+    if (t.status === 'done' || t.status === 'review' || !t.due_date) return false
+    const diff = Math.ceil((new Date(t.due_date).getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+    return diff <= 3
+  }).length
+
   const STATUS_LABEL: Record<string, string> = {
     pending: 'Pendiente', in_progress: 'En curso',
     review: 'En revisión', done: 'Hecho', blocked: 'Bloqueado'
@@ -77,7 +99,7 @@ export default async function DashboardPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-[#1A2744]">{greeting}, {firstName} 👋</h1>
-          <p className="text-slate-500 text-sm mt-0.5">{workspace.name} — resumen del proyecto</p>
+          <p className="text-slate-500 text-sm mt-0.5">{workspace.name} — resumen del equipo</p>
         </div>
         <Link
           href="/tasks"
@@ -115,7 +137,7 @@ export default async function DashboardPage() {
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <TrendingUp className="w-4 h-4 text-[#00C2FF]" />
-              <span className="text-sm font-semibold text-[#1A2744]">Avance general del proyecto</span>
+              <span className="text-sm font-semibold text-[#1A2744]">Avance del equipo</span>
             </div>
             <span className="text-lg font-bold text-[#1A2744]">{progressPct}%</span>
           </div>
@@ -131,6 +153,57 @@ export default async function DashboardPage() {
             <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-slate-300 inline-block" />{tasksPending} pendientes</span>
             {tasksBlocked > 0 && <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-red-500 inline-block" />{tasksBlocked} bloqueadas</span>}
           </div>
+        </div>
+      )}
+
+      {/* Mi rendimiento */}
+      {myTotal > 0 && (
+        <div className={`rounded-xl border p-5 ${scoreBg} border-slate-100`}>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-bold text-[#1A2744] flex items-center gap-2">
+              <User className="w-4 h-4 text-[#00C2FF]" /> Mi rendimiento
+            </h2>
+            <span className="text-[10px] text-slate-400 bg-white px-2 py-0.5 rounded-full border border-slate-100">
+              Hecho = 100% · En revisión = 50%
+            </span>
+          </div>
+
+          <div className="flex items-center gap-6">
+            {/* Score */}
+            <div className="flex-shrink-0 text-center">
+              <p className={`text-5xl font-black ${scoreColor}`}>
+                {myScore !== null ? `${myScore}%` : '—'}
+              </p>
+              <p className="text-[10px] text-slate-400 mt-1 font-medium uppercase tracking-wide">Score de entrega</p>
+            </div>
+
+            <div className="w-px h-14 bg-slate-200 flex-shrink-0" />
+
+            {/* Stats */}
+            <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {[
+                { label: 'Asignadas',   value: myTotal,                       color: 'text-[#1A2744]' },
+                { label: 'Completadas', value: myDone,                        color: 'text-green-600' },
+                { label: 'En revisión', value: myReview,                      color: 'text-amber-600' },
+                { label: 'Urgentes',    value: myUrgent, icon: myUrgent > 0,  color: myUrgent > 0 ? 'text-red-500' : 'text-slate-400' },
+              ].map(stat => (
+                <div key={stat.label} className="bg-white rounded-lg px-3 py-2.5 border border-slate-100 text-center">
+                  <p className={`text-2xl font-bold ${stat.color}`}>
+                    {stat.value}
+                    {stat.icon && <Zap className="w-3.5 h-3.5 inline ml-0.5 mb-0.5" />}
+                  </p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">{stat.label}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {myUrgent > 0 && (
+            <p className="text-xs text-red-500 mt-3 flex items-center gap-1.5">
+              <AlertCircle className="w-3.5 h-3.5" />
+              Tienes {myUrgent} tarea{myUrgent > 1 ? 's' : ''} que vence{myUrgent > 1 ? 'n' : ''} en los próximos 3 días.
+            </p>
+          )}
         </div>
       )}
 
