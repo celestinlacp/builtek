@@ -130,6 +130,124 @@ export async function unlinkDocument(taskDocId: string) {
   return { success: true }
 }
 
+// ── Entregables ───────────────────────────────────────────────────────────────
+
+export async function uploadEntregable(data: {
+  taskId:      string
+  workspaceId: string
+  storageKey:  string
+  fileName:    string
+  fileType:    string
+  fileSize:    number
+}) {
+  const { userId } = await getWorkspaceId()
+  const admin = getAdminClient()
+
+  // Insertar entregable
+  const { error } = await admin.from('entregables').insert({
+    task_id:      data.taskId,
+    workspace_id: data.workspaceId,
+    uploaded_by:  userId,
+    file_url:     data.storageKey,
+    file_name:    data.fileName,
+    file_type:    data.fileType,
+    file_size:    data.fileSize,
+    status:       'pending',
+  })
+  if (error) return { error: error.message }
+
+  // Mover tarea a "en revisión" automáticamente
+  await admin.from('tasks').update({ status: 'review' }).eq('id', data.taskId)
+
+  revalidatePath('/tasks')
+  revalidatePath('/deliverables')
+  return { success: true }
+}
+
+export async function approveEntregable(entregableId: string, taskId: string) {
+  const { userId, workspaceId } = await getWorkspaceId()
+  const admin = getAdminClient()
+
+  // Obtener info del entregable para la notificación
+  const { data: ent } = await admin
+    .from('entregables')
+    .select('file_name, uploaded_by, task_id, tasks(name)')
+    .eq('id', entregableId)
+    .single()
+
+  if (!ent) return { error: 'Entregable no encontrado' }
+
+  // Aprobar entregable
+  await admin.from('entregables').update({
+    status:      'approved',
+    reviewed_by: userId,
+    reviewed_at: new Date().toISOString(),
+  }).eq('id', entregableId)
+
+  // Mover tarea a done
+  await admin.from('tasks').update({ status: 'done' }).eq('id', taskId)
+
+  // Obtener nombre del revisor
+  const { data: reviewer } = await admin.from('profiles').select('full_name').eq('id', userId).single()
+  const reviewerName = reviewer?.full_name || 'Un manager'
+  const taskName = (ent.tasks as any)?.name || 'Tarea'
+
+  // Notificación sistema en workspace chat
+  await admin.from('workspace_messages').insert({
+    workspace_id: workspaceId,
+    sender_id:    null,
+    type:         'system',
+    content:      `✅ Entregable aprobado: "${ent.file_name}" de la tarea "${taskName}" fue aprobado por ${reviewerName}.`,
+    metadata:     { entregable_id: entregableId, task_id: taskId, action: 'approved', for_user: ent.uploaded_by },
+  })
+
+  revalidatePath('/tasks')
+  revalidatePath('/deliverables')
+  return { success: true }
+}
+
+export async function rejectEntregable(entregableId: string, taskId: string, note: string) {
+  const { userId, workspaceId } = await getWorkspaceId()
+  const admin = getAdminClient()
+
+  const { data: ent } = await admin
+    .from('entregables')
+    .select('file_name, uploaded_by, tasks(name)')
+    .eq('id', entregableId)
+    .single()
+
+  if (!ent) return { error: 'Entregable no encontrado' }
+
+  // Rechazar entregable
+  await admin.from('entregables').update({
+    status:      'rejected',
+    reviewed_by: userId,
+    reviewed_at: new Date().toISOString(),
+    review_note: note,
+  }).eq('id', entregableId)
+
+  // Regresar tarea a en_progreso
+  await admin.from('tasks').update({ status: 'in_progress' }).eq('id', taskId)
+
+  // Obtener nombre del revisor
+  const { data: reviewer } = await admin.from('profiles').select('full_name').eq('id', userId).single()
+  const reviewerName = reviewer?.full_name || 'Un manager'
+  const taskName = (ent.tasks as any)?.name || 'Tarea'
+
+  // Notificación sistema
+  await admin.from('workspace_messages').insert({
+    workspace_id: workspaceId,
+    sender_id:    null,
+    type:         'system',
+    content:      `❌ Entregable rechazado: "${ent.file_name}" de "${taskName}" fue rechazado por ${reviewerName}. Motivo: ${note}`,
+    metadata:     { entregable_id: entregableId, task_id: taskId, action: 'rejected', for_user: ent.uploaded_by },
+  })
+
+  revalidatePath('/tasks')
+  revalidatePath('/deliverables')
+  return { success: true }
+}
+
 export async function reprogramTask(taskId: string, newDueDate: string, reason: string) {
   const { userId } = await getWorkspaceId()
   const admin = getAdminClient()

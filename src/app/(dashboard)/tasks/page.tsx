@@ -106,7 +106,7 @@ export default async function TasksPage() {
           </Link>
         </div>
       ) : (
-        <TaskBoard tasks={tasks} projects={projects} members={members} availableDocs={availableDocs} currentUserId={user.id} currentUserRole={membership.role} />
+        <TaskBoard tasks={tasks} projects={projects} members={members} availableDocs={availableDocs} currentUserId={user.id} currentUserRole={membership.role} workspaceId={wsId} />
       )}
     </div>
   )

@@ -2,13 +2,14 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { addComment, deleteComment, linkDocument, unlinkDocument, reprogramTask } from './actions'
+import { addComment, deleteComment, linkDocument, unlinkDocument, reprogramTask, uploadEntregable, approveEntregable, rejectEntregable } from './actions'
 import { Task, Project } from '@/types'
 import {
   X, MessageSquare, Send, Trash2, Paperclip,
   FileText, HardDrive, ChevronDown, Calendar,
   AlertCircle, Clock, CheckCircle2, XCircle,
-  Eye, Download, Plus, Loader2, User, Timer
+  Eye, Download, Plus, Loader2, User, Timer,
+  Upload, Package, ThumbsUp, ThumbsDown
 } from 'lucide-react'
 
 // ── Tipos ────────────────────────────────────────────────────────────────────
@@ -31,6 +32,18 @@ type TaskDoc = {
 }
 
 type Member = { user_id: string; full_name: string | null }
+
+type Entregable = {
+  id: string
+  file_name: string
+  file_type: string | null
+  file_size: number | null
+  status: 'pending' | 'approved' | 'rejected'
+  review_note: string | null
+  created_at: string
+  uploaded_by: string
+  uploader_name?: string | null
+}
 
 type AvailableDoc = {
   id: string
@@ -177,7 +190,7 @@ function LinkDocModal({
 const CAN_REPROGRAM_ROLES = ['owner', 'admin', 'manager']
 
 export default function TaskSlideOver({
-  task, project, availableDocs, currentUserId, currentUserRole, members, onClose
+  task, project, availableDocs, currentUserId, currentUserRole, members, workspaceId, onClose
 }: {
   task:             Task & { project?: { name: string } }
   project?:         Project
@@ -185,6 +198,7 @@ export default function TaskSlideOver({
   currentUserId:    string
   currentUserRole?: string
   members?:         Member[]
+  workspaceId?:     string
   onClose:          () => void
 }) {
   const supabase = createClient()
@@ -194,6 +208,12 @@ export default function TaskSlideOver({
   const [loadingData,  setLoadingData]  = useState(true)
   const [newComment,   setNewComment]   = useState('')
   const [sending,      setSending]      = useState(false)
+  const [entregables,     setEntregables]     = useState<Entregable[]>([])
+  const [uploadingEnt,   setUploadingEnt]    = useState(false)
+  const [entError,       setEntError]        = useState<string | null>(null)
+  const [rejectingId,    setRejectingId]     = useState<string | null>(null)
+  const [rejectNote,     setRejectNote]      = useState('')
+  const [approvingId,    setApprovingId]     = useState<string | null>(null)
   const [showLinkModal,   setShowLinkModal]   = useState(false)
   const [unlinking,       setUnlinking]       = useState<string | null>(null)
   const [deleting,        setDeleting]        = useState<string | null>(null)
@@ -214,6 +234,66 @@ export default function TaskSlideOver({
   const countdown = task.due_date && task.status !== 'done' ? getCountdown(task.due_date) : null
   const isOverdue = task.due_date && task.status !== 'done' && new Date(task.due_date + 'T00:00:00') < new Date()
   const canReprogram = isOverdue && currentUserRole && CAN_REPROGRAM_ROLES.includes(currentUserRole)
+
+  async function handleEntregableUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file || !workspaceId) return
+    setUploadingEnt(true)
+    setEntError(null)
+    try {
+      // 1. Obtener presigned URL
+      const presignRes = await fetch('/api/entregables/presign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          workspaceId, taskId: task.id,
+          fileName: file.name, contentType: file.type, fileSize: file.size,
+        }),
+      })
+      if (!presignRes.ok) throw new Error('No se pudo preparar la subida')
+      const { uploadUrl, storageKey, fileType } = await presignRes.json()
+
+      // 2. Subir a R2
+      const r2Res = await fetch(uploadUrl, { method: 'PUT', body: file, headers: { 'Content-Type': file.type } })
+      if (!r2Res.ok) throw new Error('Error al subir el archivo')
+
+      // 3. Guardar en DB + mover tarea a review
+      const result = await uploadEntregable({
+        taskId: task.id, workspaceId, storageKey,
+        fileName: file.name, fileType, fileSize: file.size,
+      })
+      if (result?.error) throw new Error(result.error)
+      await loadData()
+    } catch (err: any) {
+      setEntError(err.message || 'Error al subir entregable')
+    } finally {
+      setUploadingEnt(false)
+      e.target.value = ''
+    }
+  }
+
+  async function handleApprove(entId: string) {
+    setApprovingId(entId)
+    try {
+      const result = await approveEntregable(entId, task.id)
+      if (result?.error) setEntError(result.error)
+      else await loadData()
+    } finally {
+      setApprovingId(null)
+    }
+  }
+
+  async function handleReject(entId: string) {
+    if (!rejectNote.trim()) { setEntError('Escribe el motivo del rechazo.'); return }
+    setApprovingId(entId)
+    try {
+      const result = await rejectEntregable(entId, task.id, rejectNote.trim())
+      if (result?.error) setEntError(result.error)
+      else { setRejectingId(null); setRejectNote(''); await loadData() }
+    } finally {
+      setApprovingId(null)
+    }
+  }
 
   async function handleReprogram() {
     if (!newDate || !reprogramReason.trim()) {
@@ -268,6 +348,21 @@ export default function TaskSlideOver({
 
     setComments(commentsWithProfiles as unknown as Comment[])
     setTaskDocs((taskDocsRes.data ?? []) as unknown as TaskDoc[])
+
+    // Fetch entregables
+    const { data: rawEnts } = await supabase
+      .from('entregables')
+      .select('id, file_name, file_type, file_size, status, review_note, created_at, uploaded_by')
+      .eq('task_id', task.id)
+      .order('created_at', { ascending: false })
+
+    const entUploaderIds = [...new Set((rawEnts ?? []).map((e: any) => e.uploaded_by))]
+    const entProfilesRes = entUploaderIds.length > 0
+      ? await supabase.from('profiles').select('id, full_name').in('id', entUploaderIds)
+      : { data: [] }
+    const entProfileMap = Object.fromEntries((entProfilesRes.data ?? []).map((p: any) => [p.id, p.full_name]))
+    setEntregables((rawEnts ?? []).map((e: any) => ({ ...e, uploader_name: entProfileMap[e.uploaded_by] ?? null })))
+
     setLoadingData(false)
   }, [task.id, supabase])
 
@@ -449,6 +544,115 @@ export default function TaskSlideOver({
               )}
             </div>
           )}
+
+          {/* Entregables */}
+          <div className="px-6 py-4 border-b border-slate-50">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
+                <Package className="w-3.5 h-3.5" />
+                Entregables
+                {entregables.length > 0 && (
+                  <span className="bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-full text-[10px]">{entregables.length}</span>
+                )}
+              </h3>
+              {/* Solo miembros pueden subir, no cuando ya hay uno pending/approved */}
+              {workspaceId && task.status !== 'done' && (
+                <label className={`flex items-center gap-1 text-xs font-semibold cursor-pointer transition-opacity ${uploadingEnt ? 'opacity-50 pointer-events-none' : 'text-[#00C2FF] hover:opacity-80'}`}>
+                  {uploadingEnt
+                    ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    : <Upload className="w-3.5 h-3.5" />
+                  }
+                  {uploadingEnt ? 'Subiendo...' : 'Subir'}
+                  <input type="file" className="hidden" onChange={handleEntregableUpload}
+                    accept=".pdf,.dwg,.dxf,.docx,.xlsx,.png,.jpg,.jpeg,.zip" />
+                </label>
+              )}
+            </div>
+
+            {entError && <p className="text-xs text-red-500 mb-2">{entError}</p>}
+
+            {loadingData ? (
+              <div className="flex justify-center py-3"><Loader2 className="w-4 h-4 text-slate-300 animate-spin" /></div>
+            ) : entregables.length === 0 ? (
+              <p className="text-xs text-slate-400 text-center py-4">Sin entregables aún</p>
+            ) : (
+              <div className="space-y-2">
+                {entregables.map(ent => {
+                  const statusConfig = {
+                    pending:  { label: 'En revisión', color: 'bg-amber-100 text-amber-700' },
+                    approved: { label: 'Aprobado',    color: 'bg-green-100 text-green-700' },
+                    rejected: { label: 'Rechazado',   color: 'bg-red-100 text-red-600' },
+                  }[ent.status]
+
+                  const canReview = currentUserRole && ['owner','admin','manager'].includes(currentUserRole)
+
+                  return (
+                    <div key={ent.id} className="bg-slate-50 rounded-lg px-3 py-2.5 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <FileText className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-slate-700 truncate">{ent.file_name}</p>
+                          <p className="text-[10px] text-slate-400">{ent.uploader_name || 'Usuario'} · {new Date(ent.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}</p>
+                        </div>
+                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0 ${statusConfig.color}`}>
+                          {statusConfig.label}
+                        </span>
+                        <a href={`/api/entregables/view/${ent.id}`} target="_blank" rel="noopener noreferrer"
+                          className="w-6 h-6 flex items-center justify-center rounded hover:bg-slate-200 text-slate-400 flex-shrink-0">
+                          <Eye className="w-3 h-3" />
+                        </a>
+                      </div>
+
+                      {/* Nota de rechazo */}
+                      {ent.status === 'rejected' && ent.review_note && (
+                        <p className="text-[10px] text-red-500 bg-red-50 rounded px-2 py-1">
+                          Motivo: {ent.review_note}
+                        </p>
+                      )}
+
+                      {/* Botones de revisión — solo para managers+ y entregables pending */}
+                      {canReview && ent.status === 'pending' && (
+                        rejectingId === ent.id ? (
+                          <div className="space-y-1.5">
+                            <textarea
+                              value={rejectNote}
+                              onChange={e => setRejectNote(e.target.value)}
+                              placeholder="Motivo del rechazo..."
+                              rows={2}
+                              className="w-full text-xs px-2 py-1.5 rounded border border-slate-200 resize-none focus:outline-none focus:ring-1 focus:ring-red-300"
+                            />
+                            <div className="flex gap-2">
+                              <button onClick={() => handleReject(ent.id)} disabled={approvingId === ent.id}
+                                className="flex-1 text-xs font-semibold bg-red-500 text-white py-1.5 rounded-lg hover:bg-red-600 disabled:opacity-50">
+                                {approvingId === ent.id ? 'Enviando...' : 'Confirmar rechazo'}
+                              </button>
+                              <button onClick={() => { setRejectingId(null); setRejectNote('') }}
+                                className="text-xs text-slate-500 px-3 py-1.5 rounded-lg hover:bg-slate-200">
+                                Cancelar
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex gap-2">
+                            <button onClick={() => handleApprove(ent.id)} disabled={!!approvingId}
+                              className="flex-1 flex items-center justify-center gap-1 text-xs font-semibold bg-green-500 text-white py-1.5 rounded-lg hover:bg-green-600 disabled:opacity-50">
+                              <ThumbsUp className="w-3 h-3" />
+                              {approvingId === ent.id ? 'Aprobando...' : 'Aprobar'}
+                            </button>
+                            <button onClick={() => setRejectingId(ent.id)} disabled={!!approvingId}
+                              className="flex-1 flex items-center justify-center gap-1 text-xs font-semibold bg-red-100 text-red-600 py-1.5 rounded-lg hover:bg-red-200 disabled:opacity-50">
+                              <ThumbsDown className="w-3 h-3" />
+                              Rechazar
+                            </button>
+                          </div>
+                        )
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
 
           {/* Documentos vinculados */}
           <div className="px-6 py-4 border-b border-slate-50">
