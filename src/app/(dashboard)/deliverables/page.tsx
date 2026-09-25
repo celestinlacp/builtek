@@ -29,7 +29,7 @@ export default async function DeliverablesPage() {
   // Entregables con info de tarea, uploader y reviewer
   const { data: rawEnts } = await supabase
     .from('entregables')
-    .select('id, file_name, file_type, file_size, status, review_note, created_at, uploaded_by, reviewed_by, reviewed_at, task_id, tasks(id, name, project_id, projects(id, name))')
+    .select('id, file_name, file_type, file_size, status, is_archived, review_note, created_at, uploaded_by, reviewed_by, reviewed_at, task_id, tasks(id, name, project_id, projects(id, name))')
     .eq('workspace_id', wsId)
     .order('created_at', { ascending: false })
 
@@ -49,8 +49,10 @@ export default async function DeliverablesPage() {
     uploader_name:  profileMap[e.uploaded_by]  ?? null,
     reviewer_name:  e.reviewed_by ? (profileMap[e.reviewed_by] ?? null) : null,
     task_name:      (e.tasks as any)?.name ?? null,
+    task_id:        (e.tasks as any)?.id   ?? e.task_id ?? null,
     project_id:     (e.tasks as any)?.projects?.id ?? null,
     project_name:   (e.tasks as any)?.projects?.name ?? null,
+    is_archived:    e.is_archived ?? false,
   }))
 
   return (

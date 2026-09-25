@@ -322,6 +322,25 @@ export async function rejectEntregable(entregableId: string, taskId: string, not
   return { success: true }
 }
 
+export async function archiveEntregable(entregableId: string) {
+  await getWorkspaceId()
+  const admin = getAdminClient()
+  const { error } = await admin.from('entregables').update({ is_archived: true }).eq('id', entregableId)
+  if (error) return { error: error.message }
+  revalidatePath('/deliverables')
+  return { success: true }
+}
+
+export async function deleteEntregable(entregableId: string) {
+  await getWorkspaceId()
+  const admin = getAdminClient()
+  const { error } = await admin.from('entregables').delete().eq('id', entregableId)
+  if (error) return { error: error.message }
+  revalidatePath('/deliverables')
+  revalidatePath('/tasks')
+  return { success: true }
+}
+
 // ── Oficios vinculados a tarea ─────────────────────────────────────────────────
 
 export async function linkOficioToTask(oficioId: string, taskId: string) {
