@@ -51,10 +51,10 @@ export default async function TasksPage() {
 
   const rawMemberIds = (membersRes.data || []).map((m: any) => m.user_id)
   const profilesRes = rawMemberIds.length > 0
-    ? await supabase.from('profiles').select('id, full_name').in('id', rawMemberIds)
+    ? await supabase.from('profiles').select('id, full_name, initials').in('id', rawMemberIds)
     : { data: [] }
-  const profileMap = Object.fromEntries((profilesRes.data || []).map((p: any) => [p.id, p.full_name]))
-  const members = rawMemberIds.map((uid: string) => ({ user_id: uid, full_name: profileMap[uid] || null }))
+  const profileMap = Object.fromEntries((profilesRes.data || []).map((p: any) => [p.id, { full_name: p.full_name, initials: p.initials }]))
+  const members = rawMemberIds.map((uid: string) => ({ user_id: uid, full_name: profileMap[uid]?.full_name || null, initials: profileMap[uid]?.initials || null }))
 
   const availableDocs = [
     ...(docsRes.data || []).map((d: any) => ({ ...d, source: 'document' as const })),

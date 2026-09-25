@@ -57,13 +57,14 @@ create table if not exists oficios (
   no_oficio       text,
   asunto          text not null,
   fecha_documento date,
+  fecha_recepcion date,
   proyecto_id     uuid references projects(id) on delete set null,
   especialidad    text,
   -- estado aplica principalmente a entrada; salida inicia como 'pendiente' también
   estado          text not null default 'pendiente' check (estado in ('pendiente', 'en_atencion', 'respondido', 'archivado')),
   remitente       text,       -- entrada: quien lo envía (empresa/dependencia)
   destinatario    text,       -- salida: a quien va dirigido
-  assignee_id     uuid references auth.users(id) on delete set null,
+  assignee_id     uuid references profiles(id) on delete set null,
   storage_key     text,       -- clave en R2
   file_name       text,       -- nombre original del archivo
   file_type       text,       -- pdf | docx | xlsx | other

@@ -546,7 +546,7 @@ function EstadoDropdown({ oficio }: { oficio: Oficio }) {
 // ── OficioRow ─────────────────────────────────────────────────────────────────
 
 function OficioRow({
-  oficio, projects, members, workspaceId, canEdit,
+  oficio, projects, members, workspaceId, canEdit, canDelete,
   onEdit,
 }: {
   oficio: Oficio
@@ -554,6 +554,7 @@ function OficioRow({
   members: Member[]
   workspaceId: string
   canEdit: boolean
+  canDelete: boolean
   onEdit: (o: Oficio) => void
 }) {
   const [deleting, setDeleting] = useState(false)
@@ -649,23 +650,23 @@ function OficioRow({
             </a>
           )}
           {canEdit && (
-            <>
-              <button
-                onClick={() => onEdit(oficio)}
-                className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
-                title="Editar"
-              >
-                <Pencil className="w-3.5 h-3.5" />
-              </button>
-              <button
-                onClick={handleDelete}
-                disabled={deleting}
-                className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-50 text-slate-300 hover:text-red-400 transition-colors disabled:opacity-40"
-                title="Eliminar"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
-            </>
+            <button
+              onClick={() => onEdit(oficio)}
+              className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
+              title="Editar"
+            >
+              <Pencil className="w-3.5 h-3.5" />
+            </button>
+          )}
+          {canDelete && (
+            <button
+              onClick={handleDelete}
+              disabled={deleting}
+              className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-50 text-slate-300 hover:text-red-400 transition-colors disabled:opacity-40"
+              title="Eliminar"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
           )}
         </div>
       </td>
@@ -699,7 +700,8 @@ export default function OficiosPanel({
   const [filterProject, setFilterProject] = useState('')
   const [filterEsp,     setFilterEsp]     = useState('')
 
-  const canEdit = ['owner', 'admin', 'manager'].includes(currentUserRole)
+  const canEdit   = ['owner', 'admin', 'manager'].includes(currentUserRole)
+  const canDelete = ['owner', 'admin'].includes(currentUserRole)
 
   const filtered = useMemo(() => {
     return oficios.filter(o => {
@@ -879,6 +881,7 @@ export default function OficiosPanel({
                     members={members}
                     workspaceId={workspaceId}
                     canEdit={canEdit}
+                    canDelete={canDelete}
                     onEdit={openEdit}
                   />
                 ))}
