@@ -69,6 +69,20 @@ export async function createOficio(data: {
   })
 
   if (error) return { error: error.message }
+
+  // Notificar al asignado si se especificó uno
+  if (data.assignee_id && data.assignee_id !== user.id && workspaceId) {
+    const { data: assignerProfile } = await admin.from('profiles').select('full_name').eq('id', user.id).single()
+    const assignerName = assignerProfile?.full_name ?? 'Un manager'
+    await admin.from('workspace_messages').insert({
+      workspace_id: workspaceId,
+      sender_id:    null,
+      type:         'system',
+      content:      `📋 ${assignerName} te asignó el oficio "${data.asunto}"${data.no_oficio ? ` (${data.no_oficio})` : ''}`,
+      metadata:     { action: 'oficio_assigned', mention_to: data.assignee_id, from_user: user.id },
+    })
+  }
+
   revalidatePath('/oficios')
   return { success: true }
 }
@@ -110,10 +124,30 @@ export async function updateOficioStatus(id: string, estado: string) {
 }
 
 export async function assignOficio(id: string, assignee_id: string | null) {
-  await getUser()
+  const { user, workspaceId } = await getUser()
   const admin = getAdminClient()
   const { error } = await admin.from('oficios').update({ assignee_id }).eq('id', id)
   if (error) return { error: error.message }
+
+  // Notificar al asignado en workspace chat
+  if (assignee_id && assignee_id !== user.id && workspaceId) {
+    const [oficioRes, assignerRes] = await Promise.all([
+      admin.from('oficios').select('asunto, no_oficio').eq('id', id).single(),
+      admin.from('profiles').select('full_name').eq('id', user.id).single(),
+    ])
+    const asunto      = oficioRes.data?.asunto   ?? 'un oficio'
+    const noOficio    = oficioRes.data?.no_oficio ? ` (${oficioRes.data.no_oficio})` : ''
+    const assignerName = assignerRes.data?.full_name ?? 'Un manager'
+
+    await admin.from('workspace_messages').insert({
+      workspace_id: workspaceId,
+      sender_id:    null,
+      type:         'system',
+      content:      `📋 ${assignerName} te asignó el oficio "${asunto}"${noOficio}`,
+      metadata:     { action: 'oficio_assigned', oficio_id: id, mention_to: assignee_id, from_user: user.id },
+    })
+  }
+
   revalidatePath('/oficios')
   return { success: true }
 }

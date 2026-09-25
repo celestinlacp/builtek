@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import {
   Plus, X, Pencil, Trash2, Eye, Upload, Loader2,
   FileText, Filter, ChevronDown, Check, ArrowDownToLine,
-  ArrowUpFromLine, Search, Sparkles
+  ArrowUpFromLine, Search, Sparkles, Download
 } from 'lucide-react'
 import { createOficio, updateOficio, deleteOficio, deleteOficios, updateOficioStatus } from './actions'
 
@@ -652,15 +652,24 @@ function OficioRow({
       <td className="px-4 py-3">
         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
           {oficio.storage_key && (
-            <a
-              href={`/api/oficios/view/${oficio.id}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-[#00C2FF]/10 text-slate-400 hover:text-[#00C2FF] transition-colors"
-              title="Ver archivo"
-            >
-              <Eye className="w-3.5 h-3.5" />
-            </a>
+            <>
+              <a
+                href={`/api/oficios/view/${oficio.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-[#00C2FF]/10 text-slate-400 hover:text-[#00C2FF] transition-colors"
+                title="Ver archivo"
+              >
+                <Eye className="w-3.5 h-3.5" />
+              </a>
+              <a
+                href={`/api/oficios/view/${oficio.id}?download=1`}
+                className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
+                title="Descargar archivo"
+              >
+                <Download className="w-3.5 h-3.5" />
+              </a>
+            </>
           )}
           {canEdit && (
             <button
@@ -707,11 +716,13 @@ export default function OficiosPanel({
   const [editOficio, setEditOficio] = useState<Oficio | null>(null)
 
   // Filtros
-  const [search,        setSearch]        = useState('')
-  const [filterFrom,    setFilterFrom]    = useState('')
-  const [filterTo,      setFilterTo]      = useState('')
-  const [filterProject, setFilterProject] = useState('')
-  const [filterEsp,     setFilterEsp]     = useState('')
+  const [search,          setSearch]          = useState('')
+  const [filterFrom,      setFilterFrom]      = useState('')
+  const [filterTo,        setFilterTo]        = useState('')
+  const [filterProject,   setFilterProject]   = useState('')
+  const [filterEsp,       setFilterEsp]       = useState('')
+  const [filterEstado,    setFilterEstado]    = useState('')
+  const [filterAssignee,  setFilterAssignee]  = useState('')
 
   // Selección múltiple
   const [selected,       setSelected]       = useState<Set<string>>(new Set())
@@ -730,13 +741,15 @@ export default function OficiosPanel({
             !(o.remitente?.toLowerCase().includes(q)) &&
             !(o.destinatario?.toLowerCase().includes(q))) return false
       }
-      if (filterProject && o.proyecto_id !== filterProject) return false
-      if (filterEsp && o.especialidad !== filterEsp) return false
+      if (filterProject  && o.proyecto_id  !== filterProject)  return false
+      if (filterEsp      && o.especialidad !== filterEsp)       return false
+      if (filterEstado   && o.estado       !== filterEstado)    return false
+      if (filterAssignee && o.assignee_id  !== filterAssignee)  return false
       if (filterFrom && o.fecha_documento && o.fecha_documento < filterFrom) return false
       if (filterTo   && o.fecha_documento && o.fecha_documento > filterTo)   return false
       return true
     })
-  }, [oficios, tab, search, filterProject, filterEsp, filterFrom, filterTo])
+  }, [oficios, tab, search, filterProject, filterEsp, filterEstado, filterAssignee, filterFrom, filterTo])
 
   const countEntrada = oficios.filter(o => o.tipo === 'entrada').length
   const countSalida  = oficios.filter(o => o.tipo === 'salida').length
@@ -857,9 +870,23 @@ export default function OficiosPanel({
           {ESPECIALIDADES.map(e => <option key={e} value={e}>{e}</option>)}
         </select>
 
-        {(search || filterFrom || filterTo || filterProject || filterEsp) && (
+        <select value={filterEstado} onChange={e => setFilterEstado(e.target.value)} className={inputCls}>
+          <option value="">Todos los estados</option>
+          {Object.entries(ESTADO_CONFIG).map(([key, cfg]) => (
+            <option key={key} value={key}>{cfg.label}</option>
+          ))}
+        </select>
+
+        <select value={filterAssignee} onChange={e => setFilterAssignee(e.target.value)} className={inputCls}>
+          <option value="">Todos los asignados</option>
+          {members.filter(m => m.user?.full_name).map(m => (
+            <option key={m.user_id} value={m.user_id}>{m.user?.full_name}</option>
+          ))}
+        </select>
+
+        {(search || filterFrom || filterTo || filterProject || filterEsp || filterEstado || filterAssignee) && (
           <button
-            onClick={() => { setSearch(''); setFilterFrom(''); setFilterTo(''); setFilterProject(''); setFilterEsp('') }}
+            onClick={() => { setSearch(''); setFilterFrom(''); setFilterTo(''); setFilterProject(''); setFilterEsp(''); setFilterEstado(''); setFilterAssignee('') }}
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs text-slate-500 hover:text-red-500 hover:bg-red-50 border border-slate-200 transition-colors"
           >
             <X className="w-3 h-3" />

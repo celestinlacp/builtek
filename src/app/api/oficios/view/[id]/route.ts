@@ -9,10 +9,11 @@ import { getR2Client, R2_BUCKET, r2IsConfigured } from '@/lib/r2/client'
  * Genera una URL pre-firmada para visualizar el archivo del oficio inline en el browser.
  */
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
+  const forceDownload = req.nextUrl.searchParams.get('download') === '1'
 
   if (!r2IsConfigured()) {
     return NextResponse.json({ error: 'R2 no configurado en el servidor' }, { status: 503 })
@@ -32,10 +33,14 @@ export async function GET(
     return NextResponse.json({ error: 'Oficio no encontrado o sin archivo' }, { status: 404 })
   }
 
+  const disposition = forceDownload
+    ? `attachment; filename="${oficio.file_name || 'oficio'}"`
+    : `inline; filename="${oficio.file_name || 'oficio'}"`
+
   const command = new GetObjectCommand({
     Bucket: R2_BUCKET(),
     Key:    oficio.storage_key,
-    ResponseContentDisposition: `inline; filename="${oficio.file_name || 'oficio'}"`,
+    ResponseContentDisposition: disposition,
   })
 
   const url = await getSignedUrl(getR2Client(), command, { expiresIn: 3600 })

@@ -249,6 +249,35 @@ export async function removeMember(targetUserId: string) {
   return { success: true }
 }
 
+export async function toggleFeature(feature: string, enabled: boolean) {
+  const { supabase, userId, workspaceId } = await getWorkspaceId()
+  if (!workspaceId) return { error: 'Sin workspace' }
+
+  const { data: myMembership } = await supabase
+    .from('workspace_members')
+    .select('role')
+    .eq('workspace_id', workspaceId)
+    .eq('user_id', userId)
+    .single()
+
+  if (!myMembership || !['owner', 'admin'].includes(myMembership.role)) {
+    return { error: 'Sin permisos para gestionar módulos' }
+  }
+
+  const admin = getAdminClient()
+  const { data: ws } = await admin.from('workspaces').select('features').eq('id', workspaceId).single()
+  const features = { ...(ws?.features || {}) } as Record<string, boolean>
+  if (enabled) features[feature] = true
+  else delete features[feature]
+
+  const { error } = await admin.from('workspaces').update({ features }).eq('id', workspaceId)
+  if (error) return { error: error.message }
+
+  revalidatePath('/admin')
+  revalidatePath('/oficios')
+  return { success: true }
+}
+
 export async function updateWorkspace(formData: FormData) {
   const { workspaceId } = await getWorkspaceId()
   if (!workspaceId) return { error: 'Sin workspace' }

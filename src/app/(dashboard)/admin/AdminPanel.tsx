@@ -6,8 +6,9 @@ import { createProject, updateProject, deleteProject, updateWorkspace, updateMem
 import {
   Plus, Pencil, Trash2, X, FolderOpen, Users, Settings,
   Calendar, CheckCircle2, PauseCircle, Archive, Shield, Crown, UserCog, Eye, Wrench,
-  Mail, Clock, Send, Link2, LinkIcon, Building2, Zap, HardDrive, FileText, Files
+  Mail, Clock, Send, Link2, LinkIcon, Building2, Zap, HardDrive, FileText, Files, Loader2
 } from 'lucide-react'
+import { toggleFeature } from './actions'
 
 const ROLE_CONFIG: Record<UserRole, { label: string; color: string; icon: React.ElementType }> = {
   owner:    { label: 'Owner',    color: 'bg-purple-100 text-purple-700', icon: Crown },
@@ -776,15 +777,32 @@ const PLAN_LABELS: Record<string, { label: string; color: string; description: s
   enterprise: { label: 'Enterprise',  color: 'bg-amber-100 text-amber-700',   description: 'Sin límites · SLA · Soporte dedicado' },
 }
 
+const AVAILABLE_MODULES = [
+  {
+    key: 'oficios',
+    label: 'Oficios',
+    description: 'Control de correspondencia oficial — oficios de entrada y salida',
+    icon: Mail,
+  },
+]
+
 function WorkspacePanel({
-  workspace, members, projects,
+  workspace, members, projects, currentUserRole,
 }: {
   workspace: Workspace
   members: MemberWithProfile[]
   projects: Project[]
+  currentUserRole: UserRole
 }) {
   const planCfg = PLAN_LABELS[workspace.plan] || PLAN_LABELS.free
-  const activeFeatures = Object.entries(workspace.features || {}).filter(([, v]) => v)
+  const [toggling, setToggling] = useState<string | null>(null)
+  const canManageModules = ['owner', 'admin'].includes(currentUserRole)
+
+  async function handleToggle(feature: string, enabled: boolean) {
+    setToggling(feature)
+    await toggleFeature(feature, enabled)
+    setToggling(null)
+  }
 
   const createdDate = new Date(workspace.created_at).toLocaleDateString('es-MX', {
     day: 'numeric', month: 'long', year: 'numeric',
@@ -836,24 +854,50 @@ function WorkspacePanel({
         </code>
       </div>
 
-      {/* Módulos activos */}
+      {/* Módulos */}
       <div className="bg-white border border-slate-100 rounded-xl p-5">
-        <div className="flex items-center gap-2 mb-3">
+        <div className="flex items-center gap-2 mb-4">
           <Zap className="w-4 h-4 text-amber-500" />
-          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Módulos activos</p>
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Módulos adicionales</p>
         </div>
-        {activeFeatures.length === 0 ? (
-          <p className="text-sm text-slate-400">No hay módulos adicionales activos.</p>
-        ) : (
-          <div className="flex flex-wrap gap-2">
-            {activeFeatures.map(([key]) => (
-              <span key={key} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-[#00C2FF]/10 text-[#00C2FF] border border-[#00C2FF]/20">
-                <CheckCircle2 className="w-3 h-3" />
-                {key}
-              </span>
-            ))}
-          </div>
-        )}
+        <div className="space-y-4">
+          {AVAILABLE_MODULES.map(mod => {
+            const isEnabled = !!(workspace.features?.[mod.key])
+            const ModIcon = mod.icon
+            return (
+              <div key={mod.key} className="flex items-center justify-between gap-4">
+                <div className="flex items-start gap-3">
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors ${isEnabled ? 'bg-[#00C2FF]/10' : 'bg-slate-100'}`}>
+                    <ModIcon className={`w-4 h-4 ${isEnabled ? 'text-[#00C2FF]' : 'text-slate-400'}`} />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-slate-700">{mod.label}</p>
+                    <p className="text-xs text-slate-400">{mod.description}</p>
+                  </div>
+                </div>
+                {canManageModules ? (
+                  <button
+                    onClick={() => handleToggle(mod.key, !isEnabled)}
+                    disabled={toggling === mod.key}
+                    title={isEnabled ? 'Desactivar módulo' : 'Activar módulo'}
+                    className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 disabled:opacity-60 ${isEnabled ? 'bg-[#00C2FF]' : 'bg-slate-200'}`}
+                  >
+                    {toggling === mod.key
+                      ? <Loader2 className="absolute inset-0 m-auto w-3.5 h-3.5 animate-spin text-white" />
+                      : <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${isEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
+                    }
+                  </button>
+                ) : (
+                  isEnabled && (
+                    <span className="text-[10px] text-[#00C2FF] font-semibold bg-[#00C2FF]/10 px-2 py-0.5 rounded-full flex-shrink-0">
+                      Activo
+                    </span>
+                  )
+                )}
+              </div>
+            )
+          })}
+        </div>
       </div>
 
       {/* Miembros */}
@@ -986,7 +1030,7 @@ export default function AdminPanel({
 
       {/* Workspace tab */}
       {tab === 'workspace' && (
-        <WorkspacePanel workspace={workspace} members={members} projects={projects} />
+        <WorkspacePanel workspace={workspace} members={members} projects={projects} currentUserRole={currentUserRole} />
       )}
 
       {/* Storage tab */}
