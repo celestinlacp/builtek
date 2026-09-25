@@ -1,8 +1,10 @@
 'use client'
 
-import { Bell, Search, CheckCheck } from 'lucide-react'
+import { Bell, Search, CheckCheck, UserCircle, Settings, LogOut } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import Link from 'next/link'
+import { logout } from '@/app/(auth)/actions'
 
 type Notification = {
   id: string
@@ -37,10 +39,15 @@ export default function Topbar({
     .toUpperCase()
     .slice(0, 2)
 
-  const [open, setOpen] = useState(false)
-  const [notifs, setNotifs] = useState<Notification[]>([])
-  const [unread, setUnread] = useState(0)
-  const dropRef = useRef<HTMLDivElement>(null)
+  // Notification dropdown
+  const [bellOpen, setBellOpen] = useState(false)
+  const [notifs, setNotifs]     = useState<Notification[]>([])
+  const [unread, setUnread]     = useState(0)
+  const bellRef = useRef<HTMLDivElement>(null)
+
+  // Avatar dropdown
+  const [avatarOpen, setAvatarOpen] = useState(false)
+  const avatarRef = useRef<HTMLDivElement>(null)
 
   // Load notifications
   useEffect(() => {
@@ -60,32 +67,21 @@ export default function Topbar({
       setNotifs(items)
 
       const lastSeen = localStorage.getItem(LS_KEY(workspaceId))
-      if (!lastSeen) {
-        setUnread(items.length)
-      } else {
-        setUnread(items.filter(n => new Date(n.created_at) > new Date(lastSeen)).length)
-      }
+      setUnread(!lastSeen ? items.length : items.filter(n => new Date(n.created_at) > new Date(lastSeen)).length)
     }
 
     load()
 
-    // Realtime subscription
     const channel = supabase
       .channel(`notifs_${workspaceId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'workspace_messages',
-          filter: `workspace_id=eq.${workspaceId}`,
-        },
-        (payload) => {
-          if (payload.new?.type !== 'system') return
-          setNotifs(prev => [payload.new as Notification, ...prev.slice(0, 14)])
-          setUnread(prev => prev + 1)
-        }
-      )
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public',
+        table: 'workspace_messages', filter: `workspace_id=eq.${workspaceId}`,
+      }, (payload) => {
+        if (payload.new?.type !== 'system') return
+        setNotifs(prev => [payload.new as Notification, ...prev.slice(0, 14)])
+        setUnread(prev => prev + 1)
+      })
       .subscribe()
 
     return () => { supabase.removeChannel(channel) }
@@ -94,21 +90,25 @@ export default function Topbar({
   // Close on outside click
   useEffect(() => {
     function handle(e: MouseEvent) {
-      if (dropRef.current && !dropRef.current.contains(e.target as Node)) {
-        setOpen(false)
-      }
+      if (bellRef.current && !bellRef.current.contains(e.target as Node)) setBellOpen(false)
+      if (avatarRef.current && !avatarRef.current.contains(e.target as Node)) setAvatarOpen(false)
     }
-    if (open) document.addEventListener('mousedown', handle)
+    document.addEventListener('mousedown', handle)
     return () => document.removeEventListener('mousedown', handle)
-  }, [open])
+  }, [])
 
-  function handleOpen() {
-    setOpen(v => !v)
-    if (!open) {
-      // mark all as seen
+  function handleBellOpen() {
+    setBellOpen(v => !v)
+    setAvatarOpen(false)
+    if (!bellOpen) {
       localStorage.setItem(LS_KEY(workspaceId), new Date().toISOString())
       setUnread(0)
     }
+  }
+
+  function handleAvatarOpen() {
+    setAvatarOpen(v => !v)
+    setBellOpen(false)
   }
 
   return (
@@ -124,10 +124,10 @@ export default function Topbar({
       </div>
 
       <div className="flex items-center gap-3 ml-auto">
-        {/* Notifications */}
-        <div ref={dropRef} className="relative">
+        {/* Bell */}
+        <div ref={bellRef} className="relative">
           <button
-            onClick={handleOpen}
+            onClick={handleBellOpen}
             className="relative w-9 h-9 flex items-center justify-center rounded-lg hover:bg-slate-100 transition-colors"
           >
             <Bell className="w-4 h-4 text-slate-500" />
@@ -138,9 +138,8 @@ export default function Topbar({
             )}
           </button>
 
-          {open && (
+          {bellOpen && (
             <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl border border-slate-200 shadow-lg overflow-hidden z-50">
-              {/* Header */}
               <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
                 <span className="text-sm font-bold text-[#1A2744]">Notificaciones</span>
                 {notifs.length > 0 && (
@@ -149,8 +148,6 @@ export default function Topbar({
                   </span>
                 )}
               </div>
-
-              {/* List */}
               <div className="max-h-80 overflow-y-auto">
                 {notifs.length === 0 ? (
                   <p className="text-xs text-slate-400 text-center py-8">Sin notificaciones</p>
@@ -165,9 +162,54 @@ export default function Topbar({
           )}
         </div>
 
-        {/* Avatar */}
-        <div className="w-9 h-9 bg-[#1A2744] rounded-lg flex items-center justify-center">
-          <span className="text-[#00C2FF] text-xs font-bold">{initials}</span>
+        {/* Avatar + dropdown */}
+        <div ref={avatarRef} className="relative">
+          <button
+            onClick={handleAvatarOpen}
+            className="w-9 h-9 bg-[#1A2744] rounded-lg flex items-center justify-center hover:ring-2 hover:ring-[#00C2FF]/40 transition-all"
+          >
+            <span className="text-[#00C2FF] text-xs font-bold">{initials}</span>
+          </button>
+
+          {avatarOpen && (
+            <div className="absolute right-0 mt-2 w-52 bg-white rounded-xl border border-slate-200 shadow-lg overflow-hidden z-50">
+              {/* User info */}
+              <div className="px-4 py-3 border-b border-slate-100">
+                <p className="text-xs font-bold text-[#1A2744] truncate">{userName}</p>
+              </div>
+
+              <div className="py-1">
+                <Link
+                  href="/settings/profile"
+                  onClick={() => setAvatarOpen(false)}
+                  className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-50 hover:text-[#1A2744] transition-colors"
+                >
+                  <UserCircle className="w-4 h-4" />
+                  Mi perfil
+                </Link>
+                <Link
+                  href="/admin"
+                  onClick={() => setAvatarOpen(false)}
+                  className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-50 hover:text-[#1A2744] transition-colors"
+                >
+                  <Settings className="w-4 h-4" />
+                  Configuración
+                </Link>
+              </div>
+
+              <div className="border-t border-slate-100 py-1">
+                <form action={logout}>
+                  <button
+                    type="submit"
+                    className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    Cerrar sesión
+                  </button>
+                </form>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </header>
