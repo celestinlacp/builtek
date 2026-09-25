@@ -11,7 +11,7 @@ export default async function TasksPage() {
 
   const { data: membership } = await supabase
     .from('workspace_members')
-    .select('workspace_id')
+    .select('workspace_id, role')
     .eq('user_id', user.id)
     .limit(1)
     .single()
@@ -106,7 +106,7 @@ export default async function TasksPage() {
           </Link>
         </div>
       ) : (
-        <TaskBoard tasks={tasks} projects={projects} members={members} availableDocs={availableDocs} currentUserId={user.id} />
+        <TaskBoard tasks={tasks} projects={projects} members={members} availableDocs={availableDocs} currentUserId={user.id} currentUserRole={membership.role} />
       )}
     </div>
   )

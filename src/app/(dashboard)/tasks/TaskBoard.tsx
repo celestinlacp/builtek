@@ -236,13 +236,14 @@ function SpecialtyGroup({
 type ExtendedTask = Task & { project?: { name: string } }
 
 export default function TaskBoard({
-  tasks, projects, members, availableDocs, currentUserId
+  tasks, projects, members, availableDocs, currentUserId, currentUserRole
 }: {
   tasks: ExtendedTask[]
   projects: Project[]
   members: Member[]
   availableDocs: AvailableDoc[]
   currentUserId: string
+  currentUserRole: string
 }) {
   const [view, setView] = useState<'board' | 'list'>('board')
   const [filter, setFilter] = useState<string>('all')
@@ -393,6 +394,7 @@ export default function TaskBoard({
           task={slideTask}
           availableDocs={availableDocs}
           currentUserId={currentUserId}
+          currentUserRole={currentUserRole}
           members={members}
           onClose={() => setSlideTask(null)}
         />

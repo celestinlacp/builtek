@@ -129,3 +129,21 @@ export async function unlinkDocument(taskDocId: string) {
   if (error) return { error: error.message }
   return { success: true }
 }
+
+export async function reprogramTask(taskId: string, newDueDate: string, reason: string) {
+  const { userId } = await getWorkspaceId()
+  const admin = getAdminClient()
+
+  const { error } = await admin.from('tasks').update({ due_date: newDueDate }).eq('id', taskId)
+  if (error) return { error: error.message }
+
+  const { data: profile } = await admin.from('profiles').select('full_name').eq('id', userId).single()
+  const name = profile?.full_name || 'Usuario'
+  const formatted = new Date(newDueDate + 'T00:00:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })
+  const content = `📅 Reprogramada al ${formatted}\nMotivo: ${reason}\n— ${name}`
+
+  await admin.from('comments').insert({ task_id: taskId, user_id: userId, content })
+
+  revalidatePath('/tasks')
+  return { success: true }
+}
