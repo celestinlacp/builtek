@@ -5,6 +5,26 @@ import { createClient as createAdmin } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
+// ── Nomenclatura AEC ──────────────────────────────────────────────────────────
+// Ejemplo: TQM-0000-PLA-AARQ-PLT-0004
+// doc_key     = TQM-0000-PLA-AARQ-PLT  (todo menos el último segmento numérico)
+// version_number = 4
+
+export function parseDocKey(fileName: string): { doc_key: string; version_number: number } | null {
+  // Quitar extensión
+  const base = fileName.replace(/\.[^/.]+$/, '')
+  const parts = base.split('-')
+  if (parts.length < 2) return null
+
+  // El último segmento debe ser exactamente 4 dígitos
+  const last = parts[parts.length - 1]
+  if (!/^\d{4}$/.test(last)) return null
+
+  const doc_key       = parts.slice(0, -1).join('-')
+  const version_number = parseInt(last, 10)
+  return { doc_key, version_number }
+}
+
 function getAdminClient() {
   return createAdmin(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -35,7 +55,38 @@ export async function saveDocument(data: {
   const { user } = await getUser()
   const admin = getAdminClient()
 
-  const { error } = await admin.from('documents').insert({
+  // Detectar nomenclatura AEC
+  const parsed = parseDocKey(data.file_name)
+
+  let previousVersionId: string | null = null
+  let newVersionNumber = 1
+
+  if (parsed) {
+    // Buscar versión vigente con el mismo doc_key en este workspace
+    const { data: existing } = await admin
+      .from('documents')
+      .select('id, version_number')
+      .eq('workspace_id', data.workspace_id)
+      .eq('doc_key', parsed.doc_key)
+      .eq('is_current', true)
+      .maybeSingle()
+
+    if (existing) {
+      previousVersionId = existing.id
+      newVersionNumber  = (existing.version_number ?? 0) + 1
+
+      // Archivar versión anterior
+      await admin.from('documents').update({
+        is_current: false,
+        doc_status: 'archived',
+      }).eq('id', existing.id)
+    }
+
+    newVersionNumber = parsed.version_number
+  }
+
+  // Insertar nueva versión
+  const { data: inserted, error } = await admin.from('documents').insert({
     project_id:       data.project_id,
     workspace_id:     data.workspace_id,
     specialty_id:     data.specialty_id,
@@ -49,16 +100,44 @@ export async function saveDocument(data: {
     file_url:         data.storage_key,
     file_type:        data.file_type,
     file_size:        data.file_size,
-    version:          1,
+    version:          newVersionNumber,
+    doc_key:          parsed?.doc_key          ?? null,
+    version_number:   parsed?.version_number   ?? null,
+    is_current:       true,
     status:           'draft',
     doc_status:       'active',
     uploaded_by:      user.id,
     embedding_status: 'pending',
-  })
+  }).select('id').single()
 
   if (error) return { error: error.message }
+
+  // Enlazar versión anterior con la nueva (superseded_by)
+  if (previousVersionId && inserted?.id) {
+    await admin.from('documents').update({
+      superseded_by: inserted.id,
+    }).eq('id', previousVersionId)
+  }
+
   revalidatePath('/documents')
-  return { success: true }
+  return {
+    success:             true,
+    archivedPrevious:    !!previousVersionId,
+    versionNumber:       parsed?.version_number ?? null,
+  }
+}
+
+export async function getDocumentVersions(docKey: string, workspaceId: string) {
+  const { supabase } = await getUser()
+  const { data, error } = await supabase
+    .from('documents')
+    .select('id, file_name, version_number, status, doc_status, is_current, emission_date, uploaded_by, created_at, uploader:profiles!documents_uploaded_by_fkey(full_name, initials)')
+    .eq('workspace_id', workspaceId)
+    .eq('doc_key', docKey)
+    .order('version_number', { ascending: false })
+
+  if (error) return { error: error.message }
+  return { data }
 }
 
 export async function updateDocumentStatus(docId: string, status: string) {
