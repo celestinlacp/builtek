@@ -3,7 +3,7 @@
 import React, { useState, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Project } from '@/types'
-import { saveDocument, updateDocumentStatus, requestDeleteDocument, approveDeleteRequest, rejectDeleteRequest, deleteDocument } from './actions'
+import { saveDocument, updateDocumentStatus, requestDeleteDocument, approveDeleteRequest, rejectDeleteRequest, deleteDocument, submitForReview, approveDocument, rejectDocument } from './actions'
 import {
   Upload, Download, Trash2, ChevronDown, ChevronRight, ArrowLeft, Package,
   FolderOpen, CheckCircle2, Clock, XCircle, Eye, AlertTriangle, ShieldCheck, ShieldX, X, Loader2, History, GitBranch, SlidersHorizontal, Info,
@@ -53,8 +53,14 @@ type Doc = {
   author: string | null
   notes: string | null
   created_at: string
+  approved_by: string | null
+  approved_at: string | null
+  review_requested_by: string | null
+  review_requested_at: string | null
+  rejection_note: string | null
   project?: { name: string } | null
   specialty?: { name: string; code: string; category: string } | null
+  approver?: { full_name: string } | null
 }
 
 function formatSize(bytes: number | null) {
@@ -63,32 +69,83 @@ function formatSize(bytes: number | null) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
-function StatusBadge({ docId, status }: { docId: string; status: string }) {
-  const [open, setOpen] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const cfg = STATUS_CONFIG[status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.draft
+// ── Workflow AEC: ELAB → REV → APR ───────────────────────────────────────────
 
-  async function change(s: string) {
+const WORKFLOW_CONFIG = {
+  draft:    { label: 'ELAB', color: 'bg-slate-100 text-slate-600',   title: 'Elaboración' },
+  review:   { label: 'REV',  color: 'bg-amber-100 text-amber-700',   title: 'En Revisión' },
+  approved: { label: 'APR',  color: 'bg-green-100 text-green-700',   title: 'Aprobado'    },
+  rejected: { label: 'OBS',  color: 'bg-red-100   text-red-600',     title: 'Observado'   },
+}
+
+function WorkflowBadge({ doc, userRole }: { doc: Doc; userRole: string }) {
+  const [open,    setOpen]    = useState(false)
+  const [loading, setLoading] = useState(false)
+  const cfg     = WORKFLOW_CONFIG[doc.status as keyof typeof WORKFLOW_CONFIG] ?? WORKFLOW_CONFIG.draft
+  const isAdmin = ['owner', 'admin', 'manager'].includes(userRole)
+
+  // Transiciones disponibles según rol y estado
+  const transitions: { label: string; action: () => Promise<void>; color: string }[] = []
+
+  if (doc.status === 'draft') {
+    transitions.push({
+      label: 'Enviar a REV →',
+      color: 'text-amber-700 hover:bg-amber-50',
+      action: async () => { await submitForReview(doc.id) },
+    })
+  }
+  if (doc.status === 'review' && isAdmin) {
+    transitions.push({
+      label: '✓ Aprobar (APR)',
+      color: 'text-green-700 hover:bg-green-50',
+      action: async () => { await approveDocument(doc.id) },
+    })
+    transitions.push({
+      label: '✗ Observar (OBS)',
+      color: 'text-red-600 hover:bg-red-50',
+      action: async () => {
+        const note = window.prompt('Motivo de la observación (opcional):') ?? ''
+        await rejectDocument(doc.id, note)
+      },
+    })
+  }
+  if (doc.status === 'rejected') {
+    transitions.push({
+      label: '↺ Reactivar (ELAB)',
+      color: 'text-slate-600 hover:bg-slate-50',
+      action: async () => { await updateDocumentStatus(doc.id, 'draft') },
+    })
+  }
+  if (doc.status === 'approved' && ['owner', 'admin'].includes(userRole)) {
+    transitions.push({
+      label: '↺ Revertir a ELAB',
+      color: 'text-slate-500 hover:bg-slate-50',
+      action: async () => { await updateDocumentStatus(doc.id, 'draft') },
+    })
+  }
+
+  async function run(action: () => Promise<void>) {
     setLoading(true); setOpen(false)
-    await updateDocumentStatus(docId, s)
+    await action()
     setLoading(false)
   }
 
   return (
     <div className="relative">
-      <button onClick={() => setOpen(!open)} disabled={loading}
-        className={`text-xs px-2.5 py-1 rounded-full font-medium flex items-center gap-1 ${cfg.color} hover:opacity-80`}>
+      <button onClick={() => transitions.length > 0 && setOpen(v => !v)} disabled={loading}
+        title={cfg.title}
+        className={`text-xs px-2.5 py-1 rounded-full font-bold flex items-center gap-1 ${cfg.color} ${transitions.length > 0 ? 'hover:opacity-80 cursor-pointer' : 'cursor-default'}`}>
         {loading ? '...' : cfg.label}
-        <ChevronDown className="w-3 h-3" />
+        {transitions.length > 0 && <ChevronDown className="w-3 h-3" />}
       </button>
       {open && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute top-7 left-0 z-20 bg-white rounded-lg shadow-lg border border-slate-100 py-1 w-36">
-            {Object.entries(STATUS_CONFIG).map(([val, c]) => (
-              <button key={val} onClick={() => change(val)}
-                className={`w-full text-left px-3 py-1.5 text-xs font-medium hover:bg-slate-50 ${val === status ? 'opacity-40' : ''}`}>
-                <span className={`inline-block px-2 py-0.5 rounded-full ${c.color}`}>{c.label}</span>
+          <div className="absolute top-7 left-0 z-20 bg-white rounded-lg shadow-lg border border-slate-100 py-1 w-44">
+            {transitions.map(t => (
+              <button key={t.label} onClick={() => run(t.action)}
+                className={`w-full text-left px-3 py-2 text-xs font-medium ${t.color}`}>
+                {t.label}
               </button>
             ))}
           </div>
@@ -806,7 +863,7 @@ function ProjectDetailView({
                   <span className="flex-1">Documento</span>
                   <span className="hidden lg:block w-28">Autor</span>
                   <span className="hidden lg:block w-24">Versión</span>
-                  <span className="w-28">Estado</span>
+                  <span className="w-28">Flujo</span>
                   <span className="w-20 text-right">Acciones</span>
                 </div>
 
@@ -878,9 +935,9 @@ function ProjectDetailView({
                         {doc.emission_date ? new Date(doc.emission_date).toLocaleDateString('es-MX') : '—'}
                       </span>
 
-                      {/* Estado */}
+                      {/* Estado — Flujo ELAB → REV → APR */}
                       <div className="w-28">
-                        <StatusBadge docId={doc.id} status={doc.status} />
+                        <WorkflowBadge doc={doc} userRole={userRole} />
                       </div>
 
                       {/* Acciones */}

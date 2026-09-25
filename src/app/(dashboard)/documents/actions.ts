@@ -193,6 +193,49 @@ export async function rejectDeleteRequest(requestId: string, docId: string, note
   return { success: true }
 }
 
+// ── Flujo de aprobación ELAB → REV → APR ─────────────────────────────────────
+
+export async function submitForReview(docId: string) {
+  const { user } = await getUser()
+  const admin = getAdminClient()
+  const { error } = await admin.from('documents').update({
+    status:               'review',
+    review_requested_by:  user.id,
+    review_requested_at:  new Date().toISOString(),
+    rejection_note:       null,
+  }).eq('id', docId)
+  if (error) return { error: error.message }
+  revalidatePath('/documents')
+  return { success: true }
+}
+
+export async function approveDocument(docId: string) {
+  const { user } = await getUser()
+  const admin = getAdminClient()
+  const { error } = await admin.from('documents').update({
+    status:      'approved',
+    approved_by: user.id,
+    approved_at: new Date().toISOString(),
+  }).eq('id', docId)
+  if (error) return { error: error.message }
+  revalidatePath('/documents')
+  return { success: true }
+}
+
+export async function rejectDocument(docId: string, note: string) {
+  const { user } = await getUser()
+  const admin = getAdminClient()
+  const { error } = await admin.from('documents').update({
+    status:         'rejected',
+    rejection_note: note || null,
+    approved_by:    null,
+    approved_at:    null,
+  }).eq('id', docId)
+  if (error) return { error: error.message }
+  revalidatePath('/documents')
+  return { success: true }
+}
+
 // ── Comentarios de control de cambios ─────────────────────────────────────────
 
 export async function addDocumentComment(documentId: string, workspaceId: string, content: string) {

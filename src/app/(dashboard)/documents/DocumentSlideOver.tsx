@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import {
   X, Send, Trash2, Download, GitBranch, User,
-  Calendar, Weight, Tag, FileText, MessageSquare, Loader2, History,
+  Calendar, Weight, Tag, FileText, MessageSquare, Loader2, History, CheckCircle2, XCircle, Clock,
 } from 'lucide-react'
 import { addDocumentComment, deleteDocumentComment, getDocumentVersions } from './actions'
 
@@ -26,6 +26,11 @@ type Doc = {
   created_at: string
   specialty?: { name: string; code: string } | null
   project?: { name: string } | null
+  approved_by?: string | null
+  approved_at?: string | null
+  review_requested_at?: string | null
+  rejection_note?: string | null
+  approver?: { full_name: string } | null
 }
 
 type Comment = {
@@ -218,6 +223,79 @@ export default function DocumentSlideOver({
                   <MetaRow icon={GitBranch} label="Clave AEC" value={doc.doc_key} />
                 )}
               </div>
+
+              {/* Cadena de aprobación */}
+              <div className="mt-4 rounded-xl border border-slate-100 overflow-hidden">
+                <div className="px-3 py-2 bg-slate-50 border-b border-slate-100">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Flujo de aprobación</p>
+                </div>
+                <div className="divide-y divide-slate-50">
+                  {/* ELAB */}
+                  <div className="flex items-center gap-2.5 px-3 py-2">
+                    <div className="w-5 h-5 rounded-full bg-slate-200 flex items-center justify-center flex-shrink-0">
+                      <span className="text-[9px] font-bold text-slate-500">E</span>
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-[11px] font-semibold text-slate-600">ELAB — Elaboración</p>
+                      <p className="text-[10px] text-slate-400">{doc.author || '—'}</p>
+                    </div>
+                    <CheckCircle2 className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />
+                  </div>
+
+                  {/* REV */}
+                  <div className="flex items-center gap-2.5 px-3 py-2">
+                    <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 ${
+                      ['review','approved','rejected'].includes(doc.status) ? 'bg-amber-100' : 'bg-slate-100'
+                    }`}>
+                      <span className={`text-[9px] font-bold ${['review','approved','rejected'].includes(doc.status) ? 'text-amber-600' : 'text-slate-300'}`}>R</span>
+                    </div>
+                    <div className="flex-1">
+                      <p className={`text-[11px] font-semibold ${['review','approved','rejected'].includes(doc.status) ? 'text-slate-600' : 'text-slate-300'}`}>REV — Revisión</p>
+                      {doc.review_requested_at && (
+                        <p className="text-[10px] text-slate-400">
+                          {new Date(doc.review_requested_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        </p>
+                      )}
+                    </div>
+                    {['review','approved','rejected'].includes(doc.status) && (
+                      doc.status === 'rejected'
+                        ? <XCircle className="w-3.5 h-3.5 text-red-400 flex-shrink-0" />
+                        : <CheckCircle2 className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />
+                    )}
+                    {doc.status === 'draft' && <Clock className="w-3.5 h-3.5 text-slate-300 flex-shrink-0" />}
+                  </div>
+
+                  {/* APR */}
+                  <div className="flex items-center gap-2.5 px-3 py-2">
+                    <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 ${
+                      doc.status === 'approved' ? 'bg-green-100' : 'bg-slate-100'
+                    }`}>
+                      <span className={`text-[9px] font-bold ${doc.status === 'approved' ? 'text-green-600' : 'text-slate-300'}`}>A</span>
+                    </div>
+                    <div className="flex-1">
+                      <p className={`text-[11px] font-semibold ${doc.status === 'approved' ? 'text-slate-600' : 'text-slate-300'}`}>APR — Aprobación</p>
+                      {doc.status === 'approved' && doc.approver?.full_name && (
+                        <p className="text-[10px] text-slate-400">
+                          {doc.approver.full_name}
+                          {doc.approved_at && ` · ${new Date(doc.approved_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}`}
+                        </p>
+                      )}
+                    </div>
+                    {doc.status === 'approved'
+                      ? <CheckCircle2 className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />
+                      : <Clock className="w-3.5 h-3.5 text-slate-300 flex-shrink-0" />
+                    }
+                  </div>
+                </div>
+              </div>
+
+              {/* Nota de observación */}
+              {doc.status === 'rejected' && doc.rejection_note && (
+                <div className="mt-3 bg-red-50 border border-red-100 rounded-xl px-4 py-3">
+                  <p className="text-xs font-semibold text-red-600 mb-1">Observación</p>
+                  <p className="text-xs text-red-700 leading-relaxed">{doc.rejection_note}</p>
+                </div>
+              )}
 
               {doc.notes && (
                 <div className="mt-4 bg-amber-50 border border-amber-100 rounded-xl px-4 py-3">
