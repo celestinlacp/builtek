@@ -83,6 +83,7 @@ export default async function DocumentsPage() {
         workspaceId={wsId}
         userRole={userRole}
         deleteRequests={deleteRequests as any}
+        currentUserId={user.id}
       />
     </div>
   )

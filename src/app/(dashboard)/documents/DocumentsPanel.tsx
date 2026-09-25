@@ -6,9 +6,10 @@ import { Project } from '@/types'
 import { saveDocument, updateDocumentStatus, requestDeleteDocument, approveDeleteRequest, rejectDeleteRequest, deleteDocument } from './actions'
 import {
   Upload, Download, Trash2, ChevronDown, ChevronRight, ArrowLeft, Package,
-  FolderOpen, CheckCircle2, Clock, XCircle, Eye, AlertTriangle, ShieldCheck, ShieldX, X, Loader2, Info, History, GitBranch,
+  FolderOpen, CheckCircle2, Clock, XCircle, Eye, AlertTriangle, ShieldCheck, ShieldX, X, Loader2, History, GitBranch, SlidersHorizontal, Info,
 } from 'lucide-react'
 import { parseDocKey } from './utils'
+import DocumentSlideOver from './DocumentSlideOver'
 
 type Specialty = { id: string; name: string; code: string; category: string }
 
@@ -597,7 +598,7 @@ function ProjectsView({
 // ── Vista detalle: documentos de un proyecto agrupados por disciplina ──────────
 
 function ProjectDetailView({
-  project, documents, specialties, workspaceId, userRole, deleteRequests,
+  project, documents, specialties, workspaceId, userRole, deleteRequests, currentUserId,
   onBack, onUpload,
 }: {
   project: Project
@@ -606,6 +607,7 @@ function ProjectDetailView({
   workspaceId: string
   userRole: string
   deleteRequests: DeleteRequest[]
+  currentUserId: string
   onBack: () => void
   onUpload: () => void
 }) {
@@ -613,6 +615,7 @@ function ProjectDetailView({
   const [filterStatus,     setFilterStatus]     = useState('all')
   const [filterSpecialty,  setFilterSpecialty]  = useState('all')
   const [viewingDoc,       setViewingDoc]       = useState<{ id: string; name: string } | null>(null)
+  const [slideDoc,         setSlideDoc]         = useState<Doc | null>(null)
   const [downloading,      setDownloading]      = useState(false)
   const [expandedHistory,  setExpandedHistory]  = useState<Set<string>>(new Set())
   const isAdmin = userRole === 'owner' || userRole === 'admin'
@@ -882,7 +885,10 @@ function ProjectDetailView({
 
                       {/* Acciones */}
                       <div className="flex items-center gap-0.5 w-20 justify-end">
-                        <DocInfoPopover doc={doc} />
+                        <button onClick={() => setSlideDoc(doc)} title="Ver detalles y comentarios"
+                          className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-[#00C2FF]/10 text-slate-400 hover:text-[#00C2FF] transition-colors">
+                          <SlidersHorizontal className="w-3.5 h-3.5" />
+                        </button>
                         {doc.storage_key && (
                           <a href={`/api/documents/download/${doc.id}`} target="_blank" rel="noopener noreferrer"
                             title="Descargar"
@@ -955,6 +961,15 @@ function ProjectDetailView({
           onClose={() => setViewingDoc(null)}
         />
       )}
+
+      {slideDoc && (
+        <DocumentSlideOver
+          doc={slideDoc}
+          workspaceId={workspaceId}
+          currentUserId={currentUserId}
+          onClose={() => setSlideDoc(null)}
+        />
+      )}
     </div>
   )
 }
@@ -962,7 +977,7 @@ function ProjectDetailView({
 // ── Componente principal ───────────────────────────────────────────────────────
 
 export default function DocumentsPanel({
-  documents, projects, specialties, workspaceId, userRole, deleteRequests
+  documents, projects, specialties, workspaceId, userRole, deleteRequests, currentUserId
 }: {
   documents: Doc[]
   projects: Project[]
@@ -970,6 +985,7 @@ export default function DocumentsPanel({
   workspaceId: string
   userRole: string
   deleteRequests: DeleteRequest[]
+  currentUserId: string
 }) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -1025,6 +1041,7 @@ export default function DocumentsPanel({
           workspaceId={workspaceId}
           userRole={userRole}
           deleteRequests={deleteRequests}
+          currentUserId={currentUserId}
           onBack={goBack}
           onUpload={() => setShowUpload(true)}
         />

@@ -192,3 +192,26 @@ export async function rejectDeleteRequest(requestId: string, docId: string, note
   revalidatePath('/documents')
   return { success: true }
 }
+
+// ── Comentarios de control de cambios ─────────────────────────────────────────
+
+export async function addDocumentComment(documentId: string, workspaceId: string, content: string) {
+  const { user } = await getUser()
+  const admin = getAdminClient()
+  const { error } = await admin.from('document_comments').insert({
+    document_id:  documentId,
+    workspace_id: workspaceId,
+    user_id:      user.id,
+    content:      content.trim(),
+  })
+  if (error) return { error: error.message }
+  return { success: true }
+}
+
+export async function deleteDocumentComment(commentId: string) {
+  await getUser()
+  const admin = getAdminClient()
+  const { error } = await admin.from('document_comments').delete().eq('id', commentId)
+  if (error) return { error: error.message }
+  return { success: true }
+}
