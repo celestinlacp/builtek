@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { sendMessage } from './actions'
-import { Send, Zap } from 'lucide-react'
+import { Send, Zap, AtSign } from 'lucide-react'
 
 type Message = {
   id: string
@@ -11,6 +11,7 @@ type Message = {
   sender_name: string | null
   content: string
   type: 'message' | 'system'
+  metadata: Record<string, any> | null
   created_at: string
 }
 
@@ -19,7 +20,6 @@ function getInitials(name: string | null) {
   return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
 }
 
-// Deterministic color per sender
 const COLORS = [
   'bg-violet-500', 'bg-sky-500', 'bg-emerald-500',
   'bg-amber-500', 'bg-rose-500', 'bg-indigo-500',
@@ -32,8 +32,7 @@ function avatarColor(id: string | null) {
 }
 
 function formatTime(dateStr: string) {
-  const d = new Date(dateStr)
-  return d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
+  return new Date(dateStr).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
 }
 
 function formatDay(dateStr: string) {
@@ -41,10 +40,19 @@ function formatDay(dateStr: string) {
   const today = new Date()
   const yesterday = new Date(today)
   yesterday.setDate(today.getDate() - 1)
-
   if (d.toDateString() === today.toDateString()) return 'Hoy'
   if (d.toDateString() === yesterday.toDateString()) return 'Ayer'
   return d.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' })
+}
+
+function DayDivider({ label }: { label: string }) {
+  return (
+    <div className="flex items-center gap-3 my-4">
+      <div className="flex-1 h-px bg-slate-100" />
+      <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">{label}</span>
+      <div className="flex-1 h-px bg-slate-100" />
+    </div>
+  )
 }
 
 export default function ChatPanel({
@@ -64,13 +72,8 @@ export default function ChatPanel({
   const bottomRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
-  // Scroll to bottom
-  const scrollToBottom = () => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }
-
   useEffect(() => {
-    scrollToBottom()
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
   // Realtime subscription
@@ -88,24 +91,16 @@ export default function ChatPanel({
         },
         async (payload) => {
           const raw = payload.new as any
-          // Fetch sender name if needed
           let sender_name: string | null = null
           if (raw.sender_id) {
             const { data } = await supabase
-              .from('profiles')
-              .select('full_name')
-              .eq('id', raw.sender_id)
-              .single()
+              .from('profiles').select('full_name').eq('id', raw.sender_id).single()
             sender_name = data?.full_name ?? 'Usuario'
           }
-          setMessages(prev => [
-            ...prev,
-            { ...raw, sender_name } as Message,
-          ])
+          setMessages(prev => [...prev, { ...raw, sender_name } as Message])
         }
       )
       .subscribe()
-
     return () => { supabase.removeChannel(channel) }
   }, [workspaceId])
 
@@ -113,13 +108,13 @@ export default function ChatPanel({
     const trimmed = text.trim()
     if (!trimmed || pending) return
 
-    // Optimistic update
     const optimistic: Message = {
       id: `opt_${Date.now()}`,
       sender_id: currentUserId,
       sender_name: currentUserName,
       content: trimmed,
       type: 'message',
+      metadata: null,
       created_at: new Date().toISOString(),
     }
     setMessages(prev => [...prev, optimistic])
@@ -130,7 +125,6 @@ export default function ChatPanel({
       try {
         await sendMessage(workspaceId, trimmed)
       } catch {
-        // Remove optimistic on error
         setMessages(prev => prev.filter(m => m.id !== optimistic.id))
         setText(trimmed)
       }
@@ -144,7 +138,6 @@ export default function ChatPanel({
     }
   }
 
-  // Group messages by day, and detect consecutive same-sender groups
   let lastDay = ''
   let lastSender = ''
 
@@ -162,29 +155,45 @@ export default function ChatPanel({
           </div>
         )}
 
-        {messages.map((msg, i) => {
+        {messages.map((msg) => {
           const day = new Date(msg.created_at).toDateString()
           const showDay = day !== lastDay
           if (showDay) lastDay = day
 
-          // System message
+          // ── System message ──
           if (msg.type === 'system') {
             lastSender = ''
+            const isMentionToMe = msg.metadata?.action === 'mention' && msg.metadata?.mention_to === currentUserId
             return (
               <div key={msg.id}>
                 {showDay && <DayDivider label={formatDay(msg.created_at)} />}
-                <div className="flex items-center gap-2 py-1.5 my-1">
-                  <div className="flex-1 h-px bg-slate-100" />
-                  <div className="flex items-center gap-1.5 bg-amber-50 border border-amber-200 rounded-full px-3 py-1">
-                    <Zap className="w-3 h-3 text-amber-500" />
-                    <span className="text-[11px] text-amber-700 font-medium">{msg.content}</span>
-                  </div>
-                  <div className="flex-1 h-px bg-slate-100" />
+                <div className="flex items-start gap-2 py-1.5 my-1">
+                  {isMentionToMe ? (
+                    // Highlighted mention directed at current user
+                    <div className="flex-1 flex items-start gap-2 bg-[#00C2FF]/10 border border-[#00C2FF]/30 rounded-xl px-3 py-2.5">
+                      <AtSign className="w-3.5 h-3.5 text-[#00C2FF] mt-0.5 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-[#1A2744] font-medium leading-relaxed">{msg.content}</p>
+                        <p className="text-[9px] text-slate-400 mt-0.5">{formatTime(msg.created_at)}</p>
+                      </div>
+                    </div>
+                  ) : (
+                    // Generic system notification (approval/rejection/etc)
+                    <div className="flex-1 flex items-center gap-2">
+                      <div className="flex-1 h-px bg-slate-100" />
+                      <div className="flex items-center gap-1.5 bg-amber-50 border border-amber-200 rounded-full px-3 py-1 max-w-[90%]">
+                        <Zap className="w-3 h-3 text-amber-500 flex-shrink-0" />
+                        <span className="text-[11px] text-amber-700 font-medium leading-relaxed">{msg.content}</span>
+                      </div>
+                      <div className="flex-1 h-px bg-slate-100" />
+                    </div>
+                  )}
                 </div>
               </div>
             )
           }
 
+          // ── User message ──
           const isOwn = msg.sender_id === currentUserId
           const showAvatar = msg.sender_id !== lastSender
           lastSender = msg.sender_id ?? ''
@@ -204,13 +213,11 @@ export default function ChatPanel({
                       {isOwn ? 'Tú' : (msg.sender_name ?? 'Usuario')}
                     </span>
                   )}
-                  <div
-                    className={`px-3.5 py-2 rounded-2xl text-sm leading-relaxed break-words ${
-                      isOwn
-                        ? 'bg-[#1A2744] text-white rounded-br-sm'
-                        : 'bg-slate-100 text-slate-800 rounded-bl-sm'
-                    }`}
-                  >
+                  <div className={`px-3.5 py-2 rounded-2xl text-sm leading-relaxed break-words ${
+                    isOwn
+                      ? 'bg-[#1A2744] text-white rounded-br-sm'
+                      : 'bg-slate-100 text-slate-800 rounded-bl-sm'
+                  }`}>
                     {msg.content}
                   </div>
                   <span className="text-[9px] text-slate-300 mt-0.5 px-1">{formatTime(msg.created_at)}</span>
@@ -229,7 +236,7 @@ export default function ChatPanel({
           value={text}
           onChange={e => setText(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Escribe un mensaje... (Enter para enviar, Shift+Enter para nueva línea)"
+          placeholder="Escribe un mensaje… (Enter para enviar, Shift+Enter para nueva línea)"
           rows={1}
           className="flex-1 resize-none bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/40 focus:border-[#00C2FF] transition-all"
           style={{ maxHeight: '120px', overflowY: 'auto' }}
@@ -247,16 +254,6 @@ export default function ChatPanel({
           <Send className="w-4 h-4" />
         </button>
       </div>
-    </div>
-  )
-}
-
-function DayDivider({ label }: { label: string }) {
-  return (
-    <div className="flex items-center gap-3 my-4">
-      <div className="flex-1 h-px bg-slate-100" />
-      <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">{label}</span>
-      <div className="flex-1 h-px bg-slate-100" />
     </div>
   )
 }
