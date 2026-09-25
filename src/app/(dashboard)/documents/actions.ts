@@ -4,26 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdmin } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-
-// ── Nomenclatura AEC ──────────────────────────────────────────────────────────
-// Ejemplo: TQM-0000-PLA-AARQ-PLT-0004
-// doc_key     = TQM-0000-PLA-AARQ-PLT  (todo menos el último segmento numérico)
-// version_number = 4
-
-export function parseDocKey(fileName: string): { doc_key: string; version_number: number } | null {
-  // Quitar extensión
-  const base = fileName.replace(/\.[^/.]+$/, '')
-  const parts = base.split('-')
-  if (parts.length < 2) return null
-
-  // El último segmento debe ser exactamente 4 dígitos
-  const last = parts[parts.length - 1]
-  if (!/^\d{4}$/.test(last)) return null
-
-  const doc_key       = parts.slice(0, -1).join('-')
-  const version_number = parseInt(last, 10)
-  return { doc_key, version_number }
-}
+import { parseDocKey } from './utils'
 
 function getAdminClient() {
   return createAdmin(
