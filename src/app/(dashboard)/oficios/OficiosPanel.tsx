@@ -7,7 +7,7 @@ import {
   FileText, Filter, ChevronDown, Check, ArrowDownToLine,
   ArrowUpFromLine, Search, Sparkles
 } from 'lucide-react'
-import { createOficio, updateOficio, deleteOficio, updateOficioStatus } from './actions'
+import { createOficio, updateOficio, deleteOficio, deleteOficios, updateOficioStatus } from './actions'
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
@@ -547,7 +547,7 @@ function EstadoDropdown({ oficio }: { oficio: Oficio }) {
 
 function OficioRow({
   oficio, projects, members, workspaceId, canEdit, canDelete,
-  onEdit,
+  isSelected, onToggleSelect, onEdit,
 }: {
   oficio: Oficio
   projects: Project[]
@@ -555,6 +555,8 @@ function OficioRow({
   workspaceId: string
   canEdit: boolean
   canDelete: boolean
+  isSelected: boolean
+  onToggleSelect: (id: string) => void
   onEdit: (o: Oficio) => void
 }) {
   const [deleting, setDeleting] = useState(false)
@@ -566,7 +568,18 @@ function OficioRow({
   }
 
   return (
-    <tr className="hover:bg-slate-50 transition-colors group">
+    <tr className={`hover:bg-slate-50 transition-colors group ${isSelected ? 'bg-red-50/50' : ''}`}>
+      {/* Checkbox selección */}
+      {canDelete && (
+        <td className="pl-4 pr-2 py-3 w-8">
+          <input
+            type="checkbox"
+            checked={isSelected}
+            onChange={() => onToggleSelect(oficio.id)}
+            className="w-4 h-4 rounded border-slate-300 text-red-600 cursor-pointer"
+          />
+        </td>
+      )}
       {/* No. oficio */}
       <td className="px-4 py-3 text-xs font-mono text-slate-500 whitespace-nowrap">
         {oficio.no_oficio || <span className="text-slate-300">—</span>}
@@ -700,6 +713,10 @@ export default function OficiosPanel({
   const [filterProject, setFilterProject] = useState('')
   const [filterEsp,     setFilterEsp]     = useState('')
 
+  // Selección múltiple
+  const [selected,       setSelected]       = useState<Set<string>>(new Set())
+  const [bulkDeleting,   setBulkDeleting]   = useState(false)
+
   const canEdit   = ['owner', 'admin', 'manager'].includes(currentUserRole)
   const canDelete = ['owner', 'admin'].includes(currentUserRole)
 
@@ -738,6 +755,29 @@ export default function OficiosPanel({
     if (saved) router.refresh()
   }
 
+  function toggleSelect(id: string) {
+    setSelected(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+  function toggleSelectAll() {
+    if (selected.size === filtered.length) {
+      setSelected(new Set())
+    } else {
+      setSelected(new Set(filtered.map(o => o.id)))
+    }
+  }
+  async function handleBulkDelete() {
+    if (!confirm(`¿Eliminar ${selected.size} oficio${selected.size !== 1 ? 's' : ''}? Esta acción no se puede deshacer.`)) return
+    setBulkDeleting(true)
+    await deleteOficios(Array.from(selected))
+    setSelected(new Set())
+    setBulkDeleting(false)
+    router.refresh()
+  }
+
   const inputCls = 'px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/40 bg-white'
 
   return (
@@ -746,7 +786,7 @@ export default function OficiosPanel({
       <div className="flex items-center justify-between mb-5">
         <div className="flex gap-0.5 bg-slate-100 p-1 rounded-xl">
           <button
-            onClick={() => setTab('entrada')}
+            onClick={() => { setTab('entrada'); setSelected(new Set()) }}
             className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-medium transition-all ${
               tab === 'entrada' ? 'bg-white text-[#1A2744] shadow-sm' : 'text-slate-500 hover:text-slate-700'
             }`}
@@ -758,7 +798,7 @@ export default function OficiosPanel({
             </span>
           </button>
           <button
-            onClick={() => setTab('salida')}
+            onClick={() => { setTab('salida'); setSelected(new Set()) }}
             className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-medium transition-all ${
               tab === 'salida' ? 'bg-white text-[#1A2744] shadow-sm' : 'text-slate-500 hover:text-slate-700'
             }`}
@@ -828,6 +868,32 @@ export default function OficiosPanel({
         )}
       </div>
 
+      {/* Barra de selección múltiple */}
+      {canDelete && selected.size > 0 && (
+        <div className="flex items-center gap-3 mb-3 px-4 py-2.5 bg-red-50 border border-red-100 rounded-xl">
+          <span className="text-sm font-semibold text-red-700">
+            {selected.size} oficio{selected.size !== 1 ? 's' : ''} seleccionado{selected.size !== 1 ? 's' : ''}
+          </span>
+          <button
+            onClick={handleBulkDelete}
+            disabled={bulkDeleting}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600 text-white text-xs font-bold hover:bg-red-700 disabled:opacity-50 transition-colors"
+          >
+            {bulkDeleting
+              ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              : <Trash2 className="w-3.5 h-3.5" />
+            }
+            Eliminar seleccionados
+          </button>
+          <button
+            onClick={() => setSelected(new Set())}
+            className="ml-auto text-xs text-red-500 hover:text-red-700 font-medium"
+          >
+            Cancelar
+          </button>
+        </div>
+      )}
+
       {/* Tabla */}
       <div className="bg-white rounded-xl border border-slate-100 overflow-hidden">
         {filtered.length === 0 ? (
@@ -862,6 +928,16 @@ export default function OficiosPanel({
             <table className="w-full text-left">
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50">
+                  {canDelete && (
+                    <th className="pl-4 pr-2 py-3 w-8">
+                      <input
+                        type="checkbox"
+                        checked={filtered.length > 0 && selected.size === filtered.length}
+                        onChange={toggleSelectAll}
+                        className="w-4 h-4 rounded border-slate-300 text-red-600 cursor-pointer"
+                      />
+                    </th>
+                  )}
                   <th className="px-4 py-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">No. oficio</th>
                   <th className="px-4 py-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Asunto</th>
                   <th className="px-4 py-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">Fecha doc.</th>
@@ -882,6 +958,8 @@ export default function OficiosPanel({
                     workspaceId={workspaceId}
                     canEdit={canEdit}
                     canDelete={canDelete}
+                    isSelected={selected.has(o.id)}
+                    onToggleSelect={toggleSelect}
                     onEdit={openEdit}
                   />
                 ))}

@@ -126,3 +126,13 @@ export async function deleteOficio(id: string) {
   revalidatePath('/oficios')
   return { success: true }
 }
+
+export async function deleteOficios(ids: string[]) {
+  if (ids.length === 0) return { success: true }
+  await getUser()
+  const admin = getAdminClient()
+  const { error } = await admin.from('oficios').delete().in('id', ids)
+  if (error) return { error: error.message }
+  revalidatePath('/oficios')
+  return { success: true }
+}
