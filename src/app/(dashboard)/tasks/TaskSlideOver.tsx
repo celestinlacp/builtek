@@ -243,7 +243,7 @@ export default function TaskSlideOver({
     const [commentsRes, taskDocsRes] = await Promise.all([
       supabase
         .from('comments')
-        .select('id, content, created_at, user_id, profiles(full_name, avatar_url)')
+        .select('id, content, created_at, user_id')
         .eq('task_id', task.id)
         .order('created_at', { ascending: true }),
       supabase
@@ -251,7 +251,22 @@ export default function TaskSlideOver({
         .select('id, document_id, drive_file_id, created_at, documents(id, name, file_name, file_type), drive_files(id, name, file_type)')
         .eq('task_id', task.id),
     ])
-    setComments((commentsRes.data ?? []) as unknown as Comment[])
+
+    const rawComments = commentsRes.data ?? []
+
+    // Fetch profiles separately to avoid indirect FK join issue
+    const userIds = [...new Set(rawComments.map((c: any) => c.user_id).filter(Boolean))]
+    const profilesRes = userIds.length > 0
+      ? await supabase.from('profiles').select('id, full_name, avatar_url').in('id', userIds)
+      : { data: [] }
+    const profileMap = Object.fromEntries((profilesRes.data ?? []).map((p: any) => [p.id, p]))
+
+    const commentsWithProfiles = rawComments.map((c: any) => ({
+      ...c,
+      profiles: profileMap[c.user_id] ?? null,
+    }))
+
+    setComments(commentsWithProfiles as unknown as Comment[])
     setTaskDocs((taskDocsRes.data ?? []) as unknown as TaskDoc[])
     setLoadingData(false)
   }, [task.id, supabase])
