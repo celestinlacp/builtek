@@ -6,7 +6,7 @@ import { logout } from '@/app/(auth)/actions'
 import Logo from '@/components/Logo'
 import {
   LayoutDashboard, CheckSquare, Calendar, Package,
-  FileText, Bot, Settings, LogOut, ChevronRight, HardDrive, Mail
+  FileText, Bot, Settings, LogOut, ChevronRight, HardDrive, Mail, MessageSquare
 } from 'lucide-react'
 
 const BASE_NAV = [
@@ -16,6 +16,7 @@ const BASE_NAV = [
   { href: '/deliverables', icon: Package,         label: 'Entregables' },
   { href: '/documents',    icon: FileText,        label: 'Documentos' },
   { href: '/drive',        icon: HardDrive,       label: 'Drive', badge: 'NEW' },
+  { href: '/chat',         icon: MessageSquare,   label: 'Chat' },
   { href: '/ai-agent',     icon: Bot,             label: 'Agente AI' },
 ]
 
