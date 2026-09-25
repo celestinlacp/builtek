@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdmin } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { sendMenvioTemplate, normalizePhone } from '@/lib/menvio'
 
 function getAdminClient() {
   return createAdmin(
@@ -31,21 +32,50 @@ export async function createTask(formData: FormData) {
   const { workspaceId } = await getWorkspaceId()
   const admin = getAdminClient()
 
-  const projectId = formData.get('project_id') as string
+  const projectId  = formData.get('project_id')  as string
+  const assigneeId = formData.get('assignee_id') as string || null
+  const dueDate    = formData.get('due_date')    as string || null
+  const taskName   = formData.get('name')        as string
+
   if (!projectId) return { error: 'Selecciona un proyecto' }
 
-  const { error } = await admin.from('tasks').insert({
-    project_id: projectId,
-    name: formData.get('name') as string,
+  const { data: task, error } = await admin.from('tasks').insert({
+    project_id:  projectId,
+    name:        taskName,
     description: formData.get('description') as string || null,
-    specialty: formData.get('specialty') as string || null,
-    assignee_id: formData.get('assignee_id') as string || null,
-    priority: formData.get('priority') as string || 'medium',
-    due_date: formData.get('due_date') as string || null,
-    status: 'pending',
-  })
+    specialty:   formData.get('specialty')   as string || null,
+    assignee_id: assigneeId,
+    priority:    formData.get('priority')    as string || 'medium',
+    due_date:    dueDate,
+    status:      'pending',
+  }).select('id').single()
 
   if (error) return { error: error.message }
+
+  // Trigger 1 — notificar al asignado por WhatsApp
+  if (assigneeId && task?.id) {
+    const [assigneeProfile, projectRes] = await Promise.all([
+      admin.from('profiles').select('full_name, phone').eq('id', assigneeId).single(),
+      admin.from('projects').select('name').eq('id', projectId).single(),
+    ])
+
+    const phone = normalizePhone(assigneeProfile.data?.phone)
+    if (phone) {
+      const assigneeName  = assigneeProfile.data?.full_name ?? 'Responsable'
+      const projectName   = projectRes.data?.name           ?? 'Proyecto'
+      const dueDateStr    = dueDate
+        ? new Date(dueDate + 'T00:00:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })
+        : 'Sin fecha'
+
+      await sendMenvioTemplate({
+        contacts:      [{ name: assigneeName, phone }],
+        template_name: 'builtek_tarea_asignada',
+        variables:     [projectName, taskName, assigneeName, dueDateStr],
+        button_url:    `https://builtek.app/tasks/${task.id}`,
+      })
+    }
+  }
+
   revalidatePath('/tasks')
   return { success: true }
 }
@@ -289,6 +319,28 @@ export async function rejectEntregable(entregableId: string, taskId: string, not
 
   revalidatePath('/tasks')
   revalidatePath('/deliverables')
+  return { success: true }
+}
+
+// ── Oficios vinculados a tarea ─────────────────────────────────────────────────
+
+export async function linkOficioToTask(oficioId: string, taskId: string) {
+  await getWorkspaceId()
+  const admin = getAdminClient()
+  const { error } = await admin.from('oficios').update({ task_id: taskId }).eq('id', oficioId)
+  if (error) return { error: error.message }
+  revalidatePath('/tasks')
+  revalidatePath('/oficios')
+  return { success: true }
+}
+
+export async function unlinkOficioFromTask(oficioId: string) {
+  await getWorkspaceId()
+  const admin = getAdminClient()
+  const { error } = await admin.from('oficios').update({ task_id: null }).eq('id', oficioId)
+  if (error) return { error: error.message }
+  revalidatePath('/tasks')
+  revalidatePath('/oficios')
   return { success: true }
 }
 
