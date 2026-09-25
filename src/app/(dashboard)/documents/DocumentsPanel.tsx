@@ -1,13 +1,14 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import React, { useState, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Project } from '@/types'
 import { saveDocument, updateDocumentStatus, requestDeleteDocument, approveDeleteRequest, rejectDeleteRequest, deleteDocument } from './actions'
 import {
   Upload, Download, Trash2, ChevronDown, ChevronRight, ArrowLeft, Package,
-  FolderOpen, CheckCircle2, Clock, XCircle, Eye, AlertTriangle, ShieldCheck, ShieldX, X, Loader2, Info,
+  FolderOpen, CheckCircle2, Clock, XCircle, Eye, AlertTriangle, ShieldCheck, ShieldX, X, Loader2, Info, History, GitBranch,
 } from 'lucide-react'
+import { parseDocKey } from './actions'
 
 type Specialty = { id: string; name: string; code: string; category: string }
 
@@ -44,6 +45,9 @@ type Doc = {
   status: string
   doc_status: string
   version: number
+  version_number: number | null
+  doc_key: string | null
+  is_current: boolean
   emission_date: string | null
   author: string | null
   notes: string | null
@@ -94,26 +98,41 @@ function StatusBadge({ docId, status }: { docId: string; status: string }) {
 }
 
 function UploadModal({
-  projects, specialties, workspaceId, defaultProjectId, onClose
+  projects, specialties, workspaceId, defaultProjectId, existingDocs, onClose
 }: {
   projects: Project[]
   specialties: Specialty[]
   workspaceId: string
   defaultProjectId?: string
+  existingDocs: Doc[]
   onClose: () => void
 }) {
-  const [projectId,    setProjectId]    = useState(defaultProjectId || '')
-  const [specialtyId,  setSpecialtyId]  = useState('')
-  const [displayName,  setDisplayName]  = useState('')
-  const [emissionDate, setEmissionDate] = useState('')
-  const [author,       setAuthor]       = useState('')
-  const [notes,        setNotes]        = useState('')
-  const [file,         setFile]         = useState<File | null>(null)
-  const [uploading,    setUploading]    = useState(false)
-  const [error,        setError]        = useState<string | null>(null)
-  const [step,         setStep]         = useState('')
-  const [uploadPct,    setUploadPct]    = useState(0)
+  const [projectId,      setProjectId]      = useState(defaultProjectId || '')
+  const [specialtyId,    setSpecialtyId]    = useState('')
+  const [displayName,    setDisplayName]    = useState('')
+  const [emissionDate,   setEmissionDate]   = useState('')
+  const [author,         setAuthor]         = useState('')
+  const [notes,          setNotes]          = useState('')
+  const [file,           setFile]           = useState<File | null>(null)
+  const [uploading,      setUploading]      = useState(false)
+  const [error,          setError]          = useState<string | null>(null)
+  const [step,           setStep]           = useState('')
+  const [uploadPct,      setUploadPct]      = useState(0)
+  const [versionWarning, setVersionWarning] = useState<{ prevVersion: number; newVersion: number } | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+
+  function handleFileChange(f: File | null) {
+    setFile(f)
+    setVersionWarning(null)
+    if (!f) return
+    const parsed = parseDocKey(f.name)
+    if (parsed) {
+      const existing = existingDocs.find(d => d.doc_key === parsed.doc_key && d.is_current)
+      if (existing && existing.version_number !== null && existing.version_number !== parsed.version_number) {
+        setVersionWarning({ prevVersion: existing.version_number, newVersion: parsed.version_number })
+      }
+    }
+  }
 
   const selectedSpecialty = specialties.find(s => s.id === specialtyId)
 
@@ -234,7 +253,7 @@ function UploadModal({
             </label>
             <input ref={inputRef} type="file" className="hidden"
               accept=".pdf,.dwg,.dxf,.xlsx,.xls,.docx,.doc,.png,.jpg,.jpeg,.zip"
-              onChange={e => setFile(e.target.files?.[0] || null)} />
+              onChange={e => handleFileChange(e.target.files?.[0] || null)} />
             <button onClick={() => inputRef.current?.click()}
               className={`w-full border-2 border-dashed rounded-lg py-6 text-center transition-colors ${
                 file ? 'border-[#00C2FF] bg-[#00C2FF]/5' : 'border-slate-200 hover:border-slate-300'
@@ -248,6 +267,19 @@ function UploadModal({
               </p>
             </button>
           </div>
+
+          {versionWarning && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 flex items-start gap-3">
+              <GitBranch className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold text-amber-800">Nueva versión detectada</p>
+                <p className="text-xs text-amber-700 mt-0.5">
+                  La versión <span className="font-mono font-bold">{String(versionWarning.prevVersion).padStart(4, '0')}</span> ya existe.
+                  Este archivo se guardará como versión <span className="font-mono font-bold">{String(versionWarning.newVersion).padStart(4, '0')}</span> y la anterior quedará archivada automáticamente.
+                </p>
+              </div>
+            </div>
+          )}
 
           <div>
             <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
@@ -577,14 +609,24 @@ function ProjectDetailView({
   onBack: () => void
   onUpload: () => void
 }) {
-  const [selected,        setSelected]        = useState<Set<string>>(new Set())
-  const [filterStatus,    setFilterStatus]    = useState('all')
-  const [filterSpecialty, setFilterSpecialty] = useState('all')
-  const [viewingDoc,      setViewingDoc]      = useState<{ id: string; name: string } | null>(null)
-  const [downloading,     setDownloading]     = useState(false)
+  const [selected,         setSelected]         = useState<Set<string>>(new Set())
+  const [filterStatus,     setFilterStatus]     = useState('all')
+  const [filterSpecialty,  setFilterSpecialty]  = useState('all')
+  const [viewingDoc,       setViewingDoc]       = useState<{ id: string; name: string } | null>(null)
+  const [downloading,      setDownloading]      = useState(false)
+  const [expandedHistory,  setExpandedHistory]  = useState<Set<string>>(new Set())
   const isAdmin = userRole === 'owner' || userRole === 'admin'
 
   const projectDocs = documents.filter(d => d.project_id === project.id)
+
+  // Versiones archivadas agrupadas por doc_key
+  const archivedByDocKey = projectDocs.reduce<Record<string, Doc[]>>((acc, d) => {
+    if (d.doc_key && d.is_current === false) {
+      if (!acc[d.doc_key]) acc[d.doc_key] = []
+      acc[d.doc_key].push(d)
+    }
+    return acc
+  }, {})
 
   // Especialidades usadas en este proyecto
   const usedSpecialties = [...new Map(
@@ -597,9 +639,9 @@ function ProjectDetailView({
     filterSpecialty === 'none' ? !d.specialty : d.specialty?.code === filterSpecialty
   )
 
-  // Agrupar por disciplina
+  // Agrupar por disciplina (solo versiones vigentes)
   const grouped: Record<string, Doc[]> = {}
-  filtered.forEach(doc => {
+  filtered.filter(d => d.is_current !== false).forEach(doc => {
     const key = doc.specialty
       ? `[${doc.specialty.code}] ${doc.specialty.name}`
       : 'Sin disciplina'
@@ -772,8 +814,9 @@ function ProjectDetailView({
                   const docName = doc.display_name || doc.file_name || doc.name
 
                   return (
-                    <div key={doc.id}
-                      className={`flex items-center gap-3 px-4 py-3 border-b border-slate-50 hover:bg-slate-50 group ${isPendingDelete ? 'opacity-60' : ''} ${isLast ? 'rounded-b-xl border-b-0' : ''}`}>
+                    <React.Fragment key={doc.id}>
+                    <div
+                      className={`flex items-center gap-3 px-4 py-3 border-b border-slate-50 hover:bg-slate-50 group ${isPendingDelete ? 'opacity-60' : ''} ${isLast && !(doc.doc_key && expandedHistory.has(doc.doc_key) && archivedByDocKey[doc.doc_key]?.length) ? 'rounded-b-xl border-b-0' : ''}`}>
                       {/* Checkbox */}
                       <input type="checkbox"
                         checked={selected.has(doc.id)}
@@ -794,9 +837,31 @@ function ProjectDetailView({
                         ) : (
                           <p className="text-sm font-medium text-slate-700 truncate">{docName}</p>
                         )}
-                        <p className="text-xs text-slate-400">
-                          v{doc.version} · {doc.file_type?.toUpperCase() || '—'} · {formatSize(doc.file_size)}
-                          {isPendingDelete && <span className="ml-2 text-amber-500 font-medium">· Borrado pendiente</span>}
+                        <p className="text-xs text-slate-400 flex items-center gap-1.5 flex-wrap">
+                          {doc.version_number !== null
+                            ? <span className="font-mono bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded font-bold">v{String(doc.version_number).padStart(4, '0')}</span>
+                            : <span>v{doc.version}</span>
+                          }
+                          <span>·</span>
+                          <span>{doc.file_type?.toUpperCase() || '—'}</span>
+                          <span>·</span>
+                          <span>{formatSize(doc.file_size)}</span>
+                          {isPendingDelete && <span className="text-amber-500 font-medium">· Borrado pendiente</span>}
+                          {doc.doc_key && archivedByDocKey[doc.doc_key]?.length > 0 && (
+                            <button
+                              onClick={() => setExpandedHistory(prev => {
+                                const next = new Set(prev)
+                                next.has(doc.doc_key!) ? next.delete(doc.doc_key!) : next.add(doc.doc_key!)
+                                return next
+                              })}
+                              className="flex items-center gap-1 text-slate-400 hover:text-[#00C2FF] transition-colors ml-1">
+                              <History className="w-3 h-3" />
+                              {expandedHistory.has(doc.doc_key)
+                                ? 'Ocultar historial'
+                                : `${archivedByDocKey[doc.doc_key].length} versión${archivedByDocKey[doc.doc_key].length !== 1 ? 'es' : ''} anterior${archivedByDocKey[doc.doc_key].length !== 1 ? 'es' : ''}`
+                              }
+                            </button>
+                          )}
                         </p>
                       </div>
 
@@ -837,6 +902,44 @@ function ProjectDetailView({
                         )}
                       </div>
                     </div>
+
+                    {/* Historial de versiones anteriores */}
+                    {doc.doc_key && expandedHistory.has(doc.doc_key) && archivedByDocKey[doc.doc_key]?.map(archived => (
+                      <div key={archived.id}
+                        className="flex items-center gap-3 px-4 py-2.5 bg-slate-50/70 border-b border-slate-50 text-slate-400">
+                        <span className="w-3.5 h-3.5 flex-shrink-0" />
+                        <span className="text-sm w-5 flex-shrink-0 opacity-40">{FILE_ICONS[archived.file_type || 'other'] || '📁'}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs text-slate-500 truncate italic">
+                            {archived.display_name || archived.file_name || archived.name}
+                          </p>
+                          <p className="text-xs text-slate-400 flex items-center gap-1.5">
+                            <span className="font-mono bg-slate-200 text-slate-400 px-1 py-0.5 rounded text-[10px]">
+                              v{String(archived.version_number ?? archived.version).padStart(4, '0')}
+                            </span>
+                            <span>Archivado</span>
+                            {archived.emission_date && <><span>·</span><span>{new Date(archived.emission_date).toLocaleDateString('es-MX')}</span></>}
+                          </p>
+                        </div>
+                        <span className="hidden lg:block text-xs text-slate-400 w-28 truncate italic">{archived.author || '—'}</span>
+                        <span className="hidden lg:block text-xs text-slate-300 w-24">
+                          {archived.emission_date ? new Date(archived.emission_date).toLocaleDateString('es-MX') : '—'}
+                        </span>
+                        <div className="w-28">
+                          <span className="text-[10px] px-2 py-1 rounded-full bg-slate-100 text-slate-400 font-medium">Archivado</span>
+                        </div>
+                        <div className="flex items-center gap-0.5 w-20 justify-end">
+                          {archived.storage_key && (
+                            <a href={`/api/documents/download/${archived.id}`} target="_blank" rel="noopener noreferrer"
+                              title="Descargar versión archivada"
+                              className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-200 text-slate-300 hover:text-slate-500">
+                              <Download className="w-3.5 h-3.5" />
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                    </React.Fragment>
                   )
                 })}
               </div>
@@ -934,6 +1037,7 @@ export default function DocumentsPanel({
           specialties={specialties}
           workspaceId={workspaceId}
           defaultProjectId={selectedProjectId ?? undefined}
+          existingDocs={documents}
           onClose={() => setShowUpload(false)}
         />
       )}

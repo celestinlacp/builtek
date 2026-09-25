@@ -35,9 +35,10 @@ export default async function DocumentsPage() {
       .order('name'),
     supabase
       .from('documents')
-      .select('id, name, file_name, display_name, specialty_id, project_id, storage_key, file_type, file_size, status, doc_status, version, emission_date, author, notes, created_at, project:projects(name), specialty:specialties(name, code, category)')
+      .select('id, name, file_name, display_name, specialty_id, project_id, storage_key, file_type, file_size, status, doc_status, version, version_number, doc_key, is_current, emission_date, author, notes, created_at, project:projects(name), specialty:specialties(name, code, category)')
       .eq('workspace_id', wsId)
       .neq('doc_status', 'deleted')
+      .order('version_number', { ascending: false })
       .order('created_at', { ascending: false }),
     supabase
       .from('specialties')
