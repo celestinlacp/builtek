@@ -793,6 +793,18 @@ function ProjectsView({
   documents: Doc[]
   onSelect: (projectId: string) => void
 }) {
+  const [filterFrente, setFilterFrente] = useState('all')
+  const [filterType,   setFilterType]   = useState('all')
+
+  const frentes      = [...new Set(projects.map(p => p.frente).filter(Boolean))] as string[]
+  const projectTypes = [...new Set(projects.map(p => p.project_type).filter(Boolean))] as string[]
+
+  const filtered = projects.filter(p => {
+    if (filterFrente !== 'all' && p.frente !== filterFrente) return false
+    if (filterType   !== 'all' && p.project_type !== filterType) return false
+    return true
+  })
+
   if (projects.length === 0) {
     return (
       <div className="bg-white border border-slate-100 rounded-xl p-16 text-center">
@@ -808,39 +820,86 @@ function ProjectsView({
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-      {projects.map(project => {
-        const projectDocs = documents.filter(d => d.project_id === project.id)
-        const disciplines = new Set(projectDocs.filter(d => d.specialty?.code).map(d => d.specialty!.code)).size
-        const lastUpload = projectDocs.length > 0
-          ? projectDocs.reduce((latest, d) => d.created_at > latest ? d.created_at : latest, projectDocs[0].created_at)
-          : null
+    <div>
+      {/* Filtros — solo se muestran si hay valores distintos */}
+      {(frentes.length > 0 || projectTypes.length > 0) && (
+        <div className="flex items-center gap-2 mb-4 flex-wrap">
+          {frentes.length > 0 && (
+            <select value={filterFrente} onChange={e => setFilterFrente(e.target.value)}
+              className="text-xs px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 font-medium focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/40">
+              <option value="all">Todos los frentes</option>
+              {frentes.map(f => <option key={f} value={f}>{f}</option>)}
+            </select>
+          )}
+          {projectTypes.length > 0 && (
+            <select value={filterType} onChange={e => setFilterType(e.target.value)}
+              className="text-xs px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 font-medium focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/40">
+              <option value="all">Todos los tipos</option>
+              {projectTypes.map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+          )}
+          {(filterFrente !== 'all' || filterType !== 'all') && (
+            <button onClick={() => { setFilterFrente('all'); setFilterType('all') }}
+              className="text-xs px-3 py-1.5 rounded-lg border border-slate-200 text-slate-400 hover:text-slate-600 hover:bg-slate-50 flex items-center gap-1">
+              <X className="w-3 h-3" />
+              Limpiar
+            </button>
+          )}
+          <span className="text-xs text-slate-400 ml-1">
+            {filtered.length} proyecto{filtered.length !== 1 ? 's' : ''}
+          </span>
+        </div>
+      )}
 
-        return (
-          <button key={project.id} onClick={() => onSelect(project.id)}
-            className="bg-white border border-slate-100 rounded-xl p-5 text-left hover:shadow-md hover:border-[#00C2FF]/30 transition-all group">
-            <div className="flex items-start justify-between mb-3">
-              <div className="w-10 h-10 bg-[#1A2744]/5 rounded-xl flex items-center justify-center">
-                <FolderOpen className="w-5 h-5 text-[#1A2744]" />
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        {filtered.map(project => {
+          const projectDocs = documents.filter(d => d.project_id === project.id)
+          const disciplines = new Set(projectDocs.filter(d => d.specialty?.code).map(d => d.specialty!.code)).size
+          const lastUpload = projectDocs.length > 0
+            ? projectDocs.reduce((latest, d) => d.created_at > latest ? d.created_at : latest, projectDocs[0].created_at)
+            : null
+
+          return (
+            <button key={project.id} onClick={() => onSelect(project.id)}
+              className="bg-white border border-slate-100 rounded-xl p-5 text-left hover:shadow-md hover:border-[#00C2FF]/30 transition-all group">
+              <div className="flex items-start justify-between mb-3">
+                <div className="w-10 h-10 bg-[#1A2744]/5 rounded-xl flex items-center justify-center">
+                  <FolderOpen className="w-5 h-5 text-[#1A2744]" />
+                </div>
+                <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-[#00C2FF] transition-colors mt-1" />
               </div>
-              <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-[#00C2FF] transition-colors mt-1" />
-            </div>
-            <h3 className="font-bold text-[#1A2744] text-sm leading-tight">{project.name}</h3>
-            <div className="flex items-center gap-2 mt-2 text-xs text-slate-400">
-              <span>{projectDocs.length} documento{projectDocs.length !== 1 ? 's' : ''}</span>
-              {disciplines > 0 && (
-                <><span>·</span><span>{disciplines} disciplina{disciplines !== 1 ? 's' : ''}</span></>
+              <h3 className="font-bold text-[#1A2744] text-sm leading-tight">{project.name}</h3>
+              {/* Badges frente + tipo */}
+              {(project.frente || project.project_type) && (
+                <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                  {project.frente && (
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#00C2FF]/10 text-[#0099CC]">
+                      {project.frente}
+                    </span>
+                  )}
+                  {project.project_type && (
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">
+                      {project.project_type}
+                    </span>
+                  )}
+                </div>
               )}
-            </div>
-            {lastUpload && (
-              <p className="text-xs text-slate-300 mt-1.5">
-                Última subida:{' '}
-                {new Date(lastUpload).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}
-              </p>
-            )}
-          </button>
-        )
-      })}
+              <div className="flex items-center gap-2 mt-2 text-xs text-slate-400">
+                <span>{projectDocs.length} documento{projectDocs.length !== 1 ? 's' : ''}</span>
+                {disciplines > 0 && (
+                  <><span>·</span><span>{disciplines} disciplina{disciplines !== 1 ? 's' : ''}</span></>
+                )}
+              </div>
+              {lastUpload && (
+                <p className="text-xs text-slate-300 mt-1.5">
+                  Última subida:{' '}
+                  {new Date(lastUpload).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}
+                </p>
+              )}
+            </button>
+          )
+        })}
+      </div>
     </div>
   )
 }
@@ -964,6 +1023,16 @@ function ProjectDetailView({
         </button>
         <span className="text-slate-300">/</span>
         <span className="text-sm font-semibold text-[#1A2744]">{project.name}</span>
+        {project.frente && (
+          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#00C2FF]/10 text-[#0099CC]">
+            {project.frente}
+          </span>
+        )}
+        {project.project_type && (
+          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">
+            {project.project_type}
+          </span>
+        )}
         <span className="text-xs text-slate-400 ml-1">
           ({projectDocs.length} documento{projectDocs.length !== 1 ? 's' : ''})
         </span>
