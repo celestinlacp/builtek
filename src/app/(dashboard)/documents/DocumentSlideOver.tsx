@@ -37,6 +37,9 @@ type Comment = {
   content: string
   created_at: string
   user_id: string
+  document_id: string
+  version_number: number | null
+  is_current_version: boolean
   profiles?: { full_name: string | null; initials: string | null } | null
 }
 
@@ -76,14 +79,15 @@ export default function DocumentSlideOver({
   currentUserId: string
   onClose: () => void
 }) {
-  const [tab,           setTab]           = useState<'info' | 'versions' | 'comments'>('info')
-  const [comments,      setComments]      = useState<Comment[]>([])
-  const [versions,      setVersions]      = useState<VersionRow[]>([])
-  const [approverName,  setApproverName]  = useState<string | null>(null)
-  const [loadingCmts,   setLoadingCmts]   = useState(false)
-  const [loadingVers,   setLoadingVers]   = useState(false)
-  const [newComment,    setNewComment]    = useState('')
-  const [sending,       setSending]       = useState(false)
+  const [tab,                  setTab]                  = useState<'info' | 'versions' | 'comments'>('info')
+  const [comments,             setComments]             = useState<Comment[]>([])
+  const [versions,             setVersions]             = useState<VersionRow[]>([])
+  const [approverName,         setApproverName]         = useState<string | null>(null)
+  const [loadingCmts,          setLoadingCmts]          = useState(false)
+  const [loadingVers,          setLoadingVers]          = useState(false)
+  const [newComment,           setNewComment]           = useState('')
+  const [sending,              setSending]              = useState(false)
+  const [versionCommentCounts, setVersionCommentCounts] = useState<Record<string, number>>({})
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const supabase = createClient()
 
@@ -101,24 +105,65 @@ export default function DocumentSlideOver({
 
   const docName = doc.display_name || doc.file_name || doc.name
 
-  // Cargar comentarios
+  // Cargar comentarios — si hay doc_key, carga TODOS los de todas las versiones
   async function loadComments() {
     setLoadingCmts(true)
-    const { data } = await supabase
-      .from('document_comments')
-      .select('id, content, created_at, user_id, profiles!document_comments_user_id_fkey(full_name, initials)')
-      .eq('document_id', doc.id)
-      .order('created_at', { ascending: true })
-    setComments((data as unknown as Comment[]) ?? [])
+
+    if (doc.doc_key) {
+      // Paso 1: obtener todos los IDs de versiones de este doc_key
+      const { data: allDocs } = await supabase
+        .from('documents')
+        .select('id, version_number, is_current')
+        .eq('workspace_id', workspaceId)
+        .eq('doc_key', doc.doc_key)
+        .order('version_number', { ascending: false })
+
+      const ids = (allDocs ?? []).map(d => d.id)
+      const versionInfo: Record<string, { version_number: number | null; is_current: boolean }> =
+        Object.fromEntries((allDocs ?? []).map(d => [d.id, { version_number: d.version_number, is_current: d.is_current }]))
+
+      // Paso 2: comentarios de todas las versiones
+      const { data } = await supabase
+        .from('document_comments')
+        .select('id, content, created_at, user_id, document_id, profiles!document_comments_user_id_fkey(full_name, initials)')
+        .in('document_id', ids)
+        .order('created_at', { ascending: true })
+
+      const enriched = (data ?? []).map(c => ({
+        ...c,
+        version_number:     versionInfo[(c as any).document_id]?.version_number ?? null,
+        is_current_version: versionInfo[(c as any).document_id]?.is_current ?? false,
+      }))
+
+      setComments(enriched as unknown as Comment[])
+    } else {
+      const { data } = await supabase
+        .from('document_comments')
+        .select('id, content, created_at, user_id, document_id, profiles!document_comments_user_id_fkey(full_name, initials)')
+        .eq('document_id', doc.id)
+        .order('created_at', { ascending: true })
+      setComments((data as unknown as Comment[]) ?? [])
+    }
+
     setLoadingCmts(false)
   }
 
-  // Cargar versiones
+  // Cargar versiones + conteo de comentarios por versión
   async function loadVersions() {
     if (!doc.doc_key) return
     setLoadingVers(true)
     const result = await getDocumentVersions(doc.doc_key, workspaceId)
-    if (result.data) setVersions(result.data as unknown as VersionRow[])
+    if (result.data) {
+      setVersions(result.data as unknown as VersionRow[])
+      const ids = (result.data as unknown as VersionRow[]).map(v => v.id)
+      const { data: cmtData } = await supabase
+        .from('document_comments')
+        .select('document_id')
+        .in('document_id', ids)
+      const counts: Record<string, number> = {}
+      ;(cmtData ?? []).forEach(r => { counts[r.document_id] = (counts[r.document_id] ?? 0) + 1 })
+      setVersionCommentCounts(counts)
+    }
     setLoadingVers(false)
   }
 
@@ -174,7 +219,7 @@ export default function DocumentSlideOver({
                 </span>
               )}
             </div>
-            <h2 className="text-sm font-bold text-[#1A2744] mt-1 leading-tight">{docName}</h2>
+            <h2 className="text-sm font-bold text-[#1A2744] mt-1 leading-tight break-all line-clamp-3">{docName}</h2>
             {doc.specialty && (
               <p className="text-xs text-slate-400 mt-0.5">[{doc.specialty.code}] {doc.specialty.name}</p>
             )}
@@ -371,20 +416,27 @@ export default function DocumentSlideOver({
                               ? 'bg-[#00C2FF]/5 border-[#00C2FF]/20'
                               : 'bg-slate-50 border-slate-100'
                           }`}>
-                            <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center justify-between gap-2 flex-wrap">
                               <span className={`text-xs font-bold font-mono ${isCurrent ? 'text-[#00C2FF]' : 'text-slate-400'}`}>
                                 v{String(v.version_number ?? idx + 1).padStart(4, '0')}
                               </span>
-                              {isCurrent && (
-                                <span className="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full font-semibold">
-                                  Vigente
-                                </span>
-                              )}
-                              {!isCurrent && (
-                                <span className="text-[10px] bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded-full">
-                                  Archivada
-                                </span>
-                              )}
+                              <div className="flex items-center gap-1.5">
+                                {versionCommentCounts[v.id] > 0 && (
+                                  <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-semibold flex items-center gap-0.5">
+                                    <MessageSquare className="w-2.5 h-2.5" />
+                                    {versionCommentCounts[v.id]}
+                                  </span>
+                                )}
+                                {isCurrent ? (
+                                  <span className="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full font-semibold">
+                                    Vigente
+                                  </span>
+                                ) : (
+                                  <span className="text-[10px] bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded-full">
+                                    Archivada
+                                  </span>
+                                )}
+                              </div>
                             </div>
                             <p className="text-[11px] text-slate-600 mt-1 truncate">{v.file_name}</p>
                             <div className="flex items-center gap-2 mt-1.5 text-[10px] text-slate-400">
@@ -430,7 +482,7 @@ export default function DocumentSlideOver({
           {/* ── Tab: Comentarios ── */}
           {tab === 'comments' && (
             <div className="flex flex-col h-full">
-              <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
+              <div className="flex-1 overflow-y-auto px-5 py-4">
                 {loadingCmts ? (
                   <div className="flex justify-center py-12">
                     <Loader2 className="w-5 h-5 text-[#00C2FF] animate-spin" />
@@ -441,41 +493,87 @@ export default function DocumentSlideOver({
                     <p className="text-sm text-slate-400">Sin comentarios aún</p>
                     <p className="text-xs text-slate-300 mt-1">Agrega notas de revisión o cambios</p>
                   </div>
-                ) : (
-                  comments.map(c => {
-                    const isOwn     = c.user_id === currentUserId
-                    const name      = c.profiles?.full_name ?? 'Usuario'
-                    const initials  = c.profiles?.initials
-                      || c.profiles?.full_name?.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
-                      || '?'
-                    return (
-                      <div key={c.id} className="flex gap-2.5 group">
-                        <div className="w-7 h-7 rounded-full bg-[#1A2744] text-white flex items-center justify-center text-[9px] font-bold flex-shrink-0 mt-0.5">
-                          {initials}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-semibold text-slate-700">{name}</span>
-                            <span className="text-[10px] text-slate-400">
-                              {new Date(c.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                            </span>
-                          </div>
-                          <p className="text-xs text-slate-600 mt-0.5 leading-relaxed whitespace-pre-wrap">{c.content}</p>
-                        </div>
-                        {isOwn && (
-                          <button onClick={() => handleDeleteComment(c.id)}
-                            className="w-6 h-6 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 hover:bg-red-50 text-slate-300 hover:text-red-400 transition-all flex-shrink-0 mt-0.5">
-                            <Trash2 className="w-3 h-3" />
-                          </button>
-                        )}
-                      </div>
-                    )
+                ) : (() => {
+                  // Agrupar por versión (desc) para mostrar más reciente arriba
+                  const groups: Record<string, Comment[]> = {}
+                  for (const c of comments) {
+                    const key = c.document_id ?? doc.id
+                    if (!groups[key]) groups[key] = []
+                    groups[key].push(c)
+                  }
+                  // Ordenar grupos: vigente primero, luego por version_number desc
+                  const sortedKeys = Object.keys(groups).sort((a, b) => {
+                    const va = groups[a][0]
+                    const vb = groups[b][0]
+                    if (va.is_current_version) return -1
+                    if (vb.is_current_version) return 1
+                    return (vb.version_number ?? 0) - (va.version_number ?? 0)
                   })
-                )}
+                  const hasMultipleVersions = sortedKeys.length > 1 || doc.doc_key
+
+                  return (
+                    <div className="space-y-5">
+                      {sortedKeys.map(docId => {
+                        const group = groups[docId]
+                        const vn    = group[0].version_number
+                        const curr  = group[0].is_current_version
+                        return (
+                          <div key={docId}>
+                            {hasMultipleVersions && (
+                              <div className="flex items-center gap-2 mb-3">
+                                <span className={`text-[10px] font-bold font-mono px-2 py-0.5 rounded-full ${curr ? 'bg-[#00C2FF]/10 text-[#00C2FF]' : 'bg-slate-100 text-slate-400'}`}>
+                                  {vn !== null ? `v${String(vn).padStart(4, '0')}` : 'sin versión'}
+                                </span>
+                                <span className="text-[10px] text-slate-400">{curr ? 'Vigente' : 'Archivada'}</span>
+                                <div className="flex-1 h-px bg-slate-100" />
+                              </div>
+                            )}
+                            <div className="space-y-3">
+                              {group.map(c => {
+                                const isOwn    = c.user_id === currentUserId
+                                const name     = c.profiles?.full_name ?? 'Usuario'
+                                const initials = c.profiles?.initials
+                                  || c.profiles?.full_name?.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
+                                  || '?'
+                                return (
+                                  <div key={c.id} className="flex gap-2.5 group">
+                                    <div className="w-7 h-7 rounded-full bg-[#1A2744] text-white flex items-center justify-center text-[9px] font-bold flex-shrink-0 mt-0.5">
+                                      {initials}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-xs font-semibold text-slate-700">{name}</span>
+                                        <span className="text-[10px] text-slate-400">
+                                          {new Date(c.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                                        </span>
+                                      </div>
+                                      <p className="text-xs text-slate-600 mt-0.5 leading-relaxed whitespace-pre-wrap">{c.content}</p>
+                                    </div>
+                                    {isOwn && curr && (
+                                      <button onClick={() => handleDeleteComment(c.id)}
+                                        className="w-6 h-6 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 hover:bg-red-50 text-slate-300 hover:text-red-400 transition-all flex-shrink-0 mt-0.5">
+                                        <Trash2 className="w-3 h-3" />
+                                      </button>
+                                    )}
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )
+                })()}
               </div>
 
-              {/* Input */}
+              {/* Input — solo para versión vigente */}
               <div className="px-5 py-3 border-t border-slate-100 flex-shrink-0">
+                {doc.version_number !== null && doc.doc_key && (
+                  <p className="text-[10px] text-slate-400 mb-1.5">
+                    Comentando en versión vigente · <span className="font-mono">v{String(doc.version_number).padStart(4, '0')}</span>
+                  </p>
+                )}
                 <div className="flex gap-2 items-end">
                   <textarea
                     ref={inputRef}
