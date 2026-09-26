@@ -1220,6 +1220,7 @@ function ProjectDetailView({
   const [showCreateSub,    setShowCreateSub]    = useState(false)
   const [newSubName,       setNewSubName]       = useState('')
   const [newSubDesc,       setNewSubDesc]       = useState('')
+  const [newSubType,       setNewSubType]       = useState('')
   const [creatingSub,      setCreatingSub]      = useState(false)
   const isAdmin = userRole === 'owner' || userRole === 'admin'
 
@@ -1231,11 +1232,13 @@ function ProjectDetailView({
       parent_project_id: project.id,
       name:              newSubName.trim(),
       description:       newSubDesc.trim() || null,
+      project_type:      newSubType.trim() || null,
     })
     setCreatingSub(false)
     setShowCreateSub(false)
     setNewSubName('')
     setNewSubDesc('')
+    setNewSubType('')
   }
 
   // Todos los docs del proyecto (para historial de versiones)
@@ -1383,11 +1386,16 @@ function ProjectDetailView({
                 placeholder="Nombre del subproyecto *"
                 onKeyDown={e => { if (e.key === 'Enter') handleCreateSubproject(); if (e.key === 'Escape') setShowCreateSub(false) }}
                 className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400/50" />
-              <input value={newSubDesc} onChange={e => setNewSubDesc(e.target.value)}
-                placeholder="Descripción (opcional)"
-                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400/50" />
+              <div className="grid grid-cols-2 gap-2">
+                <input value={newSubDesc} onChange={e => setNewSubDesc(e.target.value)}
+                  placeholder="Descripción (opcional)"
+                  className="px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400/50" />
+                <input value={newSubType} onChange={e => setNewSubType(e.target.value)}
+                  placeholder="Tipo (Estructura, Drenaje...)"
+                  className="px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400/50" />
+              </div>
               <div className="flex gap-3">
-                <button onClick={() => { setShowCreateSub(false); setNewSubName(''); setNewSubDesc('') }}
+                <button onClick={() => { setShowCreateSub(false); setNewSubName(''); setNewSubDesc(''); setNewSubType('') }}
                   className="flex-1 py-2 rounded-lg border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50">
                   Cancelar
                 </button>

@@ -300,6 +300,7 @@ export async function createSubproject(data: {
   parent_project_id: string
   name:              string
   description:       string | null
+  project_type?:     string | null
 }) {
   await getUser()
   const admin = getAdminClient()
@@ -308,6 +309,7 @@ export async function createSubproject(data: {
     parent_project_id: data.parent_project_id,
     name:              data.name.trim(),
     description:       data.description,
+    project_type:      data.project_type || null,
     status:            'active',
   })
   if (error) return { error: error.message }

@@ -282,6 +282,44 @@ export async function toggleFeature(feature: string, enabled: boolean) {
   return { success: true }
 }
 
+// ── Empresas ──────────────────────────────────────────────────────────────────
+
+export async function createCompany(data: { name: string; short_name: string | null }) {
+  const { workspaceId } = await getWorkspaceId()
+  if (!workspaceId) return { error: 'Sin workspace' }
+  const admin = getAdminClient()
+  const { error } = await admin.from('companies').insert({
+    workspace_id: workspaceId,
+    name:         data.name.trim(),
+    short_name:   data.short_name?.trim() || null,
+  })
+  if (error) return { error: error.message }
+  revalidatePath('/admin')
+  return { success: true }
+}
+
+export async function updateCompany(companyId: string, data: { name: string; short_name: string | null; is_active: boolean }) {
+  await getWorkspaceId()
+  const admin = getAdminClient()
+  const { error } = await admin.from('companies').update({
+    name:       data.name.trim(),
+    short_name: data.short_name?.trim() || null,
+    is_active:  data.is_active,
+  }).eq('id', companyId)
+  if (error) return { error: error.message }
+  revalidatePath('/admin')
+  return { success: true }
+}
+
+export async function deleteCompany(companyId: string) {
+  await getWorkspaceId()
+  const admin = getAdminClient()
+  const { error } = await admin.from('companies').delete().eq('id', companyId)
+  if (error) return { error: error.message }
+  revalidatePath('/admin')
+  return { success: true }
+}
+
 export async function updateWorkspace(formData: FormData) {
   const { workspaceId } = await getWorkspaceId()
   if (!workspaceId) return { error: 'Sin workspace' }

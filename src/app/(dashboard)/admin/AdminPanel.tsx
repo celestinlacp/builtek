@@ -1,12 +1,13 @@
 'use client'
 
 import { useState } from 'react'
-import { Project, Workspace, WorkspaceMember, UserRole } from '@/types'
-import { createProject, updateProject, deleteProject, updateWorkspace, updateMemberRole, removeMember, inviteMember, cancelInvite } from './actions'
+import { Project, Workspace, WorkspaceMember, UserRole, Company } from '@/types'
+import { createProject, updateProject, deleteProject, updateWorkspace, updateMemberRole, removeMember, inviteMember, cancelInvite, createCompany, updateCompany, deleteCompany } from './actions'
 import {
   Plus, Pencil, Trash2, X, FolderOpen, Users, Settings,
   Calendar, CheckCircle2, PauseCircle, Archive, Shield, Crown, UserCog, Eye, Wrench,
-  Mail, Clock, Send, Link2, LinkIcon, Building2, Zap, HardDrive, FileText, Files, Loader2
+  Mail, Clock, Send, Link2, LinkIcon, Building2, Zap, HardDrive, FileText, Files, Loader2,
+  Database, Factory, ChevronDown, ChevronUp, Search,
 } from 'lucide-react'
 import { toggleFeature } from './actions'
 
@@ -819,7 +820,7 @@ function StoragePanel({
   )
 }
 
-type Tab = 'projects' | 'team' | 'settings' | 'workspace' | 'storage'
+type Tab = 'projects' | 'team' | 'settings' | 'workspace' | 'storage' | 'empresas' | 'database'
 
 const PLAN_LABELS: Record<string, { label: string; color: string; description: string }> = {
   free:       { label: 'Free',        color: 'bg-slate-100 text-slate-600',   description: 'Hasta 3 proyectos · 5 miembros · 1 GB' },
@@ -986,10 +987,365 @@ function WorkspacePanel({
   )
 }
 
+// ── Panel de Empresas ─────────────────────────────────────────────────────────
+
+type BiDoc = {
+  id: string
+  name: string
+  file_name: string | null
+  display_name: string | null
+  ref_code: string | null
+  file_type: string | null
+  file_size: number | null
+  status: string
+  doc_status: string
+  version: number
+  version_number: number | null
+  doc_key: string | null
+  is_current: boolean
+  emission_date: string | null
+  author: string | null
+  notes: string | null
+  created_at: string
+  project_id: string | null
+  specialty_id: string | null
+  company_id: string | null
+  project?: { name: string } | null
+  specialty?: { name: string; code: string } | null
+  company?: { name: string; short_name: string | null } | null
+}
+
+function EmpresasPanel({ companies, workspaceId, userRole }: {
+  companies: Company[]
+  workspaceId: string
+  userRole: UserRole
+}) {
+  const [showForm,    setShowForm]    = useState(false)
+  const [editCompany, setEditCompany] = useState<Company | null>(null)
+  const [name,        setName]        = useState('')
+  const [shortName,   setShortName]   = useState('')
+  const [saving,      setSaving]      = useState(false)
+  const [error,       setError]       = useState<string | null>(null)
+  const isAdmin = ['owner', 'admin', 'manager'].includes(userRole)
+
+  function openCreate() { setName(''); setShortName(''); setEditCompany(null); setShowForm(true); setError(null) }
+  function openEdit(c: Company) { setName(c.name); setShortName(c.short_name || ''); setEditCompany(c); setShowForm(true); setError(null) }
+  function cancel() { setShowForm(false); setEditCompany(null); setError(null) }
+
+  async function handleSave() {
+    if (!name.trim()) { setError('El nombre es requerido'); return }
+    setSaving(true); setError(null)
+    const result = editCompany
+      ? await updateCompany(editCompany.id, { name, short_name: shortName || null, is_active: editCompany.is_active })
+      : await createCompany({ name, short_name: shortName || null })
+    setSaving(false)
+    if (result?.error) { setError(result.error); return }
+    setShowForm(false); setEditCompany(null)
+  }
+
+  async function handleDelete(id: string) {
+    if (!confirm('¿Eliminar esta empresa? Solo podrás hacerlo si no tiene documentos asociados.')) return
+    await deleteCompany(id)
+  }
+
+  async function handleToggleActive(c: Company) {
+    await updateCompany(c.id, { name: c.name, short_name: c.short_name, is_active: !c.is_active })
+  }
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-sm text-slate-500">
+          {companies.length} empresa{companies.length !== 1 ? 's' : ''} registrada{companies.length !== 1 ? 's' : ''}
+        </p>
+        {isAdmin && (
+          <button onClick={openCreate}
+            className="flex items-center gap-2 bg-[#1A2744] text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-[#243660] transition-colors">
+            <Plus className="w-4 h-4" />
+            Nueva empresa
+          </button>
+        )}
+      </div>
+
+      {/* Formulario crear/editar */}
+      {showForm && (
+        <div className="mb-4 bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+          <h3 className="text-sm font-bold text-[#1A2744]">{editCompany ? 'Editar empresa' : 'Nueva empresa'}</h3>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="col-span-2">
+              <label className="block text-xs font-semibold text-slate-600 mb-1 uppercase tracking-wide">
+                Nombre completo <span className="text-red-400">*</span>
+              </label>
+              <input value={name} onChange={e => setName(e.target.value)}
+                placeholder="Ej: Ingenieros Civiles Asociados"
+                className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50" />
+            </div>
+            <div className="col-span-2">
+              <label className="block text-xs font-semibold text-slate-600 mb-1 uppercase tracking-wide">
+                Siglas / Nombre corto
+              </label>
+              <input value={shortName} onChange={e => setShortName(e.target.value)}
+                placeholder="Ej: ICA, CICSA, INGENIEROS MX"
+                className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50" />
+            </div>
+          </div>
+          {error && <p className="text-xs text-red-500">{error}</p>}
+          <div className="flex gap-3">
+            <button onClick={cancel}
+              className="flex-1 py-2 rounded-lg border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-100">
+              Cancelar
+            </button>
+            <button onClick={handleSave} disabled={saving || !name.trim()}
+              className="flex-1 py-2 rounded-lg bg-[#1A2744] text-white text-sm font-bold hover:bg-[#243660] disabled:opacity-60">
+              {saving ? 'Guardando...' : editCompany ? 'Guardar cambios' : 'Crear empresa'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Lista */}
+      {companies.length === 0 ? (
+        <div className="bg-white border border-slate-100 rounded-xl p-12 text-center">
+          <Factory className="w-10 h-10 text-slate-200 mx-auto mb-3" />
+          <p className="text-sm font-semibold text-slate-400 mb-1">Sin empresas registradas</p>
+          <p className="text-xs text-slate-300">Agrega las empresas que elaboran los documentos del proyecto.</p>
+        </div>
+      ) : (
+        <div className="bg-white border border-slate-100 rounded-xl overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-slate-100 bg-slate-50">
+                <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Empresa</th>
+                <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Siglas</th>
+                <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Estado</th>
+                {isAdmin && <th className="px-4 py-2.5 w-20" />}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {companies.map(c => (
+                <tr key={c.id} className="hover:bg-slate-50/50">
+                  <td className="px-4 py-3 font-medium text-[#1A2744]">{c.name}</td>
+                  <td className="px-4 py-3 text-slate-500 font-mono text-xs">{c.short_name || '—'}</td>
+                  <td className="px-4 py-3">
+                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${c.is_active ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-400'}`}>
+                      {c.is_active ? 'Activa' : 'Inactiva'}
+                    </span>
+                  </td>
+                  {isAdmin && (
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-1 justify-end">
+                        <button onClick={() => openEdit(c)} title="Editar"
+                          className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-400 hover:text-[#1A2744]">
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button onClick={() => handleDelete(c.id)} title="Eliminar"
+                          className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-50 text-slate-300 hover:text-red-500">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Panel Base de Datos (BI) ───────────────────────────────────────────────────
+
+function DatabasePanel({ docs, projects }: { docs: BiDoc[]; projects: Project[] }) {
+  const [search,       setSearch]       = useState('')
+  const [filterProj,   setFilterProj]   = useState('all')
+  const [filterStatus, setFilterStatus] = useState('all')
+  const [filterType,   setFilterType]   = useState('all')
+  const [sortField,    setSortField]    = useState<'created_at' | 'ref_code' | 'name' | 'project'>('created_at')
+  const [sortDir,      setSortDir]      = useState<'asc' | 'desc'>('desc')
+
+  const fileTypes = [...new Set(docs.map(d => d.file_type).filter(Boolean))] as string[]
+  const rootProjects = projects.filter(p => !p.parent_project_id)
+
+  const filtered = docs
+    .filter(d => d.is_current !== false)
+    .filter(d => {
+      if (filterProj   !== 'all' && d.project_id !== filterProj) return false
+      if (filterStatus !== 'all' && d.status     !== filterStatus) return false
+      if (filterType   !== 'all' && d.file_type  !== filterType)  return false
+      if (search) {
+        const q = search.toLowerCase()
+        return (
+          d.name?.toLowerCase().includes(q) ||
+          d.file_name?.toLowerCase().includes(q) ||
+          d.ref_code?.toLowerCase().includes(q) ||
+          d.author?.toLowerCase().includes(q) ||
+          d.project?.name?.toLowerCase().includes(q) ||
+          d.company?.name?.toLowerCase().includes(q)
+        )
+      }
+      return true
+    })
+    .sort((a, b) => {
+      let va: string, vb: string
+      if (sortField === 'ref_code') { va = a.ref_code || ''; vb = b.ref_code || '' }
+      else if (sortField === 'name') { va = a.display_name || a.file_name || a.name; vb = b.display_name || b.file_name || b.name }
+      else if (sortField === 'project') { va = a.project?.name || ''; vb = b.project?.name || '' }
+      else { va = a.created_at; vb = b.created_at }
+      return sortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va)
+    })
+
+  function toggleSort(field: typeof sortField) {
+    if (sortField === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    else { setSortField(field); setSortDir('desc') }
+  }
+
+  function SortIcon({ field }: { field: typeof sortField }) {
+    if (sortField !== field) return <ChevronDown className="w-3 h-3 text-slate-300" />
+    return sortDir === 'desc' ? <ChevronDown className="w-3 h-3 text-[#00C2FF]" /> : <ChevronUp className="w-3 h-3 text-[#00C2FF]" />
+  }
+
+  const STATUS_LABEL: Record<string, { label: string; color: string }> = {
+    draft:    { label: 'ELAB', color: 'bg-slate-100 text-slate-500' },
+    review:   { label: 'REV',  color: 'bg-amber-100 text-amber-700' },
+    approved: { label: 'APR',  color: 'bg-green-100 text-green-700' },
+    rejected: { label: 'OBS',  color: 'bg-red-100 text-red-600'    },
+  }
+
+  return (
+    <div>
+      {/* Filtros */}
+      <div className="flex items-center gap-2 mb-4 flex-wrap">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+          <input value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="Buscar por nombre, ID, autor..."
+            className="w-full pl-8 pr-3 py-2 rounded-lg border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50" />
+        </div>
+        <select value={filterProj} onChange={e => setFilterProj(e.target.value)}
+          className="text-xs px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/40">
+          <option value="all">Todos los proyectos</option>
+          {rootProjects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+        </select>
+        <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
+          className="text-xs px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/40">
+          <option value="all">Todos los estados</option>
+          <option value="draft">ELAB</option>
+          <option value="review">REV</option>
+          <option value="approved">APR</option>
+          <option value="rejected">OBS</option>
+        </select>
+        {fileTypes.length > 0 && (
+          <select value={filterType} onChange={e => setFilterType(e.target.value)}
+            className="text-xs px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/40">
+            <option value="all">Todos los tipos</option>
+            {fileTypes.map(t => <option key={t} value={t}>{t.toUpperCase()}</option>)}
+          </select>
+        )}
+        <span className="text-xs text-slate-400 ml-auto">{filtered.length} registros</span>
+      </div>
+
+      {/* Tabla */}
+      <div className="bg-white border border-slate-100 rounded-xl overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b border-slate-100 bg-slate-50">
+                <th className="text-left px-3 py-2.5">
+                  <button onClick={() => toggleSort('ref_code')} className="flex items-center gap-1 font-semibold text-slate-500 uppercase tracking-wide hover:text-[#1A2744]">
+                    ID Builtek <SortIcon field="ref_code" />
+                  </button>
+                </th>
+                <th className="text-left px-3 py-2.5">
+                  <button onClick={() => toggleSort('name')} className="flex items-center gap-1 font-semibold text-slate-500 uppercase tracking-wide hover:text-[#1A2744]">
+                    Nombre <SortIcon field="name" />
+                  </button>
+                </th>
+                <th className="text-left px-3 py-2.5">
+                  <button onClick={() => toggleSort('project')} className="flex items-center gap-1 font-semibold text-slate-500 uppercase tracking-wide hover:text-[#1A2744]">
+                    Proyecto <SortIcon field="project" />
+                  </button>
+                </th>
+                <th className="text-left px-3 py-2.5 font-semibold text-slate-500 uppercase tracking-wide">Disciplina</th>
+                <th className="text-left px-3 py-2.5 font-semibold text-slate-500 uppercase tracking-wide">Empresa</th>
+                <th className="text-left px-3 py-2.5 font-semibold text-slate-500 uppercase tracking-wide">Versión</th>
+                <th className="text-left px-3 py-2.5 font-semibold text-slate-500 uppercase tracking-wide">Estado</th>
+                <th className="text-left px-3 py-2.5 font-semibold text-slate-500 uppercase tracking-wide">Tipo</th>
+                <th className="text-left px-3 py-2.5 font-semibold text-slate-500 uppercase tracking-wide">Tamaño</th>
+                <th className="text-left px-3 py-2.5">
+                  <button onClick={() => toggleSort('created_at')} className="flex items-center gap-1 font-semibold text-slate-500 uppercase tracking-wide hover:text-[#1A2744]">
+                    Subido <SortIcon field="created_at" />
+                  </button>
+                </th>
+                <th className="text-left px-3 py-2.5 font-semibold text-slate-500 uppercase tracking-wide">Fecha versión</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={11} className="px-4 py-12 text-center text-slate-400">
+                    {search || filterProj !== 'all' || filterStatus !== 'all' || filterType !== 'all'
+                      ? 'Sin resultados para estos filtros'
+                      : 'No hay documentos aún'}
+                  </td>
+                </tr>
+              ) : filtered.map(doc => {
+                const stCfg = STATUS_LABEL[doc.status] ?? STATUS_LABEL.draft
+                const docName = doc.display_name || doc.file_name || doc.name
+                return (
+                  <tr key={doc.id} className="hover:bg-slate-50/50 transition-colors">
+                    <td className="px-3 py-2.5">
+                      <span className="font-mono text-[10px] bg-[#1A2744]/5 text-[#1A2744] px-1.5 py-0.5 rounded font-semibold">
+                        {doc.ref_code || '—'}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2.5 max-w-[200px]">
+                      <p className="font-medium text-[#1A2744] truncate" title={docName}>{docName}</p>
+                      {doc.doc_key && (
+                        <p className="text-[10px] text-slate-400 font-mono truncate">{doc.doc_key}</p>
+                      )}
+                    </td>
+                    <td className="px-3 py-2.5 text-slate-600 max-w-[140px] truncate">{doc.project?.name || '—'}</td>
+                    <td className="px-3 py-2.5 text-slate-500">
+                      {doc.specialty ? (
+                        <span className="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-[10px]">{doc.specialty.code}</span>
+                      ) : '—'}
+                    </td>
+                    <td className="px-3 py-2.5 text-slate-600 max-w-[120px] truncate">
+                      {doc.company?.short_name || doc.company?.name || doc.author || '—'}
+                    </td>
+                    <td className="px-3 py-2.5 text-slate-500 font-mono">
+                      v{String(doc.version_number ?? doc.version).padStart(4, '0')}
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${stCfg.color}`}>{stCfg.label}</span>
+                    </td>
+                    <td className="px-3 py-2.5 text-slate-400 font-mono uppercase">{doc.file_type || '—'}</td>
+                    <td className="px-3 py-2.5 text-slate-400">{doc.file_size ? formatBytes(doc.file_size) : '—'}</td>
+                    <td className="px-3 py-2.5 text-slate-400 whitespace-nowrap">
+                      {new Date(doc.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
+                    </td>
+                    <td className="px-3 py-2.5 text-slate-400 whitespace-nowrap">
+                      {doc.emission_date
+                        ? new Date(doc.emission_date).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })
+                        : '—'}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function AdminPanel({
   projects, workspace, members, currentUserId, currentUserRole,
   currentUserEmail, currentUserName, pendingInvites, dropboxConnected,
-  storageUsed, storageByModule,
+  storageUsed, storageByModule, companies, biDocs, workspaceId,
 }: {
   projects: Project[]
   workspace: Workspace
@@ -1002,6 +1358,9 @@ export default function AdminPanel({
   dropboxConnected: boolean
   storageUsed: number
   storageByModule: { documents: number; oficios: number }
+  companies: Company[]
+  biDocs: BiDoc[]
+  workspaceId: string
 }) {
   const [tab, setTab] = useState<Tab>('projects')
   const [showModal, setShowModal] = useState(false)
@@ -1009,10 +1368,12 @@ export default function AdminPanel({
 
   const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [
     { id: 'projects',  label: 'Proyectos',      icon: FolderOpen },
-    { id: 'team',      label: 'Equipo',          icon: Users },
-    { id: 'workspace', label: 'Workspace',       icon: Building2 },
-    { id: 'storage',   label: 'Almacenamiento', icon: HardDrive },
-    { id: 'settings',  label: 'Config.',         icon: Settings },
+    { id: 'empresas',  label: 'Empresas',        icon: Factory   },
+    { id: 'team',      label: 'Equipo',          icon: Users      },
+    { id: 'workspace', label: 'Workspace',       icon: Building2  },
+    { id: 'storage',   label: 'Almacenamiento', icon: HardDrive  },
+    { id: 'database',  label: 'Base de Datos',   icon: Database   },
+    { id: 'settings',  label: 'Config.',         icon: Settings   },
   ]
 
   return (
@@ -1031,44 +1392,47 @@ export default function AdminPanel({
       </div>
 
       {/* Projects tab */}
-      {tab === 'projects' && (
-        <div>
-          <div className="flex items-center justify-between mb-4">
-            <p className="text-sm text-slate-500">
-              {projects.length} proyecto{projects.length !== 1 ? 's' : ''} ·{' '}
-              {projects.filter(p => p.status === 'active').length} activos
-            </p>
-            <button onClick={() => setShowModal(true)}
-              className="flex items-center gap-2 bg-[#1A2744] text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-[#243660] transition-colors">
-              <Plus className="w-4 h-4" />
-              Nuevo proyecto
-            </button>
-          </div>
-
-          {projects.length === 0 ? (
-            <div className="bg-white border border-slate-100 rounded-xl p-16 text-center">
-              <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <FolderOpen className="w-8 h-8 text-slate-300" />
-              </div>
-              <h2 className="text-lg font-bold text-[#1A2744] mb-2">Sin proyectos aún</h2>
-              <p className="text-slate-400 text-sm mb-6 max-w-xs mx-auto">
-                Crea tu primer proyecto para empezar a gestionar tareas y documentos.
+      {tab === 'projects' && (() => {
+        const rootProjects = projects.filter(p => !p.parent_project_id)
+        return (
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-sm text-slate-500">
+                {rootProjects.length} proyecto{rootProjects.length !== 1 ? 's' : ''} ·{' '}
+                {rootProjects.filter(p => p.status === 'active').length} activos
               </p>
               <button onClick={() => setShowModal(true)}
-                className="inline-flex items-center gap-2 bg-[#1A2744] text-white px-6 py-2.5 rounded-lg text-sm font-bold hover:bg-[#243660] transition-colors">
+                className="flex items-center gap-2 bg-[#1A2744] text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-[#243660] transition-colors">
                 <Plus className="w-4 h-4" />
-                Crear proyecto
+                Nuevo proyecto
               </button>
             </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {projects.map(p => (
-                <ProjectCard key={p.id} project={p} onEdit={setEditProject} />
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+
+            {rootProjects.length === 0 ? (
+              <div className="bg-white border border-slate-100 rounded-xl p-16 text-center">
+                <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                  <FolderOpen className="w-8 h-8 text-slate-300" />
+                </div>
+                <h2 className="text-lg font-bold text-[#1A2744] mb-2">Sin proyectos aún</h2>
+                <p className="text-slate-400 text-sm mb-6 max-w-xs mx-auto">
+                  Crea tu primer proyecto para empezar a gestionar tareas y documentos.
+                </p>
+                <button onClick={() => setShowModal(true)}
+                  className="inline-flex items-center gap-2 bg-[#1A2744] text-white px-6 py-2.5 rounded-lg text-sm font-bold hover:bg-[#243660] transition-colors">
+                  <Plus className="w-4 h-4" />
+                  Crear proyecto
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {rootProjects.map(p => (
+                  <ProjectCard key={p.id} project={p} onEdit={setEditProject} />
+                ))}
+              </div>
+            )}
+          </div>
+        )
+      })()}
 
       {/* Team tab */}
       {tab === 'team' && (
@@ -1092,6 +1456,20 @@ export default function AdminPanel({
           storageUsed={storageUsed}
           storageByModule={storageByModule}
         />
+      )}
+
+      {/* Empresas tab */}
+      {tab === 'empresas' && (
+        <EmpresasPanel
+          companies={companies}
+          workspaceId={workspaceId}
+          userRole={currentUserRole}
+        />
+      )}
+
+      {/* Base de Datos tab */}
+      {tab === 'database' && (
+        <DatabasePanel docs={biDocs} projects={projects} />
       )}
 
       {/* Settings tab */}

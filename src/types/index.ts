@@ -106,6 +106,15 @@ export interface Document {
   created_at: string
 }
 
+export interface Company {
+  id: string
+  workspace_id: string
+  name: string
+  short_name: string | null
+  is_active: boolean
+  created_at: string
+}
+
 export interface Extraction {
   id: string
   document_id: string

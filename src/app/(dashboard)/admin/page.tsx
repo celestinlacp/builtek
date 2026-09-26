@@ -27,10 +27,10 @@ export default async function AdminPage() {
 
   const wsId = membership.workspace_id
 
-  const [workspaceRes, projectsRes, membersRes, myRoleRes, invitesRes] = await Promise.all([
+  const [workspaceRes, projectsRes, membersRes, myRoleRes, invitesRes, companiesRes, biDocsRes] = await Promise.all([
     supabase.from('workspaces').select('*, dropbox_token').eq('id', wsId).single(),
     supabase.from('projects')
-      .select('id, name, description, status, workspace_id, start_date, end_date, frente, project_type, cover_image_url, created_at')
+      .select('id, name, description, status, workspace_id, start_date, end_date, frente, project_type, cover_image_url, parent_project_id, chainage_start, chainage_end, created_at')
       .eq('workspace_id', wsId)
       .order('created_at', { ascending: false }),
     supabase.from('workspace_members')
@@ -47,13 +47,24 @@ export default async function AdminPage() {
       .eq('workspace_id', wsId)
       .is('accepted_at', null)
       .order('created_at', { ascending: false }),
+    supabase.from('companies')
+      .select('id, name, short_name, is_active, created_at')
+      .eq('workspace_id', wsId)
+      .order('name'),
+    supabase.from('documents')
+      .select('id, name, file_name, display_name, ref_code, file_type, file_size, status, doc_status, version, version_number, doc_key, is_current, emission_date, author, notes, created_at, project_id, specialty_id, company_id, project:projects(name), specialty:specialties(name, code), company:companies(name, short_name)')
+      .eq('workspace_id', wsId)
+      .neq('doc_status', 'deleted')
+      .order('created_at', { ascending: false }),
   ])
 
   if (!workspaceRes.data) redirect('/onboarding')
 
-  const workspace = workspaceRes.data
-  const projects = projectsRes.data || []
-  const rawMembers = membersRes.data || []
+  const workspace  = workspaceRes.data
+  const projects   = projectsRes.data  || []
+  const companies  = companiesRes.data || []
+  const biDocs     = biDocsRes.data    || []
+  const rawMembers = membersRes.data   || []
 
   // Fetch profiles separately (no FK between workspace_members and profiles)
   const memberUserIds = rawMembers.map((m: any) => m.user_id)
@@ -127,6 +138,9 @@ export default async function AdminPage() {
         dropboxConnected={dropboxConnected}
         storageUsed={storageUsed}
         storageByModule={{ documents: docBytes, oficios: oficioBytes }}
+        companies={companies as any}
+        biDocs={biDocs as any}
+        workspaceId={wsId}
       />
     </div>
   )

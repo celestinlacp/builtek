@@ -19,7 +19,7 @@ async function getWorkspaceData(userId: string) {
   const wsId = membership.workspace_id
 
   const [projects, tasks, documents, imageDocs, allDocs] = await Promise.all([
-    supabase.from('projects').select('id, name, status, frente, cover_image_url').eq('workspace_id', wsId).eq('status', 'active').order('name'),
+    supabase.from('projects').select('id, name, status, frente, cover_image_url').eq('workspace_id', wsId).eq('status', 'active').is('parent_project_id', null).order('name'),
     supabase.from('tasks').select('id, name, status, priority, due_date, project_id, assignee_id').order('created_at', { ascending: false }),
     supabase.from('documents').select('id, name, status, created_at').eq('workspace_id', wsId).neq('doc_status', 'deleted').order('created_at', { ascending: false }).limit(5),
     supabase.from('documents').select('id, project_id, created_at').eq('workspace_id', wsId).eq('file_type', 'img').order('created_at', { ascending: false }),
