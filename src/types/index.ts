@@ -70,6 +70,8 @@ export interface Project {
   project_type: string | null
   cover_image_url: string | null
   parent_project_id: string | null
+  chainage_start: number | null
+  chainage_end: number | null
   created_at: string
 }
 

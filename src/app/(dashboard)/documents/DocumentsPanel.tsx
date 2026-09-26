@@ -3,10 +3,10 @@
 import React, { useState, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Project } from '@/types'
-import { saveDocument, updateDocumentStatus, requestDeleteDocument, approveDeleteRequest, rejectDeleteRequest, deleteDocument, submitForReview, approveDocument, rejectDocument, replaceDocument, updateProjectCover, createSubproject } from './actions'
+import { saveDocument, updateDocumentStatus, requestDeleteDocument, approveDeleteRequest, rejectDeleteRequest, deleteDocument, submitForReview, approveDocument, rejectDocument, replaceDocument, updateProjectCover, createSubproject, updateProjectClassification } from './actions'
 import {
   Upload, Download, Trash2, ChevronDown, ChevronRight, ArrowLeft, Package,
-  FolderOpen, CheckCircle2, Clock, XCircle, Eye, AlertTriangle, ShieldCheck, ShieldX, X, Loader2, History, GitBranch, SlidersHorizontal, Info, RefreshCw, Camera, Plus, Layers,
+  FolderOpen, CheckCircle2, Clock, XCircle, Eye, AlertTriangle, ShieldCheck, ShieldX, X, Loader2, History, GitBranch, SlidersHorizontal, Info, RefreshCw, Camera, Plus, Layers, Pencil, Milestone,
 } from 'lucide-react'
 import { parseDocKey } from './utils'
 import DocumentSlideOver from './DocumentSlideOver'
@@ -67,6 +67,21 @@ function formatSize(bytes: number | null) {
   if (!bytes) return '—'
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+// Convierte metros totales → formato 208+800
+function formatChainage(meters: number): string {
+  const km = Math.floor(meters / 1000)
+  const m  = meters % 1000
+  return `${km}+${String(m).padStart(3, '0')}`
+}
+
+// Convierte km + metros → entero total (ej: 208, 800 → 208800)
+function parseChainage(km: string, m: string): number | null {
+  const kmN = parseInt(km)
+  if (isNaN(kmN) || km.trim() === '') return null
+  const mN = Math.min(parseInt(m) || 0, 999)
+  return kmN * 1000 + mN
 }
 
 // ── Workflow AEC: ELAB → REV → APR ───────────────────────────────────────────
@@ -796,7 +811,140 @@ function Row({ label, value }: { label: string; value: string }) {
 
 // ── Vista raíz: selector de proyectos ─────────────────────────────────────────
 
-function ProjectCard({ project, docCount, disciplines, lastUpload, workspaceId, isAdmin, onSelect }: {
+// ── Quick Edit Project Modal ──────────────────────────────────────────────────
+
+function QuickEditProjectModal({ project, onClose }: {
+  project: Project
+  onClose: () => void
+}) {
+  const [name,         setName]         = useState(project.name)
+  const [frente,       setFrente]       = useState(project.frente || '')
+  const [projectType,  setProjectType]  = useState(project.project_type || '')
+  const [startKm,      setStartKm]      = useState(project.chainage_start != null ? String(Math.floor(project.chainage_start / 1000)) : '')
+  const [startM,       setStartM]       = useState(project.chainage_start != null ? String(project.chainage_start % 1000) : '')
+  const [endKm,        setEndKm]        = useState(project.chainage_end   != null ? String(Math.floor(project.chainage_end   / 1000)) : '')
+  const [endM,         setEndM]         = useState(project.chainage_end   != null ? String(project.chainage_end   % 1000) : '')
+  const [saving,       setSaving]       = useState(false)
+  const [error,        setError]        = useState<string | null>(null)
+
+  async function handleSave() {
+    if (!name.trim()) { setError('El nombre es requerido'); return }
+    const chStart = parseChainage(startKm, startM)
+    const chEnd   = parseChainage(endKm,   endM)
+    if (chStart !== null && chEnd !== null && chEnd < chStart) {
+      setError('El cadenamiento final debe ser mayor al inicial')
+      return
+    }
+    setSaving(true)
+    const result = await updateProjectClassification(project.id, {
+      name:           name.trim(),
+      frente:         frente.trim() || null,
+      project_type:   projectType.trim() || null,
+      chainage_start: chStart,
+      chainage_end:   chEnd,
+    })
+    setSaving(false)
+    if (result?.error) { setError(result.error); return }
+    onClose()
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+          <h2 className="text-base font-bold text-[#1A2744]">Editar proyecto</h2>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100">
+            <X className="w-4 h-4 text-slate-400" />
+          </button>
+        </div>
+
+        <div className="p-6 space-y-4">
+          {/* Nombre */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">Nombre *</label>
+            <input value={name} onChange={e => setName(e.target.value)}
+              className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50" />
+          </div>
+
+          {/* Frente */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">Frente</label>
+            <input value={frente} onChange={e => setFrente(e.target.value)}
+              placeholder="Ej: Frente 12"
+              className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50" />
+          </div>
+
+          {/* Tipo */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">Tipo de proyecto</label>
+            <input value={projectType} onChange={e => setProjectType(e.target.value)}
+              placeholder="Ej: Estructura, Terraplén, Drenaje..."
+              className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50" />
+          </div>
+
+          {/* Cadenamiento */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide flex items-center gap-1.5">
+              <Milestone className="w-3.5 h-3.5 text-[#00C2FF]" />
+              Cadenamiento del proyecto
+            </label>
+            <div className="space-y-2">
+              {/* Inicio */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-slate-400 w-12 flex-shrink-0">Inicio</span>
+                <div className="flex items-center gap-1 flex-1">
+                  <input
+                    type="number" min="0" value={startKm} onChange={e => setStartKm(e.target.value)}
+                    placeholder="KM"
+                    className="w-20 px-2.5 py-2 rounded-lg border border-slate-200 text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50" />
+                  <span className="text-slate-400 font-bold">+</span>
+                  <input
+                    type="number" min="0" max="999" value={startM} onChange={e => setStartM(e.target.value)}
+                    placeholder="000"
+                    className="w-20 px-2.5 py-2 rounded-lg border border-slate-200 text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50" />
+                  {startKm && <span className="text-xs text-slate-400 font-mono">{startKm}+{String(parseInt(startM)||0).padStart(3,'0')}</span>}
+                </div>
+              </div>
+              {/* Fin */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-slate-400 w-12 flex-shrink-0">Fin</span>
+                <div className="flex items-center gap-1 flex-1">
+                  <input
+                    type="number" min="0" value={endKm} onChange={e => setEndKm(e.target.value)}
+                    placeholder="KM"
+                    className="w-20 px-2.5 py-2 rounded-lg border border-slate-200 text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50" />
+                  <span className="text-slate-400 font-bold">+</span>
+                  <input
+                    type="number" min="0" max="999" value={endM} onChange={e => setEndM(e.target.value)}
+                    placeholder="000"
+                    className="w-20 px-2.5 py-2 rounded-lg border border-slate-200 text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50" />
+                  {endKm && <span className="text-xs text-slate-400 font-mono">{endKm}+{String(parseInt(endM)||0).padStart(3,'0')}</span>}
+                </div>
+              </div>
+            </div>
+            <p className="text-xs text-slate-400 mt-1.5">Formato KM+metro · Ej: KM 208, metro 800 → 208+800</p>
+          </div>
+
+          {error && <p className="text-xs text-red-500">{error}</p>}
+
+          <div className="flex gap-3 pt-1">
+            <button onClick={onClose}
+              className="flex-1 py-2.5 rounded-lg border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50">
+              Cancelar
+            </button>
+            <button onClick={handleSave} disabled={saving || !name.trim()}
+              className="flex-1 py-2.5 rounded-lg bg-[#1A2744] text-white text-sm font-bold hover:bg-[#243660] disabled:opacity-60 flex items-center justify-center gap-2">
+              {saving ? <><Loader2 className="w-4 h-4 animate-spin" /> Guardando...</> : 'Guardar cambios'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ProjectCard({ project, docCount, disciplines, lastUpload, workspaceId, isAdmin, onSelect, onEdit }: {
   project: Project
   docCount: number
   disciplines: number
@@ -804,33 +952,37 @@ function ProjectCard({ project, docCount, disciplines, lastUpload, workspaceId, 
   workspaceId: string
   isAdmin: boolean
   onSelect: (id: string) => void
+  onEdit: (project: Project) => void
 }) {
   const [coverKey, setCoverKey] = useState<string | null>(project.cover_image_url)
+  const hasChainage = project.chainage_start != null || project.chainage_end != null
 
   return (
     <div className="bg-white border border-slate-100 rounded-xl overflow-hidden hover:shadow-md hover:border-[#00C2FF]/30 transition-all group">
-      {/* Cover image area — clic navega al proyecto */}
+      {/* Cover image area */}
       <div
         onClick={() => onSelect(project.id)}
         className="relative h-36 bg-[#1A2744]/5 flex items-center justify-center overflow-hidden cursor-pointer">
         {coverKey ? (
-          <img
-            src={`/api/projects/${project.id}/cover`}
-            alt={project.name}
-            className="w-full h-full object-cover"
-          />
+          <img src={`/api/projects/${project.id}/cover`} alt={project.name} className="w-full h-full object-cover" />
         ) : (
           <FolderOpen className="w-10 h-10 text-[#1A2744]/20" />
         )}
         {isAdmin && (
-          <ProjectCoverUploader
-            project={project}
-            workspaceId={workspaceId}
-            onUploaded={key => setCoverKey(key)}
-          />
+          <ProjectCoverUploader project={project} workspaceId={workspaceId} onUploaded={key => setCoverKey(key)} />
+        )}
+        {/* Botón editar — top-left */}
+        {isAdmin && (
+          <button
+            onClick={e => { e.stopPropagation(); onEdit(project) }}
+            title="Editar proyecto"
+            className="absolute top-2 left-2 w-7 h-7 flex items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors z-10 opacity-0 group-hover:opacity-100">
+            <Pencil className="w-3.5 h-3.5" />
+          </button>
         )}
       </div>
-      {/* Card body — clic navega al proyecto */}
+
+      {/* Card body */}
       <div onClick={() => onSelect(project.id)} className="p-4 cursor-pointer">
         <div className="flex items-start justify-between gap-2">
           <h3 className="font-bold text-[#1A2744] text-sm leading-tight">{project.name}</h3>
@@ -850,6 +1002,19 @@ function ProjectCard({ project, docCount, disciplines, lastUpload, workspaceId, 
             )}
           </div>
         )}
+
+        {/* Cadenamiento */}
+        {hasChainage && (
+          <div className="flex items-center gap-1.5 mt-1.5">
+            <Milestone className="w-3 h-3 text-[#00C2FF] flex-shrink-0" />
+            <span className="text-[10px] font-mono text-slate-500">
+              {project.chainage_start != null ? formatChainage(project.chainage_start) : '—'}
+              {' — '}
+              {project.chainage_end != null ? formatChainage(project.chainage_end) : '—'}
+            </span>
+          </div>
+        )}
+
         <div className="flex items-center gap-2 mt-2 text-xs text-slate-400">
           <span>{docCount} documento{docCount !== 1 ? 's' : ''}</span>
           {disciplines > 0 && (
@@ -925,6 +1090,8 @@ function ProjectsView({
 }) {
   const [filterFrente, setFilterFrente] = useState('all')
   const [filterType,   setFilterType]   = useState('all')
+  const [editingProject, setEditingProject] = useState<Project | null>(null)
+  const isAdmin = userRole === 'owner' || userRole === 'admin'
 
   // Solo proyectos raíz (sin padre)
   const rootProjects = projects.filter(p => !p.parent_project_id)
@@ -1005,12 +1172,20 @@ function ProjectsView({
               disciplines={disciplines}
               lastUpload={lastUpload}
               workspaceId={workspaceId}
-              isAdmin={userRole === 'owner' || userRole === 'admin'}
+              isAdmin={isAdmin}
               onSelect={onSelect}
+              onEdit={setEditingProject}
             />
           )
         })}
       </div>
+
+      {editingProject && (
+        <QuickEditProjectModal
+          project={editingProject}
+          onClose={() => setEditingProject(null)}
+        />
+      )}
     </div>
   )
 }

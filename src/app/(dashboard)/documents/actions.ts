@@ -273,16 +273,20 @@ export async function updateProjectCover(projectId: string, storageKey: string) 
 // ── Edición rápida de proyecto (frente + tipo) ────────────────────────────────
 
 export async function updateProjectClassification(projectId: string, data: {
-  name:         string
-  frente:       string | null
-  project_type: string | null
+  name:           string
+  frente:         string | null
+  project_type:   string | null
+  chainage_start: number | null
+  chainage_end:   number | null
 }) {
   await getUser()
   const admin = getAdminClient()
   const { error } = await admin.from('projects').update({
-    name:         data.name,
-    frente:       data.frente || null,
-    project_type: data.project_type || null,
+    name:           data.name,
+    frente:         data.frente || null,
+    project_type:   data.project_type || null,
+    chainage_start: data.chainage_start,
+    chainage_end:   data.chainage_end,
   }).eq('id', projectId)
   if (error) return { error: error.message }
   revalidatePath('/documents')
