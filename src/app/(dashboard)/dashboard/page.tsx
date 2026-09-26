@@ -127,67 +127,98 @@ export default async function DashboardPage() {
         </Link>
       </div>
 
-      {/* Filmstrip de proyectos */}
-      {projects.length > 0 && (
-        <div>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Proyectos activos</h2>
-            <Link href="/documents" className="text-xs text-[#00C2FF] font-semibold hover:underline flex items-center gap-0.5">
-              Ver todos <ChevronRight className="w-3 h-3" />
-            </Link>
-          </div>
-          <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
-            {(projects as any[]).map(p => {
-              const hasCover  = !!p.cover_image_url
-              const imgDocId  = latestImageByProject[p.id]
-              const imgSrc    = hasCover
-                ? `/api/projects/${p.id}/cover`
-                : imgDocId
-                  ? `/api/documents/download/${imgDocId}?inline=1`
-                  : null
+      {/* Bento grid de proyectos */}
+      {projects.length > 0 && (() => {
+        const visible = (projects as any[]).slice(0, 5)
+        const [featured, ...rest] = visible
 
-              return (
-                <Link key={p.id} href={`/documents?project=${p.id}`}
-                  className="flex-shrink-0 w-44 rounded-xl overflow-hidden border border-slate-100 hover:shadow-lg hover:border-[#00C2FF]/30 transition-all group">
-                  {/* Foto */}
-                  <div className="relative h-28 bg-[#1A2744]/8 overflow-hidden">
-                    {imgSrc ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={imgSrc}
-                        alt={p.name}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#1A2744]/10 to-[#00C2FF]/10">
-                        <FolderOpen className="w-8 h-8 text-[#1A2744]/25" />
-                      </div>
-                    )}
-                    {/* Gradiente nombre */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/10 to-transparent" />
-                    <div className="absolute bottom-0 left-0 right-0 px-2.5 pb-2">
-                      <p className="text-white text-[11px] font-bold leading-tight line-clamp-2 drop-shadow-sm">{p.name}</p>
-                    </div>
-                    {/* Frente badge */}
-                    {p.frente && (
-                      <span className="absolute top-2 left-2 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-black/40 text-white/90 backdrop-blur-sm">
-                        {p.frente}
-                      </span>
-                    )}
-                  </div>
-                  {/* Footer */}
-                  <div className="bg-white px-2.5 py-1.5 flex items-center justify-between">
-                    <span className="text-[10px] text-slate-400">
-                      {docCountByProject[p.id] ?? 0} docs
-                    </span>
-                    <ChevronRight className="w-3 h-3 text-slate-300 group-hover:text-[#00C2FF] transition-colors" />
-                  </div>
-                </Link>
-              )
-            })}
+        function ProjectTile({ p, large }: { p: any; large?: boolean }) {
+          const imgSrc = p.cover_image_url
+            ? `/api/projects/${p.id}/cover`
+            : latestImageByProject[p.id]
+              ? `/api/documents/download/${latestImageByProject[p.id]}?inline=1`
+              : null
+          const docCount = docCountByProject[p.id] ?? 0
+
+          return (
+            <Link href={`/documents?project=${p.id}`}
+              className={`relative rounded-2xl overflow-hidden group cursor-pointer block ${large ? 'h-64' : 'h-[calc(50%-6px)]'}`}>
+              {/* Foto o placeholder */}
+              {imgSrc ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={imgSrc} alt={p.name}
+                  className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+              ) : (
+                <div className="absolute inset-0 bg-gradient-to-br from-[#1A2744] to-[#243660]">
+                  <FolderOpen className="absolute bottom-6 right-6 w-12 h-12 text-white/10" />
+                </div>
+              )}
+              {/* Gradiente overlay */}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent" />
+              {/* Badges top */}
+              <div className="absolute top-3 left-3 flex items-center gap-1.5">
+                {p.frente && (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/15 text-white backdrop-blur-sm border border-white/20">
+                    {p.frente}
+                  </span>
+                )}
+                {p.project_type && (
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#00C2FF]/30 text-white backdrop-blur-sm border border-[#00C2FF]/30">
+                    {p.project_type}
+                  </span>
+                )}
+              </div>
+              {/* Flecha top-right */}
+              <div className="absolute top-3 right-3 w-7 h-7 rounded-full bg-white/10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-sm border border-white/20">
+                <ChevronRight className="w-3.5 h-3.5 text-white" />
+              </div>
+              {/* Info bottom */}
+              <div className="absolute bottom-0 left-0 right-0 px-4 pb-4">
+                <p className={`font-bold text-white leading-snug drop-shadow ${large ? 'text-base' : 'text-sm'} line-clamp-2`}>
+                  {p.name}
+                </p>
+                <p className="text-white/60 text-[11px] mt-0.5">
+                  {docCount} documento{docCount !== 1 ? 's' : ''}
+                </p>
+              </div>
+            </Link>
+          )
+        }
+
+        return (
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Proyectos activos</h2>
+              <Link href="/documents" className="text-xs text-[#00C2FF] font-semibold hover:underline flex items-center gap-0.5">
+                Ver todos <ChevronRight className="w-3 h-3" />
+              </Link>
+            </div>
+
+            {visible.length === 1 && (
+              <ProjectTile p={featured} large />
+            )}
+
+            {visible.length === 2 && (
+              <div className="grid grid-cols-2 gap-3 h-64">
+                {visible.map(p => <ProjectTile key={p.id} p={p} large />)}
+              </div>
+            )}
+
+            {visible.length >= 3 && (
+              <div className="grid grid-cols-3 gap-3 h-64">
+                {/* Featured — ocupa 2 columnas */}
+                <div className="col-span-2 h-full">
+                  <ProjectTile p={featured} large />
+                </div>
+                {/* Rest — columna derecha, 2 filas */}
+                <div className="col-span-1 flex flex-col gap-3 h-full">
+                  {rest.slice(0, 2).map(p => <ProjectTile key={p.id} p={p} />)}
+                </div>
+              </div>
+            )}
           </div>
-        </div>
-      )}
+        )
+      })()}
 
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
