@@ -798,10 +798,11 @@ function ProjectCard({ project, docCount, disciplines, lastUpload, workspaceId, 
   const [coverKey, setCoverKey] = useState<string | null>(project.cover_image_url)
 
   return (
-    <button onClick={() => onSelect(project.id)}
-      className="bg-white border border-slate-100 rounded-xl overflow-hidden text-left hover:shadow-md hover:border-[#00C2FF]/30 transition-all group w-full">
-      {/* Cover image area */}
-      <div className="relative h-36 bg-[#1A2744]/5 flex items-center justify-center overflow-hidden">
+    <div className="bg-white border border-slate-100 rounded-xl overflow-hidden hover:shadow-md hover:border-[#00C2FF]/30 transition-all group">
+      {/* Cover image area — clic navega al proyecto */}
+      <div
+        onClick={() => onSelect(project.id)}
+        className="relative h-36 bg-[#1A2744]/5 flex items-center justify-center overflow-hidden cursor-pointer">
         {coverKey ? (
           <img
             src={`/api/projects/${project.id}/cover`}
@@ -819,8 +820,8 @@ function ProjectCard({ project, docCount, disciplines, lastUpload, workspaceId, 
           />
         )}
       </div>
-      {/* Card body */}
-      <div className="p-4">
+      {/* Card body — clic navega al proyecto */}
+      <div onClick={() => onSelect(project.id)} className="p-4 cursor-pointer">
         <div className="flex items-start justify-between gap-2">
           <h3 className="font-bold text-[#1A2744] text-sm leading-tight">{project.name}</h3>
           <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-[#00C2FF] transition-colors flex-shrink-0 mt-0.5" />
@@ -852,7 +853,7 @@ function ProjectCard({ project, docCount, disciplines, lastUpload, workspaceId, 
           </p>
         )}
       </div>
-    </button>
+    </div>
   )
 }
 
