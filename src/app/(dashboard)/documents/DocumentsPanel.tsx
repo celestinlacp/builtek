@@ -870,6 +870,10 @@ function ProjectCoverUploader({ project, workspaceId, onUploaded }: {
     if (!file) return
     setUploading(true)
     try {
+      // Borrar portada anterior de R2 si existe
+      if (project.cover_image_url) {
+        await fetch(`/api/projects/${project.id}/cover`, { method: 'DELETE' })
+      }
       const ext = file.name.split('.').pop()?.toLowerCase() ?? 'jpg'
       const res = await fetch('/api/projects/presign-cover', {
         method: 'POST',
