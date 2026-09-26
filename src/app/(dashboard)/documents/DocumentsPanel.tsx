@@ -973,7 +973,12 @@ function ProjectsView({
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {filtered.map(project => {
-          const projectDocs = documents.filter(d => d.project_id === project.id)
+          const projectDocs = documents.filter(d =>
+            d.project_id === project.id &&
+            d.is_current !== false &&
+            d.doc_status !== 'archived' &&
+            d.doc_status !== 'deleted'
+          )
           const disciplines = new Set(projectDocs.filter(d => d.specialty?.code).map(d => d.specialty!.code)).size
           const lastUpload = projectDocs.length > 0
             ? projectDocs.reduce((latest, d) => d.created_at > latest ? d.created_at : latest, projectDocs[0].created_at)
@@ -1023,7 +1028,10 @@ function ProjectDetailView({
   const [expandedHistory,  setExpandedHistory]  = useState<Set<string>>(new Set())
   const isAdmin = userRole === 'owner' || userRole === 'admin'
 
+  // Todos los docs del proyecto (para historial de versiones)
   const projectDocs = documents.filter(d => d.project_id === project.id)
+  // Solo docs vigentes/activos (para la tabla principal y conteos)
+  const currentDocs = projectDocs.filter(d => d.is_current !== false && d.doc_status !== 'archived' && d.doc_status !== 'deleted')
 
   // Versiones archivadas agrupadas por doc_key
   const archivedByDocKey = projectDocs.reduce<Record<string, Doc[]>>((acc, d) => {
@@ -1034,12 +1042,12 @@ function ProjectDetailView({
     return acc
   }, {})
 
-  // Especialidades usadas en este proyecto
+  // Especialidades usadas en este proyecto (solo docs vigentes)
   const usedSpecialties = [...new Map(
-    projectDocs.filter(d => d.specialty).map(d => [d.specialty!.code, d.specialty!])
+    currentDocs.filter(d => d.specialty).map(d => [d.specialty!.code, d.specialty!])
   ).values()].sort((a, b) => a.code.localeCompare(b.code))
 
-  let filtered = projectDocs
+  let filtered = currentDocs
   if (filterStatus !== 'all')    filtered = filtered.filter(d => d.status === filterStatus)
   if (filterSpecialty !== 'all') filtered = filtered.filter(d =>
     filterSpecialty === 'none' ? !d.specialty : d.specialty?.code === filterSpecialty
@@ -1127,7 +1135,7 @@ function ProjectDetailView({
           </span>
         )}
         <span className="text-xs text-slate-400 ml-1">
-          ({projectDocs.length} documento{projectDocs.length !== 1 ? 's' : ''})
+          ({currentDocs.length} documento{currentDocs.length !== 1 ? 's' : ''})
         </span>
       </div>
 
@@ -1151,7 +1159,7 @@ function ProjectDetailView({
               {usedSpecialties.map(s => (
                 <option key={s.code} value={s.code}>[{s.code}] {s.name}</option>
               ))}
-              {projectDocs.some(d => !d.specialty) && (
+              {currentDocs.some(d => !d.specialty) && (
                 <option value="none">Sin disciplina</option>
               )}
             </select>
@@ -1168,7 +1176,7 @@ function ProjectDetailView({
               {f === 'all' ? 'Todos' : STATUS_CONFIG[f]?.label}
               {f !== 'all' && (
                 <span className="ml-1.5 opacity-70">
-                  {projectDocs.filter(d => d.status === f).length}
+                  {currentDocs.filter(d => d.status === f).length}
                 </span>
               )}
             </button>
