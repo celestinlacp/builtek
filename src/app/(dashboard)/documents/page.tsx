@@ -26,7 +26,7 @@ export default async function DocumentsPage() {
   const wsId    = membership.workspace_id
   const userRole = membership.role as string
 
-  const [projectsRes, docsRes, specialtiesRes, deleteReqRes] = await Promise.all([
+  const [projectsRes, docsRes, specialtiesRes, deleteReqRes, companiesRes, membersRes] = await Promise.all([
     supabase
       .from('projects')
       .select('id, name, status, workspace_id, description, start_date, end_date, frente, project_type, cover_image_url, parent_project_id, chainage_start, chainage_end, created_at')
@@ -35,7 +35,7 @@ export default async function DocumentsPage() {
       .order('name'),
     supabase
       .from('documents')
-      .select('id, name, file_name, display_name, specialty_id, project_id, storage_key, file_type, file_size, status, doc_status, version, version_number, doc_key, is_current, emission_date, author, notes, created_at, approved_by, approved_at, review_requested_by, review_requested_at, rejection_note, project:projects(name), specialty:specialties(name, code, category)')
+      .select('id, name, file_name, display_name, specialty_id, project_id, storage_key, file_type, file_size, status, doc_status, version, version_number, doc_key, is_current, emission_date, author, company_id, notes, created_at, approved_by, approved_at, review_requested_by, review_requested_at, rejection_note, project:projects(name), specialty:specialties(name, code, category)')
       .eq('workspace_id', wsId)
       .neq('doc_status', 'deleted')
       .order('version_number', { ascending: false })
@@ -51,12 +51,33 @@ export default async function DocumentsPage() {
       .select('id, document_id, reason, requested_by, created_at, document:documents(id, name, file_name, display_name)')
       .eq('status', 'pending')
       .order('created_at', { ascending: false }),
+    supabase
+      .from('companies')
+      .select('id, name, short_name, is_active')
+      .eq('workspace_id', wsId)
+      .eq('is_active', true)
+      .order('name'),
+    supabase
+      .from('workspace_members')
+      .select('user_id')
+      .eq('workspace_id', wsId),
   ])
 
   const projects       = projectsRes.data    || []
   const documents      = docsRes.data        || []
   const specialties    = specialtiesRes.data || []
   const deleteRequests = deleteReqRes.data   || []
+  const companies      = companiesRes.data   || []
+
+  const rawMemberIds = (membersRes.data || []).map((m: any) => m.user_id)
+  const profilesRes  = rawMemberIds.length > 0
+    ? await supabase.from('profiles').select('id, full_name, initials').in('id', rawMemberIds)
+    : { data: [] }
+  const members = (profilesRes.data || []).map((p: any) => ({
+    user_id:   p.id,
+    full_name: p.full_name as string | null,
+    initials:  p.initials  as string | null,
+  }))
 
   return (
     <div className="max-w-7xl mx-auto">
@@ -84,6 +105,8 @@ export default async function DocumentsPage() {
         userRole={userRole}
         deleteRequests={deleteRequests as any}
         currentUserId={user.id}
+        companies={companies as any}
+        members={members}
       />
     </div>
   )

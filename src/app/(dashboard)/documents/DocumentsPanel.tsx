@@ -2,7 +2,7 @@
 
 import React, { useState, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Project } from '@/types'
+import { Project, Company } from '@/types'
 import { saveDocument, updateDocumentStatus, requestDeleteDocument, approveDeleteRequest, rejectDeleteRequest, deleteDocument, submitForReview, approveDocument, rejectDocument, replaceDocument, updateProjectCover, createSubproject, updateProjectClassification } from './actions'
 import {
   Upload, Download, Trash2, ChevronDown, ChevronRight, ArrowLeft, Package,
@@ -170,21 +170,25 @@ function WorkflowBadge({ doc, userRole }: { doc: Doc; userRole: string }) {
   )
 }
 
+type Member = { user_id: string; full_name: string | null; initials: string | null }
+
 function UploadModal({
-  projects, specialties, workspaceId, defaultProjectId, existingDocs, onClose
+  projects, specialties, workspaceId, defaultProjectId, existingDocs, companies, members, onClose
 }: {
   projects: Project[]
   specialties: Specialty[]
   workspaceId: string
   defaultProjectId?: string
   existingDocs: Doc[]
+  companies: Company[]
+  members: Member[]
   onClose: () => void
 }) {
   const [projectId,      setProjectId]      = useState(defaultProjectId || '')
   const [specialtyId,    setSpecialtyId]    = useState('')
   const [displayName,    setDisplayName]    = useState('')
   const [emissionDate,   setEmissionDate]   = useState('')
-  const [author,         setAuthor]         = useState('')
+  const [authorSel,      setAuthorSel]      = useState('')
   const [notes,          setNotes]          = useState('')
   const [file,           setFile]           = useState<File | null>(null)
   const [uploading,      setUploading]      = useState(false)
@@ -219,9 +223,23 @@ function UploadModal({
     tecnico: 'Técnicas', administrativo: 'Administrativas', seguridad: 'Seguridad', otro: 'Otro'
   }
 
+  // Decodificar selección de autor
+  let authorText   = ''
+  let authorCompId: string | null = null
+  if (authorSel.startsWith('user:')) {
+    const uid = authorSel.replace('user:', '')
+    const m   = members.find(m => m.user_id === uid)
+    authorText = m?.full_name || m?.initials || ''
+  } else if (authorSel.startsWith('company:')) {
+    const cid = authorSel.replace('company:', '')
+    const c   = companies.find(c => c.id === cid)
+    authorText   = c?.name || ''
+    authorCompId = cid
+  }
+
   async function handleUpload() {
     if (!file || !projectId) { setError('Selecciona proyecto y archivo'); return }
-    if (!author.trim()) { setError('El campo Autor es requerido'); return }
+    if (!authorSel) { setError('Selecciona el autor o empresa'); return }
     setUploading(true); setError(null); setUploadPct(0)
 
     setStep('Preparando subida...')
@@ -269,7 +287,8 @@ function UploadModal({
       file_name:     file.name,
       display_name:  displayName.trim() || null,
       emission_date: emissionDate || null,
-      author:        author.trim(),
+      author:        authorText,
+      company_id:    authorCompId,
       notes:         notes.trim() || null,
       storage_key:   presignData.storageKey,
       file_type:     presignData.fileType,
@@ -366,11 +385,31 @@ function UploadModal({
 
           <div>
             <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
-              Autor <span className="text-red-400">*</span>
+              Autor / Empresa <span className="text-red-400">*</span>
             </label>
-            <input type="text" value={author} onChange={e => setAuthor(e.target.value)}
-              placeholder="Nombre del autor del documento"
-              className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50" />
+            <select value={authorSel} onChange={e => setAuthorSel(e.target.value)}
+              className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50">
+              <option value="">Seleccionar autor o empresa...</option>
+              {members.length > 0 && (
+                <optgroup label="👤 Usuarios del workspace">
+                  {members.map(m => (
+                    <option key={m.user_id} value={`user:${m.user_id}`}>
+                      {m.full_name || m.initials || m.user_id}
+                      {m.initials ? ` (${m.initials})` : ''}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+              {companies.length > 0 && (
+                <optgroup label="🏢 Empresas">
+                  {companies.map(c => (
+                    <option key={c.id} value={`company:${c.id}`}>
+                      {c.name}{c.short_name ? ` (${c.short_name})` : ''}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+            </select>
           </div>
 
           <div>
@@ -422,7 +461,7 @@ function UploadModal({
               className="flex-1 py-2.5 rounded-lg border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50">
               Cancelar
             </button>
-            <button onClick={handleUpload} disabled={uploading || !file || !projectId || !author.trim() || !emissionDate}
+            <button onClick={handleUpload} disabled={uploading || !file || !projectId || !authorSel || !emissionDate}
               className="flex-1 py-2.5 rounded-lg bg-[#1A2744] text-white text-sm font-bold hover:bg-[#243660] disabled:opacity-60">
               {uploading ? 'Subiendo...' : 'Subir a R2'}
             </button>
@@ -507,6 +546,7 @@ function ReplaceDocModal({
       display_name:  displayName.trim() || null,
       emission_date: emissionDate,
       author:        author.trim(),
+      company_id:    null,
       notes:         notes.trim() || null,
       storage_key:   presignData.storageKey,
       file_type:     presignData.fileType,
@@ -1723,7 +1763,7 @@ function ProjectDetailView({
 // ── Componente principal ───────────────────────────────────────────────────────
 
 export default function DocumentsPanel({
-  documents, projects, specialties, workspaceId, userRole, deleteRequests, currentUserId
+  documents, projects, specialties, workspaceId, userRole, deleteRequests, currentUserId, companies, members
 }: {
   documents: Doc[]
   projects: Project[]
@@ -1732,6 +1772,8 @@ export default function DocumentsPanel({
   userRole: string
   deleteRequests: DeleteRequest[]
   currentUserId: string
+  companies: Company[]
+  members: Member[]
 }) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -1816,6 +1858,8 @@ export default function DocumentsPanel({
           workspaceId={workspaceId}
           defaultProjectId={selectedProjectId ?? undefined}
           existingDocs={documents}
+          companies={companies}
+          members={members}
           onClose={() => setShowUpload(false)}
         />
       )}

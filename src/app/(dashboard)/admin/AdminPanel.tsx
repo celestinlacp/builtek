@@ -1013,6 +1013,8 @@ type BiDoc = {
   project?: { name: string } | null
   specialty?: { name: string; code: string } | null
   company?: { name: string; short_name: string | null } | null
+  uploaded_by?: string | null
+  uploader?: { full_name: string | null; initials: string | null } | null
 }
 
 function EmpresasPanel({ companies, workspaceId, userRole }: {
@@ -1278,13 +1280,14 @@ function DatabasePanel({ docs, projects }: { docs: BiDoc[]; projects: Project[] 
                     Subido <SortIcon field="created_at" />
                   </button>
                 </th>
+                <th className="text-left px-3 py-2.5 font-semibold text-slate-500 uppercase tracking-wide">Subido por</th>
                 <th className="text-left px-3 py-2.5 font-semibold text-slate-500 uppercase tracking-wide">Fecha versión</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="px-4 py-12 text-center text-slate-400">
+                  <td colSpan={12} className="px-4 py-12 text-center text-slate-400">
                     {search || filterProj !== 'all' || filterStatus !== 'all' || filterType !== 'all'
                       ? 'Sin resultados para estos filtros'
                       : 'No hay documentos aún'}
@@ -1325,6 +1328,18 @@ function DatabasePanel({ docs, projects }: { docs: BiDoc[]; projects: Project[] 
                     <td className="px-3 py-2.5 text-slate-400">{doc.file_size ? formatBytes(doc.file_size) : '—'}</td>
                     <td className="px-3 py-2.5 text-slate-400 whitespace-nowrap">
                       {new Date(doc.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
+                    </td>
+                    <td className="px-3 py-2.5 whitespace-nowrap">
+                      {doc.uploader ? (
+                        <span className="flex items-center gap-1.5">
+                          {doc.uploader.initials && (
+                            <span className="w-5 h-5 rounded-full bg-[#1A2744]/10 text-[#1A2744] text-[9px] font-bold flex items-center justify-center flex-shrink-0">
+                              {doc.uploader.initials}
+                            </span>
+                          )}
+                          <span className="text-slate-600 text-[11px]">{doc.uploader.full_name || doc.uploader.initials || '—'}</span>
+                        </span>
+                      ) : <span className="text-slate-300">—</span>}
                     </td>
                     <td className="px-3 py-2.5 text-slate-400 whitespace-nowrap">
                       {doc.emission_date

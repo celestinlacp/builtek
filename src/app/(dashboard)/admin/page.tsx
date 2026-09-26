@@ -52,7 +52,7 @@ export default async function AdminPage() {
       .eq('workspace_id', wsId)
       .order('name'),
     supabase.from('documents')
-      .select('id, name, file_name, display_name, ref_code, file_type, file_size, status, doc_status, version, version_number, doc_key, is_current, emission_date, author, notes, created_at, project_id, specialty_id, company_id, project:projects(name), specialty:specialties(name, code), company:companies(name, short_name)')
+      .select('id, name, file_name, display_name, ref_code, file_type, file_size, status, doc_status, version, version_number, doc_key, is_current, emission_date, author, notes, created_at, project_id, specialty_id, company_id, uploaded_by, project:projects(name), specialty:specialties(name, code), company:companies(name, short_name), uploader:profiles!documents_uploaded_by_fkey(full_name, initials)')
       .eq('workspace_id', wsId)
       .neq('doc_status', 'deleted')
       .order('created_at', { ascending: false }),

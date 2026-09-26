@@ -28,6 +28,7 @@ export async function saveDocument(data: {
   display_name:  string | null
   emission_date: string | null
   author:        string
+  company_id:    string | null
   notes:         string | null
   storage_key:   string
   file_type:     string
@@ -43,7 +44,6 @@ export async function saveDocument(data: {
   let newVersionNumber = 1
 
   if (parsed) {
-    // Buscar versión vigente con el mismo doc_key en este workspace
     const { data: existing } = await admin
       .from('documents')
       .select('id, version_number')
@@ -55,8 +55,6 @@ export async function saveDocument(data: {
     if (existing) {
       previousVersionId = existing.id
       newVersionNumber  = (existing.version_number ?? 0) + 1
-
-      // Archivar versión anterior
       await admin.from('documents').update({
         is_current: false,
         doc_status: 'archived',
@@ -65,6 +63,13 @@ export async function saveDocument(data: {
 
     newVersionNumber = parsed.version_number
   }
+
+  // Generar ref_code con formato {EXT}-P{PROJ_NUM}-{SEQ}
+  const fileExt = data.file_name.split('.').pop() || 'file'
+  const { data: refCode } = await admin.rpc('generate_doc_ref', {
+    p_project_id: data.project_id,
+    p_file_ext:   fileExt,
+  })
 
   // Insertar nueva versión
   const { data: inserted, error } = await admin.from('documents').insert({
@@ -76,6 +81,7 @@ export async function saveDocument(data: {
     display_name:     data.display_name,
     emission_date:    data.emission_date,
     author:           data.author,
+    company_id:       data.company_id,
     notes:            data.notes,
     storage_key:      data.storage_key,
     file_url:         data.storage_key,
@@ -89,6 +95,7 @@ export async function saveDocument(data: {
     doc_status:       'active',
     uploaded_by:      user.id,
     embedding_status: 'pending',
+    ref_code:         refCode as string ?? null,
   }).select('id').single()
 
   if (error) return { error: error.message }
@@ -328,6 +335,7 @@ export async function replaceDocument(data: {
   display_name:  string | null
   emission_date: string | null
   author:        string
+  company_id:    string | null
   notes:         string | null
   storage_key:   string
   file_type:     string
@@ -363,6 +371,13 @@ export async function replaceDocument(data: {
     doc_status: 'archived',
   }).eq('id', data.old_doc_id)
 
+  // Generar ref_code
+  const fileExt2 = data.file_name.split('.').pop() || 'file'
+  const { data: refCode2 } = await admin.rpc('generate_doc_ref', {
+    p_project_id: data.project_id,
+    p_file_ext:   fileExt2,
+  })
+
   // Insertar nueva versión
   const { data: inserted, error } = await admin.from('documents').insert({
     project_id:       data.project_id,
@@ -373,6 +388,7 @@ export async function replaceDocument(data: {
     display_name:     data.display_name,
     emission_date:    data.emission_date,
     author:           data.author,
+    company_id:       data.company_id,
     notes:            data.notes,
     storage_key:      data.storage_key,
     file_url:         data.storage_key,
@@ -384,6 +400,7 @@ export async function replaceDocument(data: {
     is_current:       true,
     status:           'draft',
     doc_status:       'active',
+    ref_code:         refCode2 as string ?? null,
     uploaded_by:      user.id,
     embedding_status: 'pending',
   }).select('id').single()
