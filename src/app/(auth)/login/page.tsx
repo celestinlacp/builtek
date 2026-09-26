@@ -95,6 +95,12 @@ export default function LoginPage() {
           />
         </div>
 
+        <div className="flex items-center justify-between">
+          <Link href="/forgot-password" className="text-xs text-[#00C2FF] hover:underline">
+            ¿Olvidaste tu contraseña?
+          </Link>
+        </div>
+
         <div className="flex items-center gap-2">
           <input
             id="remember"

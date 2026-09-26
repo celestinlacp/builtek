@@ -22,7 +22,7 @@ export default async function TasksPage() {
 
   const [projectsRes, tasksRes, docsRes, driveRes, membersRes] = await Promise.all([
     supabase.from('projects')
-      .select('id, name, status, workspace_id, description, start_date, end_date, created_at, frente, project_type')
+      .select('id, name, status, workspace_id, description, start_date, end_date, created_at, frente, project_type, cover_image_url')
       .eq('workspace_id', wsId)
       .eq('status', 'active')
       .order('name'),

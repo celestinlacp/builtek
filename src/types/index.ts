@@ -68,6 +68,7 @@ export interface Project {
   end_date: string | null
   frente: string | null
   project_type: string | null
+  cover_image_url: string | null
   created_at: string
 }
 

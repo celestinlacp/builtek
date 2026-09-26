@@ -3,10 +3,10 @@
 import React, { useState, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Project } from '@/types'
-import { saveDocument, updateDocumentStatus, requestDeleteDocument, approveDeleteRequest, rejectDeleteRequest, deleteDocument, submitForReview, approveDocument, rejectDocument, replaceDocument } from './actions'
+import { saveDocument, updateDocumentStatus, requestDeleteDocument, approveDeleteRequest, rejectDeleteRequest, deleteDocument, submitForReview, approveDocument, rejectDocument, replaceDocument, updateProjectCover } from './actions'
 import {
   Upload, Download, Trash2, ChevronDown, ChevronRight, ArrowLeft, Package,
-  FolderOpen, CheckCircle2, Clock, XCircle, Eye, AlertTriangle, ShieldCheck, ShieldX, X, Loader2, History, GitBranch, SlidersHorizontal, Info, RefreshCw,
+  FolderOpen, CheckCircle2, Clock, XCircle, Eye, AlertTriangle, ShieldCheck, ShieldX, X, Loader2, History, GitBranch, SlidersHorizontal, Info, RefreshCw, Camera,
 } from 'lucide-react'
 import { parseDocKey } from './utils'
 import DocumentSlideOver from './DocumentSlideOver'
@@ -786,12 +786,127 @@ function Row({ label, value }: { label: string; value: string }) {
 
 // ── Vista raíz: selector de proyectos ─────────────────────────────────────────
 
+function ProjectCard({ project, docCount, disciplines, lastUpload, workspaceId, isAdmin, onSelect }: {
+  project: Project
+  docCount: number
+  disciplines: number
+  lastUpload: string | null
+  workspaceId: string
+  isAdmin: boolean
+  onSelect: (id: string) => void
+}) {
+  const [coverKey, setCoverKey] = useState<string | null>(project.cover_image_url)
+
+  return (
+    <button onClick={() => onSelect(project.id)}
+      className="bg-white border border-slate-100 rounded-xl overflow-hidden text-left hover:shadow-md hover:border-[#00C2FF]/30 transition-all group w-full">
+      {/* Cover image area */}
+      <div className="relative h-36 bg-[#1A2744]/5 flex items-center justify-center overflow-hidden">
+        {coverKey ? (
+          <img
+            src={`/api/projects/${project.id}/cover`}
+            alt={project.name}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <FolderOpen className="w-10 h-10 text-[#1A2744]/20" />
+        )}
+        {isAdmin && (
+          <ProjectCoverUploader
+            project={project}
+            workspaceId={workspaceId}
+            onUploaded={key => setCoverKey(key)}
+          />
+        )}
+      </div>
+      {/* Card body */}
+      <div className="p-4">
+        <div className="flex items-start justify-between gap-2">
+          <h3 className="font-bold text-[#1A2744] text-sm leading-tight">{project.name}</h3>
+          <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-[#00C2FF] transition-colors flex-shrink-0 mt-0.5" />
+        </div>
+        {(project.frente || project.project_type) && (
+          <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+            {project.frente && (
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#00C2FF]/10 text-[#0099CC]">
+                {project.frente}
+              </span>
+            )}
+            {project.project_type && (
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">
+                {project.project_type}
+              </span>
+            )}
+          </div>
+        )}
+        <div className="flex items-center gap-2 mt-2 text-xs text-slate-400">
+          <span>{docCount} documento{docCount !== 1 ? 's' : ''}</span>
+          {disciplines > 0 && (
+            <><span>·</span><span>{disciplines} disciplina{disciplines !== 1 ? 's' : ''}</span></>
+          )}
+        </div>
+        {lastUpload && (
+          <p className="text-xs text-slate-300 mt-1">
+            Última subida:{' '}
+            {new Date(lastUpload).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}
+          </p>
+        )}
+      </div>
+    </button>
+  )
+}
+
+function ProjectCoverUploader({ project, workspaceId, onUploaded }: {
+  project: Project
+  workspaceId: string
+  onUploaded: (key: string) => void
+}) {
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [uploading, setUploading] = useState(false)
+
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploading(true)
+    try {
+      const ext = file.name.split('.').pop()?.toLowerCase() ?? 'jpg'
+      const res = await fetch('/api/projects/presign-cover', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId: project.id, workspaceId, contentType: file.type, extension: ext }),
+      })
+      const { uploadUrl, storageKey } = await res.json()
+      await fetch(uploadUrl, { method: 'PUT', body: file, headers: { 'Content-Type': file.type } })
+      await updateProjectCover(project.id, storageKey)
+      onUploaded(storageKey)
+    } finally {
+      setUploading(false)
+      if (inputRef.current) inputRef.current.value = ''
+    }
+  }
+
+  return (
+    <>
+      <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
+      <button
+        onClick={e => { e.stopPropagation(); inputRef.current?.click() }}
+        disabled={uploading}
+        title="Subir foto de portada"
+        className="absolute top-2 right-2 w-7 h-7 flex items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors disabled:opacity-60 z-10">
+        {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Camera className="w-3.5 h-3.5" />}
+      </button>
+    </>
+  )
+}
+
 function ProjectsView({
-  projects, documents, onSelect,
+  projects, documents, onSelect, userRole, workspaceId,
 }: {
   projects: Project[]
   documents: Doc[]
   onSelect: (projectId: string) => void
+  userRole: string
+  workspaceId: string
 }) {
   const [filterFrente, setFilterFrente] = useState('all')
   const [filterType,   setFilterType]   = useState('all')
@@ -860,43 +975,16 @@ function ProjectsView({
             : null
 
           return (
-            <button key={project.id} onClick={() => onSelect(project.id)}
-              className="bg-white border border-slate-100 rounded-xl p-5 text-left hover:shadow-md hover:border-[#00C2FF]/30 transition-all group">
-              <div className="flex items-start justify-between mb-3">
-                <div className="w-10 h-10 bg-[#1A2744]/5 rounded-xl flex items-center justify-center">
-                  <FolderOpen className="w-5 h-5 text-[#1A2744]" />
-                </div>
-                <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-[#00C2FF] transition-colors mt-1" />
-              </div>
-              <h3 className="font-bold text-[#1A2744] text-sm leading-tight">{project.name}</h3>
-              {/* Badges frente + tipo */}
-              {(project.frente || project.project_type) && (
-                <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-                  {project.frente && (
-                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#00C2FF]/10 text-[#0099CC]">
-                      {project.frente}
-                    </span>
-                  )}
-                  {project.project_type && (
-                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">
-                      {project.project_type}
-                    </span>
-                  )}
-                </div>
-              )}
-              <div className="flex items-center gap-2 mt-2 text-xs text-slate-400">
-                <span>{projectDocs.length} documento{projectDocs.length !== 1 ? 's' : ''}</span>
-                {disciplines > 0 && (
-                  <><span>·</span><span>{disciplines} disciplina{disciplines !== 1 ? 's' : ''}</span></>
-                )}
-              </div>
-              {lastUpload && (
-                <p className="text-xs text-slate-300 mt-1.5">
-                  Última subida:{' '}
-                  {new Date(lastUpload).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}
-                </p>
-              )}
-            </button>
+            <ProjectCard
+              key={project.id}
+              project={project}
+              docCount={projectDocs.length}
+              disciplines={disciplines}
+              lastUpload={lastUpload}
+              workspaceId={workspaceId}
+              isAdmin={userRole === 'owner' || userRole === 'admin'}
+              onSelect={onSelect}
+            />
           )
         })}
       </div>
@@ -1360,6 +1448,8 @@ export default function DocumentsPanel({
             projects={projects}
             documents={documents}
             onSelect={selectProject}
+            userRole={userRole}
+            workspaceId={workspaceId}
           />
         </>
       )}

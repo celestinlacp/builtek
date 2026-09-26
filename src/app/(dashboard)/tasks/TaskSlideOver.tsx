@@ -2,14 +2,14 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { addComment, deleteComment, linkDocument, unlinkDocument, reprogramTask, uploadEntregable, approveEntregable, rejectEntregable } from './actions'
+import { addComment, deleteComment, linkDocument, unlinkDocument, reprogramTask, uploadEntregable, approveEntregable, rejectEntregable, linkOficioToTask, unlinkOficioFromTask } from './actions'
 import { Task, Project } from '@/types'
 import {
   X, MessageSquare, Send, Trash2, Paperclip,
   FileText, HardDrive, ChevronDown, Calendar,
   AlertCircle, Clock, CheckCircle2, XCircle,
   Eye, Download, Plus, Loader2, User, Timer,
-  Upload, Package, ThumbsUp, ThumbsDown
+  Upload, Package, ThumbsUp, ThumbsDown, Mail
 } from 'lucide-react'
 
 // ── Tipos ────────────────────────────────────────────────────────────────────
@@ -50,6 +50,15 @@ type AvailableDoc = {
   name: string
   file_type: string
   source: 'document' | 'drive'
+}
+
+type LinkedOficio = {
+  id: string
+  no_oficio: string | null
+  asunto: string
+  tipo: 'entrada' | 'salida'
+  estado: string
+  fecha_documento: string | null
 }
 
 function getCountdown(due_date: string): { label: string; color: string; urgent: boolean } {
@@ -223,6 +232,11 @@ export default function TaskSlideOver({
   const [reprogramReason, setReprogramReason] = useState('')
   const [reprogramming,   setReprogramming]   = useState(false)
   const [reprogramError,  setReprogramError]  = useState<string | null>(null)
+  const [linkedOficios,      setLinkedOficios]      = useState<LinkedOficio[]>([])
+  const [showOficioSelector, setShowOficioSelector] = useState(false)
+  const [availableOficios,   setAvailableOficios]   = useState<LinkedOficio[]>([])
+  const [loadingOficios,     setLoadingOficios]     = useState(false)
+  const [unlinkingOficio,    setUnlinkingOficio]    = useState<string | null>(null)
   const commentsEndRef = useRef<HTMLDivElement>(null)
   const inputRef       = useRef<HTMLTextAreaElement>(null)
 
@@ -363,6 +377,13 @@ export default function TaskSlideOver({
     const entProfileMap = Object.fromEntries((entProfilesRes.data ?? []).map((p: any) => [p.id, p.full_name]))
     setEntregables((rawEnts ?? []).map((e: any) => ({ ...e, uploader_name: entProfileMap[e.uploaded_by] ?? null })))
 
+    // Fetch oficios linked to this task
+    const { data: rawOficios } = await supabase
+      .from('oficios')
+      .select('id, no_oficio, asunto, tipo, estado, fecha_documento')
+      .eq('task_id', task.id)
+    setLinkedOficios((rawOficios ?? []) as LinkedOficio[])
+
     setLoadingData(false)
   }, [task.id, supabase])
 
@@ -410,6 +431,34 @@ export default function TaskSlideOver({
     await unlinkDocument(taskDocId)
     setTaskDocs(prev => prev.filter(d => d.id !== taskDocId))
     setUnlinking(null)
+  }
+
+  async function handleOpenOficioSelector() {
+    setLoadingOficios(true)
+    setShowOficioSelector(true)
+    const { data } = await supabase
+      .from('oficios')
+      .select('id, no_oficio, asunto, tipo, estado, fecha_documento')
+      .is('task_id', null)
+      .order('created_at', { ascending: false })
+      .limit(50)
+    setAvailableOficios((data ?? []) as LinkedOficio[])
+    setLoadingOficios(false)
+  }
+
+  async function handleLinkOficio(oficioId: string) {
+    const result = await linkOficioToTask(oficioId, task.id)
+    if (!result?.error) {
+      setShowOficioSelector(false)
+      await loadData()
+    }
+  }
+
+  async function handleUnlinkOficio(oficioId: string) {
+    setUnlinkingOficio(oficioId)
+    await unlinkOficioFromTask(oficioId)
+    setLinkedOficios(prev => prev.filter(o => o.id !== oficioId))
+    setUnlinkingOficio(null)
   }
 
   return (
@@ -724,6 +773,60 @@ export default function TaskSlideOver({
             )}
           </div>
 
+          {/* Oficios vinculados */}
+          <div className="px-6 py-4 border-b border-slate-50">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
+                <Mail className="w-3.5 h-3.5" />
+                Oficios vinculados
+                {linkedOficios.length > 0 && (
+                  <span className="bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-full text-[10px]">{linkedOficios.length}</span>
+                )}
+              </h3>
+              <button onClick={handleOpenOficioSelector}
+                className="flex items-center gap-1 text-xs text-[#00C2FF] font-semibold hover:opacity-80">
+                <Plus className="w-3.5 h-3.5" /> Vincular
+              </button>
+            </div>
+
+            {loadingData ? (
+              <div className="flex justify-center py-3"><Loader2 className="w-4 h-4 text-slate-300 animate-spin" /></div>
+            ) : linkedOficios.length === 0 ? (
+              <button onClick={handleOpenOficioSelector}
+                className="w-full border border-dashed border-slate-200 rounded-lg py-4 text-center hover:border-[#00C2FF]/40 hover:bg-[#00C2FF]/5 transition-colors group">
+                <Mail className="w-4 h-4 text-slate-300 group-hover:text-[#00C2FF] mx-auto mb-1" />
+                <p className="text-xs text-slate-400 group-hover:text-[#00C2FF]">Vincular oficio a esta tarea</p>
+              </button>
+            ) : (
+              <div className="space-y-2">
+                {linkedOficios.map(oficio => (
+                  <div key={oficio.id} className="flex items-center gap-3 bg-slate-50 rounded-lg px-3 py-2.5 group">
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded flex-shrink-0 ${oficio.tipo === 'entrada' ? 'bg-blue-100 text-blue-600' : 'bg-purple-100 text-purple-600'}`}>
+                      {oficio.tipo === 'entrada' ? 'ENT' : 'SAL'}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-slate-700 truncate">{oficio.asunto}</p>
+                      <p className="text-[10px] text-slate-400">
+                        {oficio.no_oficio ? `${oficio.no_oficio} · ` : ''}{oficio.estado}
+                        {oficio.fecha_documento ? ` · ${new Date(oficio.fecha_documento).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}` : ''}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <a href={`/api/oficios/view/${oficio.id}`} target="_blank" rel="noopener noreferrer"
+                        className="w-6 h-6 flex items-center justify-center rounded hover:bg-slate-200 text-slate-400 hover:text-slate-600">
+                        <Eye className="w-3 h-3" />
+                      </a>
+                      <button onClick={() => handleUnlinkOficio(oficio.id)} disabled={unlinkingOficio === oficio.id}
+                        className="w-6 h-6 flex items-center justify-center rounded hover:bg-red-50 text-slate-400 hover:text-red-500">
+                        {unlinkingOficio === oficio.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <X className="w-3 h-3" />}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           {/* Comentarios */}
           <div className="px-6 py-4">
             <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wide flex items-center gap-1.5 mb-4">
@@ -815,6 +918,44 @@ export default function TaskSlideOver({
           available={availableDocs}
           onClose={() => { setShowLinkModal(false); loadData() }}
         />
+      )}
+
+      {/* Modal vincular oficio */}
+      {showOficioSelector && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setShowOficioSelector(false)} />
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+              <h3 className="font-bold text-[#1A2744]">Vincular oficio</h3>
+              <button onClick={() => setShowOficioSelector(false)} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-100">
+                <X className="w-4 h-4 text-slate-400" />
+              </button>
+            </div>
+            <div className="p-4">
+              {loadingOficios ? (
+                <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 text-slate-300 animate-spin" /></div>
+              ) : availableOficios.length === 0 ? (
+                <p className="text-center text-sm text-slate-400 py-6">No hay oficios sin asignar a tarea</p>
+              ) : (
+                <div className="space-y-1 max-h-72 overflow-y-auto">
+                  {availableOficios.map(oficio => (
+                    <button key={oficio.id} onClick={() => handleLinkOficio(oficio.id)}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-50 text-left transition-colors">
+                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded flex-shrink-0 ${oficio.tipo === 'entrada' ? 'bg-blue-100 text-blue-600' : 'bg-purple-100 text-purple-600'}`}>
+                        {oficio.tipo === 'entrada' ? 'ENT' : 'SAL'}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-slate-700 truncate">{oficio.asunto}</p>
+                        <p className="text-xs text-slate-400">{oficio.no_oficio || 'Sin número'} · {oficio.estado}</p>
+                      </div>
+                      <Plus className="w-4 h-4 text-slate-300 flex-shrink-0" />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </>
   )

@@ -17,6 +17,7 @@ type DriveFolder = {
   id: string
   name: string
   parent_folder_id: string | null
+  created_by: string
   created_at: string
 }
 
@@ -27,6 +28,7 @@ type DriveFile = {
   file_type: string
   file_size: number
   folder_id: string | null
+  uploaded_by: string
   created_at: string
 }
 
@@ -205,117 +207,168 @@ function ShareModal({ fileId, fileName, workspaceId, onClose }: {
 // ── Upload Modal ─────────────────────────────────────────────────────────────
 
 function UploadModal({
-  workspaceId, folderId, folderName, onClose
+  workspaceId, folderId, folderName, onClose, initialFiles
 }: {
-  workspaceId: string
-  folderId:    string | null
-  folderName:  string
-  onClose:     () => void
+  workspaceId:   string
+  folderId:      string | null
+  folderName:    string
+  onClose:       () => void
+  initialFiles?: File[]
 }) {
-  const [file,       setFile]       = useState<File | null>(null)
-  const [uploading,  setUploading]  = useState(false)
-  const [step,       setStep]       = useState('')
-  const [uploadPct,  setUploadPct]  = useState(0)
-  const [error,      setError]      = useState<string | null>(null)
+  const [files,     setFiles]     = useState<File[]>(initialFiles ?? [])
+  const [uploading, setUploading] = useState(false)
+  const [progress,  setProgress]  = useState<Record<string, number>>({})
+  const [errors,    setErrors]    = useState<Record<string, string>>({})
+  const [done,      setDone]      = useState<Set<string>>(new Set())
+  const [dragOver,  setDragOver]  = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  async function handleUpload() {
-    if (!file) return
-    setUploading(true); setError(null); setUploadPct(0)
+  function addFiles(incoming: FileList | File[]) {
+    const arr = Array.from(incoming)
+    setFiles(prev => {
+      const names = new Set(prev.map(f => f.name))
+      return [...prev, ...arr.filter(f => !names.has(f.name))]
+    })
+  }
 
-    setStep('Preparando subida...')
+  async function uploadOne(file: File): Promise<boolean> {
+    const key = file.name
+    setProgress(p => ({ ...p, [key]: 0 }))
+
     const presignRes = await fetch('/api/drive/presign', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        workspaceId,
-        folderId,
-        fileName:    file.name,
-        contentType: file.type || 'application/octet-stream',
-        fileSize:    file.size,
+        workspaceId, folderId,
+        fileName: file.name, contentType: file.type || 'application/octet-stream', fileSize: file.size,
       }),
     })
     const presignData = await presignRes.json()
-    if (!presignRes.ok) { setError(presignData.error || 'Error al preparar subida'); setUploading(false); return }
+    if (!presignRes.ok) {
+      setErrors(e => ({ ...e, [key]: presignData.error || 'Error al preparar' }))
+      return false
+    }
 
-    setStep('Subiendo archivo...')
-    const uploadOk = await new Promise<boolean>((resolve) => {
+    const ok = await new Promise<boolean>((resolve) => {
       const xhr = new XMLHttpRequest()
       xhr.open('PUT', presignData.uploadUrl)
       xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream')
       xhr.upload.onprogress = (e) => {
-        if (e.lengthComputable) setUploadPct(Math.round((e.loaded / e.total) * 100))
+        if (e.lengthComputable) setProgress(p => ({ ...p, [key]: Math.round((e.loaded / e.total) * 90) }))
       }
       xhr.onload  = () => resolve(xhr.status >= 200 && xhr.status < 300)
       xhr.onerror = () => resolve(false)
       xhr.send(file)
     })
 
-    if (!uploadOk) { setError('Error al subir el archivo'); setUploading(false); return }
+    if (!ok) { setErrors(e => ({ ...e, [key]: 'Error al subir' })); return false }
 
-    setStep('Guardando...')
-    setUploadPct(100)
     const result = await saveDriveFile({
-      workspace_id: workspaceId,
-      folder_id:    folderId,
-      name:         file.name,
-      file_name:    file.name,
-      storage_key:  presignData.storageKey,
-      file_type:    presignData.fileType,
-      file_size:    file.size,
+      workspace_id: workspaceId, folder_id: folderId,
+      name: file.name, file_name: file.name,
+      storage_key: presignData.storageKey, file_type: presignData.fileType, file_size: file.size,
     })
+    if (result?.error) { setErrors(e => ({ ...e, [key]: result.error! })); return false }
 
-    if (result?.error) { setError(result.error); setUploading(false); return }
-    onClose()
+    setProgress(p => ({ ...p, [key]: 100 }))
+    setDone(d => new Set([...d, key]))
+    return true
+  }
+
+  async function handleUpload() {
+    if (!files.length) return
+    setUploading(true)
+    for (const file of files) {
+      await uploadOne(file)
+    }
+    setUploading(false)
+    // Close only if all succeeded
+    const allOk = files.every(f => !errors[f.name])
+    if (allOk) onClose()
   }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={!uploading ? onClose : undefined} />
       <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md">
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
           <div>
-            <h2 className="text-base font-bold text-[#1A2744]">Subir archivo</h2>
+            <h2 className="text-base font-bold text-[#1A2744]">Subir archivos</h2>
             <p className="text-xs text-slate-400 mt-0.5">en {folderName}</p>
           </div>
-          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100">
-            <X className="w-4 h-4 text-slate-400" />
-          </button>
+          {!uploading && (
+            <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100">
+              <X className="w-4 h-4 text-slate-400" />
+            </button>
+          )}
         </div>
 
         <div className="p-6 space-y-4">
-          <input ref={inputRef} type="file" className="hidden"
-            onChange={e => setFile(e.target.files?.[0] || null)} />
-          <button onClick={() => inputRef.current?.click()}
-            className={`w-full border-2 border-dashed rounded-xl py-8 text-center transition-colors ${
-              file ? 'border-[#00C2FF] bg-[#00C2FF]/5' : 'border-slate-200 hover:border-slate-300'
+          {/* Drop zone */}
+          <div
+            onDragOver={e => { e.preventDefault(); setDragOver(true) }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={e => { e.preventDefault(); setDragOver(false); addFiles(e.dataTransfer.files) }}
+            onClick={() => inputRef.current?.click()}
+            className={`w-full border-2 border-dashed rounded-xl py-6 text-center cursor-pointer transition-colors ${
+              dragOver ? 'border-[#00C2FF] bg-[#00C2FF]/10' :
+              files.length ? 'border-[#00C2FF] bg-[#00C2FF]/5' : 'border-slate-200 hover:border-slate-300'
             }`}>
-            <Upload className={`w-7 h-7 mx-auto mb-2 ${file ? 'text-[#00C2FF]' : 'text-slate-300'}`} />
-            <p className="text-sm font-medium text-slate-600">{file ? file.name : 'Clic para seleccionar'}</p>
-            <p className="text-xs text-slate-400 mt-1">{file ? formatSize(file.size) : 'Cualquier tipo de archivo'}</p>
-          </button>
+            <Upload className={`w-6 h-6 mx-auto mb-2 ${files.length || dragOver ? 'text-[#00C2FF]' : 'text-slate-300'}`} />
+            <p className="text-sm font-medium text-slate-600">
+              {dragOver ? 'Suelta aquí' : 'Arrastra archivos o clic para seleccionar'}
+            </p>
+            <p className="text-xs text-slate-400 mt-1">Puedes seleccionar varios a la vez</p>
+            <input ref={inputRef} type="file" multiple className="hidden"
+              onChange={e => e.target.files && addFiles(e.target.files)} />
+          </div>
 
-          {error && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-4 py-3">{error}</p>}
-
-          {uploading && (
-            <div className="bg-blue-50 rounded-xl px-4 py-4 space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-blue-700 font-medium">{step}</span>
-                <span className="text-blue-500 font-bold tabular-nums">{uploadPct}%</span>
-              </div>
-              <div className="w-full bg-blue-100 rounded-full h-1.5 overflow-hidden">
-                <div className="bg-[#00C2FF] h-1.5 rounded-full transition-all duration-200" style={{ width: `${uploadPct}%` }} />
-              </div>
+          {/* File list */}
+          {files.length > 0 && (
+            <div className="space-y-1.5 max-h-52 overflow-y-auto">
+              {files.map(file => {
+                const pct   = progress[file.name] ?? null
+                const err   = errors[file.name]
+                const isDone = done.has(file.name)
+                return (
+                  <div key={file.name} className="flex items-center gap-2 bg-slate-50 rounded-lg px-3 py-2">
+                    <span className="text-base">{FILE_ICONS[file.name.split('.').pop()?.toLowerCase() as string] || '📁'}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-slate-700 truncate">{file.name}</p>
+                      {pct !== null && !err && (
+                        <div className="w-full bg-slate-200 rounded-full h-1 mt-1 overflow-hidden">
+                          <div className={`h-1 rounded-full transition-all duration-200 ${isDone ? 'bg-green-400' : 'bg-[#00C2FF]'}`} style={{ width: `${pct}%` }} />
+                        </div>
+                      )}
+                      {err && <p className="text-[10px] text-red-500 mt-0.5">{err}</p>}
+                    </div>
+                    {pct === null && !uploading && (
+                      <button onClick={() => setFiles(prev => prev.filter(f => f.name !== file.name))}
+                        className="w-5 h-5 flex items-center justify-center rounded text-slate-300 hover:text-red-400">
+                        <X className="w-3 h-3" />
+                      </button>
+                    )}
+                    {isDone && <span className="text-[10px] text-green-500 font-bold flex-shrink-0">✓</span>}
+                    {pct !== null && !isDone && !err && (
+                      <span className="text-[10px] text-[#00C2FF] font-bold tabular-nums flex-shrink-0">{pct}%</span>
+                    )}
+                  </div>
+                )
+              })}
             </div>
           )}
 
           <div className="flex gap-3 pt-1">
-            <button onClick={onClose} className="flex-1 py-2.5 rounded-lg border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50">
+            <button onClick={onClose} disabled={uploading}
+              className="flex-1 py-2.5 rounded-lg border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-40">
               Cancelar
             </button>
-            <button onClick={handleUpload} disabled={uploading || !file}
-              className="flex-1 py-2.5 rounded-lg bg-[#1A2744] text-white text-sm font-bold hover:bg-[#243660] disabled:opacity-60">
-              {uploading ? 'Subiendo...' : 'Subir'}
+            <button onClick={handleUpload} disabled={uploading || !files.length}
+              className="flex-1 py-2.5 rounded-lg bg-[#1A2744] text-white text-sm font-bold hover:bg-[#243660] disabled:opacity-60 flex items-center justify-center gap-2">
+              {uploading
+                ? <><Loader2 className="w-4 h-4 animate-spin" /> Subiendo...</>
+                : <><Upload className="w-4 h-4" /> {files.length > 1 ? `Subir ${files.length} archivos` : 'Subir'}</>
+              }
             </button>
           </div>
         </div>
@@ -658,16 +711,23 @@ function FileCard({ file, onView, onDelete, onShare, isAdmin, viewMode }: {
 
 // ── DrivePanel principal ──────────────────────────────────────────────────────
 
-export default function DrivePanel({ workspaceId, userRole }: { workspaceId: string; userRole: string }) {
+export default function DrivePanel({ workspaceId, userRole, currentUserId }: {
+  workspaceId:   string
+  userRole:      string
+  currentUserId: string
+}) {
   const supabase = createClient()
   const isAdmin  = userRole === 'owner' || userRole === 'admin'
 
   const [folders,       setFolders]       = useState<DriveFolder[]>([])
   const [files,         setFiles]         = useState<DriveFile[]>([])
   const [loading,       setLoading]       = useState(true)
-  const [breadcrumb,    setBreadcrumb]    = useState<BreadcrumbEntry[]>([{ id: null, name: 'Mi Drive' }])
+  const [memberNames,   setMemberNames]   = useState<Record<string, string>>({})
+  const [breadcrumb,    setBreadcrumb]    = useState<BreadcrumbEntry[]>([{ id: null, name: 'Drive' }])
   const [viewMode,      setViewMode]      = useState<'grid' | 'list'>('list')
   const [showUpload,    setShowUpload]    = useState(false)
+  const [dropFiles,     setDropFiles]     = useState<File[] | undefined>(undefined)
+  const [dragOverPanel, setDragOverPanel] = useState(false)
   const [showNewFolder, setShowNewFolder] = useState(false)
   const [newFolderName, setNewFolderName] = useState('')
   const [creatingFolder, setCreatingFolder] = useState(false)
@@ -677,6 +737,25 @@ export default function DrivePanel({ workspaceId, userRole }: { workspaceId: str
   const newFolderInputRef = useRef<HTMLInputElement>(null)
 
   const currentFolder = breadcrumb[breadcrumb.length - 1]
+  const isRoot = currentFolder.id === null
+
+  // Load workspace member names for folder grouping
+  useEffect(() => {
+    async function loadMembers() {
+      const { data: members } = await supabase
+        .from('workspace_members')
+        .select('user_id')
+        .eq('workspace_id', workspaceId)
+      if (!members?.length) return
+      const ids = members.map((m: any) => m.user_id)
+      const { data: profiles } = await supabase
+        .from('profiles').select('id, full_name').in('id', ids)
+      const map: Record<string, string> = {}
+      profiles?.forEach((p: any) => { map[p.id] = p.full_name || 'Usuario' })
+      setMemberNames(map)
+    }
+    loadMembers()
+  }, [workspaceId, supabase])
 
   const loadContents = useCallback(async (folderId: string | null) => {
     setLoading(true)
@@ -797,17 +876,15 @@ export default function DrivePanel({ workspaceId, userRole }: { workspaceId: str
 
           {/* Toolbar */}
           <div className="flex items-center gap-2">
-            {isAdmin && (
-              <button onClick={() => setShowNewFolder(true)}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition-colors">
-                <FolderPlus className="w-3.5 h-3.5" />
-                Nueva carpeta
-              </button>
-            )}
-            <button onClick={() => setShowUpload(true)}
+            <button onClick={() => setShowNewFolder(true)}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition-colors">
+              <FolderPlus className="w-3.5 h-3.5" />
+              Nueva carpeta
+            </button>
+            <button onClick={() => { setDropFiles(undefined); setShowUpload(true) }}
               className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#1A2744] text-white text-xs font-bold hover:bg-[#243660] transition-colors">
               <Upload className="w-3.5 h-3.5" />
-              Subir archivo
+              Subir archivos
             </button>
             <div className="flex items-center border border-slate-200 rounded-lg overflow-hidden">
               <button onClick={() => setViewMode('list')}
@@ -850,74 +927,175 @@ export default function DrivePanel({ workspaceId, userRole }: { workspaceId: str
           <LinksPanel workspaceId={workspaceId} />
         )}
 
-      {/* Contenido Drive */}
-        {activeTab === 'drive' && loading ? (
-          <div className="flex items-center justify-center h-48">
-            <Loader2 className="w-6 h-6 text-[#00C2FF] animate-spin" />
+        {/* Contenido Drive — con drag & drop */}
+        {activeTab === 'drive' && (
+          <div
+            onDragOver={e => { e.preventDefault(); setDragOverPanel(true) }}
+            onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOverPanel(false) }}
+            onDrop={e => {
+              e.preventDefault(); setDragOverPanel(false)
+              if (e.dataTransfer.files.length) {
+                setDropFiles(Array.from(e.dataTransfer.files))
+                setShowUpload(true)
+              }
+            }}
+            className={`relative min-h-[200px] rounded-xl transition-all ${dragOverPanel ? 'ring-2 ring-[#00C2FF] ring-offset-2' : ''}`}
+          >
+            {dragOverPanel && (
+              <div className="absolute inset-0 z-10 bg-[#00C2FF]/10 rounded-xl border-2 border-dashed border-[#00C2FF] flex items-center justify-center pointer-events-none">
+                <div className="text-center">
+                  <Upload className="w-10 h-10 text-[#00C2FF] mx-auto mb-2" />
+                  <p className="text-sm font-bold text-[#00C2FF]">Suelta para subir</p>
+                </div>
+              </div>
+            )}
+
+            {loading ? (
+              <div className="flex items-center justify-center h-48">
+                <Loader2 className="w-6 h-6 text-[#00C2FF] animate-spin" />
+              </div>
+            ) : isEmpty ? (
+              <div className="bg-white border border-slate-100 rounded-xl p-16 text-center">
+                <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                  <FolderOpen className="w-8 h-8 text-slate-300" />
+                </div>
+                <h2 className="text-lg font-bold text-[#1A2744] mb-2">Carpeta vacía</h2>
+                <p className="text-slate-400 text-sm max-w-xs mx-auto mb-6">Arrastra archivos aquí o usa los botones para subir.</p>
+                <div className="flex items-center justify-center gap-3">
+                  <button onClick={() => setShowNewFolder(true)}
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50">
+                    <FolderPlus className="w-4 h-4" /> Nueva carpeta
+                  </button>
+                  <button onClick={() => { setDropFiles(undefined); setShowUpload(true) }}
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#1A2744] text-white text-sm font-bold hover:bg-[#243660]">
+                    <Upload className="w-4 h-4" /> Subir archivos
+                  </button>
+                </div>
+              </div>
+            ) : viewMode === 'list' ? (
+              (() => {
+                const myFolders    = isRoot ? folders.filter(f => f.created_by === currentUserId) : folders
+                const otherFolders = isRoot ? folders.filter(f => f.created_by !== currentUserId) : []
+                const othersByOwner: Record<string, DriveFolder[]> = {}
+                otherFolders.forEach(f => {
+                  if (!othersByOwner[f.created_by]) othersByOwner[f.created_by] = []
+                  othersByOwner[f.created_by].push(f)
+                })
+                return (
+                  <div className="bg-white rounded-xl border border-slate-100">
+                    <div className="flex items-center gap-3 px-4 py-2.5 bg-slate-50 border-b border-slate-100 text-xs font-bold text-slate-500 uppercase tracking-wide rounded-t-xl">
+                      <span className="w-5" />
+                      <span className="flex-1">Nombre</span>
+                      <span className="hidden md:block w-28">Modificado</span>
+                      <span className="w-24 text-right">Acciones</span>
+                    </div>
+                    {isRoot && myFolders.length > 0 && (
+                      <div className="px-4 py-1.5 bg-slate-50/60 border-b border-slate-100">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Mis carpetas</span>
+                      </div>
+                    )}
+                    {myFolders.map(f => (
+                      <FolderCard key={f.id} folder={f} viewMode="list"
+                        onOpen={() => openFolder(f)}
+                        onDelete={() => handleDeleteFolder(f.id, f.name)}
+                        onRename={name => handleRenameFolder(f.id, name)}
+                        isAdmin={true} />
+                    ))}
+                    {Object.entries(othersByOwner).map(([ownerId, ownerFolders]) => (
+                      <div key={ownerId}>
+                        <div className="px-4 py-1.5 bg-slate-50/60 border-b border-slate-100">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                            {memberNames[ownerId] || 'Compañero'}
+                          </span>
+                        </div>
+                        {ownerFolders.map(f => (
+                          <FolderCard key={f.id} folder={f} viewMode="list"
+                            onOpen={() => openFolder(f)}
+                            onDelete={() => handleDeleteFolder(f.id, f.name)}
+                            onRename={name => handleRenameFolder(f.id, name)}
+                            isAdmin={isAdmin} />
+                        ))}
+                      </div>
+                    ))}
+                    {files.map(f => (
+                      <FileCard key={f.id} file={f} viewMode="list"
+                        onView={() => setViewingFile({ id: f.id, name: f.name })}
+                        onDelete={() => handleDeleteFile(f.id, f.name)}
+                        onShare={() => setSharingFile({ id: f.id, name: f.name })}
+                        isAdmin={f.uploaded_by === currentUserId || isAdmin} />
+                    ))}
+                  </div>
+                )
+              })()
+            ) : (
+              (() => {
+                const myFolders    = isRoot ? folders.filter(f => f.created_by === currentUserId) : folders
+                const otherFolders = isRoot ? folders.filter(f => f.created_by !== currentUserId) : []
+                const othersByOwner: Record<string, DriveFolder[]> = {}
+                otherFolders.forEach(f => {
+                  if (!othersByOwner[f.created_by]) othersByOwner[f.created_by] = []
+                  othersByOwner[f.created_by].push(f)
+                })
+                return (
+                  <div className="space-y-4">
+                    {isRoot && myFolders.length > 0 && (
+                      <div>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Mis carpetas</p>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                          {myFolders.map(f => (
+                            <FolderCard key={f.id} folder={f} viewMode="grid"
+                              onOpen={() => openFolder(f)}
+                              onDelete={() => handleDeleteFolder(f.id, f.name)}
+                              onRename={name => handleRenameFolder(f.id, name)}
+                              isAdmin={true} />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {Object.entries(othersByOwner).map(([ownerId, ownerFolders]) => (
+                      <div key={ownerId}>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+                          {memberNames[ownerId] || 'Compañero'}
+                        </p>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                          {ownerFolders.map(f => (
+                            <FolderCard key={f.id} folder={f} viewMode="grid"
+                              onOpen={() => openFolder(f)}
+                              onDelete={() => handleDeleteFolder(f.id, f.name)}
+                              onRename={name => handleRenameFolder(f.id, name)}
+                              isAdmin={isAdmin} />
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                    {!isRoot && (
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                        {folders.map(f => (
+                          <FolderCard key={f.id} folder={f} viewMode="grid"
+                            onOpen={() => openFolder(f)}
+                            onDelete={() => handleDeleteFolder(f.id, f.name)}
+                            onRename={name => handleRenameFolder(f.id, name)}
+                            isAdmin={f.created_by === currentUserId || isAdmin} />
+                        ))}
+                      </div>
+                    )}
+                    {files.length > 0 && (
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                        {files.map(f => (
+                          <FileCard key={f.id} file={f} viewMode="grid"
+                            onView={() => setViewingFile({ id: f.id, name: f.name })}
+                            onDelete={() => handleDeleteFile(f.id, f.name)}
+                            onShare={() => setSharingFile({ id: f.id, name: f.name })}
+                            isAdmin={f.uploaded_by === currentUserId || isAdmin} />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )
+              })()
+            )}
           </div>
-        ) : activeTab === 'drive' && isEmpty ? (
-          <div className="bg-white border border-slate-100 rounded-xl p-16 text-center">
-            <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <FolderOpen className="w-8 h-8 text-slate-300" />
-            </div>
-            <h2 className="text-lg font-bold text-[#1A2744] mb-2">Carpeta vacía</h2>
-            <p className="text-slate-400 text-sm max-w-xs mx-auto mb-6">Sube archivos o crea carpetas para organizar tu Drive.</p>
-            <div className="flex items-center justify-center gap-3">
-              {isAdmin && (
-                <button onClick={() => setShowNewFolder(true)}
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50">
-                  <FolderPlus className="w-4 h-4" /> Nueva carpeta
-                </button>
-              )}
-              <button onClick={() => setShowUpload(true)}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#1A2744] text-white text-sm font-bold hover:bg-[#243660]">
-                <Upload className="w-4 h-4" /> Subir archivo
-              </button>
-            </div>
-          </div>
-        ) : activeTab === 'drive' && viewMode === 'list' ? (
-          /* Vista lista */
-          <div className="bg-white rounded-xl border border-slate-100">
-            <div className="flex items-center gap-3 px-4 py-2.5 bg-slate-50 border-b border-slate-100 text-xs font-bold text-slate-500 uppercase tracking-wide rounded-t-xl">
-              <span className="w-5" />
-              <span className="flex-1">Nombre</span>
-              <span className="hidden md:block w-28">Modificado</span>
-              <span className="w-24 text-right">Acciones</span>
-            </div>
-            {folders.map(f => (
-              <FolderCard key={f.id} folder={f} viewMode="list"
-                onOpen={() => openFolder(f)}
-                onDelete={() => handleDeleteFolder(f.id, f.name)}
-                onRename={(name) => handleRenameFolder(f.id, name)}
-                isAdmin={isAdmin} />
-            ))}
-            {files.map(f => (
-              <FileCard key={f.id} file={f} viewMode="list"
-                onView={() => setViewingFile({ id: f.id, name: f.name })}
-                onDelete={() => handleDeleteFile(f.id, f.name)}
-                onShare={() => setSharingFile({ id: f.id, name: f.name })}
-                isAdmin={isAdmin} />
-            ))}
-          </div>
-        ) : activeTab === 'drive' ? (
-          /* Vista grid */
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-            {folders.map(f => (
-              <FolderCard key={f.id} folder={f} viewMode="grid"
-                onOpen={() => openFolder(f)}
-                onDelete={() => handleDeleteFolder(f.id, f.name)}
-                onRename={(name) => handleRenameFolder(f.id, name)}
-                isAdmin={isAdmin} />
-            ))}
-            {files.map(f => (
-              <FileCard key={f.id} file={f} viewMode="grid"
-                onView={() => setViewingFile({ id: f.id, name: f.name })}
-                onDelete={() => handleDeleteFile(f.id, f.name)}
-                onShare={() => setSharingFile({ id: f.id, name: f.name })}
-                isAdmin={isAdmin} />
-            ))}
-          </div>
-        ) : null}
+        )}
       </div>
 
       {/* Modales */}
@@ -926,7 +1104,8 @@ export default function DrivePanel({ workspaceId, userRole }: { workspaceId: str
           workspaceId={workspaceId}
           folderId={currentFolder.id}
           folderName={currentFolder.name}
-          onClose={() => { setShowUpload(false); loadContents(currentFolder.id) }}
+          initialFiles={dropFiles}
+          onClose={() => { setShowUpload(false); setDropFiles(undefined); loadContents(currentFolder.id) }}
         />
       )}
 

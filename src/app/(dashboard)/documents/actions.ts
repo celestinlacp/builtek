@@ -259,6 +259,36 @@ export async function deleteDocumentComment(commentId: string) {
   return { success: true }
 }
 
+// ── Portada de proyecto ───────────────────────────────────────────────────────
+
+export async function updateProjectCover(projectId: string, storageKey: string) {
+  await getUser()
+  const admin = getAdminClient()
+  const { error } = await admin.from('projects').update({ cover_image_url: storageKey }).eq('id', projectId)
+  if (error) return { error: error.message }
+  revalidatePath('/documents')
+  return { success: true }
+}
+
+// ── Edición rápida de proyecto (frente + tipo) ────────────────────────────────
+
+export async function updateProjectClassification(projectId: string, data: {
+  name:         string
+  frente:       string | null
+  project_type: string | null
+}) {
+  await getUser()
+  const admin = getAdminClient()
+  const { error } = await admin.from('projects').update({
+    name:         data.name,
+    frente:       data.frente || null,
+    project_type: data.project_type || null,
+  }).eq('id', projectId)
+  if (error) return { error: error.message }
+  revalidatePath('/documents')
+  return { success: true }
+}
+
 // ── Reemplazo manual de documento ─────────────────────────────────────────────
 
 export async function replaceDocument(data: {

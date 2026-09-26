@@ -22,6 +22,7 @@ export default async function DrivePage() {
     <DrivePanel
       workspaceId={workspace.id}
       userRole={membership.role}
+      currentUserId={user.id}
     />
   )
 }
