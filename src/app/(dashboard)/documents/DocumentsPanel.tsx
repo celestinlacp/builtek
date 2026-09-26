@@ -888,7 +888,7 @@ function ProjectCoverUploader({ project, workspaceId, onUploaded }: {
 
   return (
     <>
-      <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
+      <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={handleFile} onClick={e => e.stopPropagation()} />
       <button
         onClick={e => { e.stopPropagation(); inputRef.current?.click() }}
         disabled={uploading}
