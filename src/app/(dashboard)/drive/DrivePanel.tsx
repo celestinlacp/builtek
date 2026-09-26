@@ -2,13 +2,14 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { createFolder, saveDriveFile, deleteFolder, deleteDriveFile, renameFolder, createShare, revokeShare, getWorkspaceShares } from './actions'
+import { createFolder, saveDriveFile, replaceFile, deleteFolder, deleteDriveFile, renameFolder, createShare, revokeShare, getWorkspaceShares } from './actions'
 import QRCode from 'react-qr-code'
 import {
   FolderOpen, Upload, LayoutGrid, List,
   ChevronRight, Home, Trash2, Download, Eye,
   FolderPlus, Loader2, X, Pencil, Check, HardDrive, Link2,
-  Share2, Copy, CheckCheck, ExternalLink, ShieldOff
+  Share2, Copy, CheckCheck, ExternalLink, ShieldOff,
+  RefreshCw, Filter, UserRound
 } from 'lucide-react'
 
 // ── Tipos ────────────────────────────────────────────────────────────────────
@@ -377,6 +378,128 @@ function UploadModal({
   )
 }
 
+// ── Replace Modal ─────────────────────────────────────────────────────────────
+
+function ReplaceModal({ fileId, workspaceId, folderId, currentName, onClose }: {
+  fileId:      string
+  workspaceId: string
+  folderId:    string | null
+  currentName: string
+  onClose:     () => void
+}) {
+  const [file,      setFile]      = useState<File | null>(null)
+  const [uploading, setUploading] = useState(false)
+  const [progress,  setProgress]  = useState(0)
+  const [error,     setError]     = useState<string | null>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  async function handleReplace() {
+    if (!file) return
+    setUploading(true)
+    setError(null)
+    setProgress(0)
+
+    const presignRes = await fetch('/api/drive/presign', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        workspaceId, folderId,
+        fileName: file.name, contentType: file.type || 'application/octet-stream', fileSize: file.size,
+      }),
+    })
+    const presignData = await presignRes.json()
+    if (!presignRes.ok) { setError(presignData.error || 'Error al preparar'); setUploading(false); return }
+
+    const ok = await new Promise<boolean>((resolve) => {
+      const xhr = new XMLHttpRequest()
+      xhr.open('PUT', presignData.uploadUrl)
+      xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream')
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) setProgress(Math.round((e.loaded / e.total) * 90))
+      }
+      xhr.onload  = () => resolve(xhr.status >= 200 && xhr.status < 300)
+      xhr.onerror = () => resolve(false)
+      xhr.send(file)
+    })
+
+    if (!ok) { setError('Error al subir el archivo'); setUploading(false); return }
+
+    const result = await replaceFile({
+      file_id:      fileId,
+      workspace_id: workspaceId,
+      file_name:    file.name,
+      storage_key:  presignData.storageKey,
+      file_type:    presignData.fileType,
+      file_size:    file.size,
+    })
+
+    setUploading(false)
+    if (result?.error) { setError(result.error); return }
+    setProgress(100)
+    setTimeout(() => onClose(), 400)
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={!uploading ? onClose : undefined} />
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+          <div>
+            <h2 className="text-base font-bold text-[#1A2744]">Reemplazar archivo</h2>
+            <p className="text-xs text-slate-400 mt-0.5 truncate max-w-[280px]">{currentName}</p>
+          </div>
+          {!uploading && (
+            <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100">
+              <X className="w-4 h-4 text-slate-400" />
+            </button>
+          )}
+        </div>
+        <div className="p-6 space-y-4">
+          <div
+            onClick={() => inputRef.current?.click()}
+            className={`w-full border-2 border-dashed rounded-xl py-6 text-center cursor-pointer transition-colors ${
+              file ? 'border-[#00C2FF] bg-[#00C2FF]/5' : 'border-slate-200 hover:border-slate-300'
+            }`}>
+            <RefreshCw className={`w-6 h-6 mx-auto mb-2 ${file ? 'text-[#00C2FF]' : 'text-slate-300'}`} />
+            <p className="text-sm font-medium text-slate-600">
+              {file ? file.name : 'Selecciona el archivo de reemplazo'}
+            </p>
+            {file && <p className="text-xs text-slate-400 mt-1">{(file.size / 1024 / 1024).toFixed(1)} MB</p>}
+            <input ref={inputRef} type="file" className="hidden"
+              onChange={e => e.target.files?.[0] && setFile(e.target.files[0])} />
+          </div>
+
+          {uploading && (
+            <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+              <div className="h-1.5 rounded-full bg-[#00C2FF] transition-all duration-200" style={{ width: `${progress}%` }} />
+            </div>
+          )}
+
+          {error && <p className="text-xs text-red-500">{error}</p>}
+
+          <div className="bg-amber-50 border border-amber-100 rounded-lg px-3 py-2.5 text-xs text-amber-700">
+            El archivo anterior dejará de estar disponible. Esta acción queda registrada en el historial de uploads.
+          </div>
+
+          <div className="flex gap-3">
+            <button onClick={onClose} disabled={uploading}
+              className="flex-1 py-2.5 rounded-lg border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-40">
+              Cancelar
+            </button>
+            <button onClick={handleReplace} disabled={uploading || !file}
+              className="flex-1 py-2.5 rounded-lg bg-[#1A2744] text-white text-sm font-bold hover:bg-[#243660] disabled:opacity-60 flex items-center justify-center gap-2">
+              {uploading
+                ? <><Loader2 className="w-4 h-4 animate-spin" /> Reemplazando...</>
+                : <><RefreshCw className="w-4 h-4" /> Reemplazar</>
+              }
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── PDF Viewer Modal ──────────────────────────────────────────────────────────
 
 function PdfViewerModal({ fileId, fileName, onClose }: { fileId: string; fileName: string; onClose: () => void }) {
@@ -611,13 +734,15 @@ function LinksPanel({ workspaceId }: { workspaceId: string }) {
 
 // ── File Card ─────────────────────────────────────────────────────────────────
 
-function FileCard({ file, onView, onDelete, onShare, isAdmin, viewMode }: {
-  file:     DriveFile
-  onView:   () => void
-  onDelete: () => void
-  onShare:  () => void
-  isAdmin:  boolean
-  viewMode: 'grid' | 'list'
+function FileCard({ file, onView, onDelete, onShare, onReplace, uploaderName, isAdmin, viewMode }: {
+  file:         DriveFile
+  onView:       () => void
+  onDelete:     () => void
+  onShare:      () => void
+  onReplace:    () => void
+  uploaderName: string
+  isAdmin:      boolean
+  viewMode:     'grid' | 'list'
 }) {
   const colorClass = FILE_COLORS[file.file_type] || FILE_COLORS.other
   const icon       = FILE_ICONS[file.file_type]  || '📁'
@@ -637,8 +762,12 @@ function FileCard({ file, onView, onDelete, onShare, isAdmin, viewMode }: {
           )}
           <p className="text-xs text-slate-400">{file.file_type?.toUpperCase()} · {formatSize(file.file_size)}</p>
         </div>
-        <span className="text-xs text-slate-400 w-28 hidden md:block">{formatDate(file.created_at)}</span>
-        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="hidden md:flex items-center gap-1 w-32 text-xs text-slate-500 flex-shrink-0">
+          <UserRound className="w-3 h-3 text-slate-300 flex-shrink-0" />
+          <span className="truncate">{uploaderName}</span>
+        </div>
+        <span className="text-xs text-slate-400 w-24 hidden lg:block flex-shrink-0">{formatDate(file.created_at)}</span>
+        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
           {isPdf && (
             <button onClick={onView} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-200 text-slate-400 hover:text-slate-600" title="Ver">
               <Eye className="w-3.5 h-3.5" />
@@ -651,6 +780,11 @@ function FileCard({ file, onView, onDelete, onShare, isAdmin, viewMode }: {
           <button onClick={onShare} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-[#00C2FF]/10 text-slate-400 hover:text-[#00C2FF]" title="Compartir">
             <Share2 className="w-3.5 h-3.5" />
           </button>
+          {isAdmin && (
+            <button onClick={onReplace} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-amber-50 text-slate-400 hover:text-amber-500" title="Reemplazar">
+              <RefreshCw className="w-3.5 h-3.5" />
+            </button>
+          )}
           {isAdmin && (
             <button onClick={onDelete} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-500" title="Eliminar">
               <Trash2 className="w-3.5 h-3.5" />
@@ -682,6 +816,10 @@ function FileCard({ file, onView, onDelete, onShare, isAdmin, viewMode }: {
               <p className="text-sm font-semibold text-slate-700 truncate">{file.name}</p>
             )}
             <p className="text-xs text-slate-400 mt-0.5">{file.file_type?.toUpperCase()} · {formatSize(file.file_size)}</p>
+            <div className="flex items-center gap-1 mt-0.5">
+              <UserRound className="w-3 h-3 text-slate-300 flex-shrink-0" />
+              <span className="text-xs text-slate-400 truncate">{uploaderName}</span>
+            </div>
           </div>
         </div>
 
@@ -698,6 +836,11 @@ function FileCard({ file, onView, onDelete, onShare, isAdmin, viewMode }: {
           <button onClick={onShare} className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg bg-[#00C2FF]/10 text-[#00C2FF] text-xs font-medium hover:bg-[#00C2FF]/20">
             <Share2 className="w-3 h-3" /> Compartir
           </button>
+          {isAdmin && (
+            <button onClick={onReplace} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-amber-50 text-slate-400 hover:text-amber-500" title="Reemplazar">
+              <RefreshCw className="w-3 h-3" />
+            </button>
+          )}
           {isAdmin && (
             <button onClick={onDelete} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-500">
               <Trash2 className="w-3 h-3" />
@@ -733,7 +876,14 @@ export default function DrivePanel({ workspaceId, userRole, currentUserId }: {
   const [creatingFolder, setCreatingFolder] = useState(false)
   const [viewingFile,   setViewingFile]   = useState<{ id: string; name: string } | null>(null)
   const [sharingFile,   setSharingFile]   = useState<{ id: string; name: string } | null>(null)
+  const [replacingFile, setReplacingFile] = useState<{ id: string; name: string } | null>(null)
   const [activeTab,     setActiveTab]     = useState<'drive' | 'links'>('drive')
+
+  // Filtros de trazabilidad
+  const [filterUploader, setFilterUploader] = useState<string>('')
+  const [filterDateFrom, setFilterDateFrom] = useState<string>('')
+  const [filterDateTo,   setFilterDateTo]   = useState<string>('')
+  const hasActiveFilters = !!(filterUploader || filterDateFrom || filterDateTo)
   const newFolderInputRef = useRef<HTMLInputElement>(null)
 
   const currentFolder = breadcrumb[breadcrumb.length - 1]
@@ -821,7 +971,19 @@ export default function DrivePanel({ workspaceId, userRole, currentUserId }: {
     loadContents(currentFolder.id)
   }
 
-  const isEmpty = !loading && folders.length === 0 && files.length === 0
+  const filteredFiles = files.filter(f => {
+    if (filterUploader && f.uploaded_by !== filterUploader) return false
+    if (filterDateFrom && f.created_at < filterDateFrom) return false
+    if (filterDateTo   && f.created_at > filterDateTo + 'T23:59:59Z') return false
+    return true
+  })
+
+  const isEmpty = !loading && folders.length === 0 && filteredFiles.length === 0
+
+  // Uploaders únicos en el conjunto actual de archivos (para el filtro)
+  const uploaderOptions = Array.from(new Set(files.map(f => f.uploaded_by)))
+    .map(id => ({ id, name: memberNames[id] || 'Usuario' }))
+    .sort((a, b) => a.name.localeCompare(b.name))
 
   return (
     <div className="flex gap-6 h-full">
@@ -922,6 +1084,51 @@ export default function DrivePanel({ workspaceId, userRole, currentUserId }: {
           </div>
         )}
 
+        {/* Barra de filtros de trazabilidad */}
+        {activeTab === 'drive' && (
+          <div className="flex items-center gap-2 mb-4 flex-wrap">
+            <div className="flex items-center gap-1.5 text-xs text-slate-400 font-semibold">
+              <Filter className="w-3.5 h-3.5" /> Filtrar:
+            </div>
+            <select
+              value={filterUploader}
+              onChange={e => setFilterUploader(e.target.value)}
+              className="px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs text-slate-600 bg-white focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/40">
+              <option value="">Todos los usuarios</option>
+              {uploaderOptions.map(u => (
+                <option key={u.id} value={u.id}>{u.name}</option>
+              ))}
+            </select>
+            <input
+              type="date"
+              value={filterDateFrom}
+              onChange={e => setFilterDateFrom(e.target.value)}
+              className="px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs text-slate-600 bg-white focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/40"
+              title="Desde"
+            />
+            <span className="text-xs text-slate-300">—</span>
+            <input
+              type="date"
+              value={filterDateTo}
+              onChange={e => setFilterDateTo(e.target.value)}
+              className="px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs text-slate-600 bg-white focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/40"
+              title="Hasta"
+            />
+            {hasActiveFilters && (
+              <button
+                onClick={() => { setFilterUploader(''); setFilterDateFrom(''); setFilterDateTo('') }}
+                className="px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs text-slate-500 hover:bg-slate-50 hover:text-red-400 transition-colors">
+                Limpiar
+              </button>
+            )}
+            {hasActiveFilters && (
+              <span className="text-xs text-[#00C2FF] font-semibold">
+                {filteredFiles.length} de {files.length} archivos
+              </span>
+            )}
+          </div>
+        )}
+
         {/* Panel Links activos */}
         {activeTab === 'links' && (
           <LinksPanel workspaceId={workspaceId} />
@@ -986,8 +1193,9 @@ export default function DrivePanel({ workspaceId, userRole, currentUserId }: {
                     <div className="flex items-center gap-3 px-4 py-2.5 bg-slate-50 border-b border-slate-100 text-xs font-bold text-slate-500 uppercase tracking-wide rounded-t-xl">
                       <span className="w-5" />
                       <span className="flex-1">Nombre</span>
-                      <span className="hidden md:block w-28">Modificado</span>
-                      <span className="w-24 text-right">Acciones</span>
+                      <span className="hidden md:block w-32">Subido por</span>
+                      <span className="hidden lg:block w-24">Fecha</span>
+                      <span className="w-28 text-right">Acciones</span>
                     </div>
                     {isRoot && myFolders.length > 0 && (
                       <div className="px-4 py-1.5 bg-slate-50/60 border-b border-slate-100">
@@ -1017,11 +1225,13 @@ export default function DrivePanel({ workspaceId, userRole, currentUserId }: {
                         ))}
                       </div>
                     ))}
-                    {files.map(f => (
+                    {filteredFiles.map(f => (
                       <FileCard key={f.id} file={f} viewMode="list"
                         onView={() => setViewingFile({ id: f.id, name: f.name })}
                         onDelete={() => handleDeleteFile(f.id, f.name)}
                         onShare={() => setSharingFile({ id: f.id, name: f.name })}
+                        onReplace={() => setReplacingFile({ id: f.id, name: f.name })}
+                        uploaderName={memberNames[f.uploaded_by] || 'Usuario'}
                         isAdmin={f.uploaded_by === currentUserId || isAdmin} />
                     ))}
                   </div>
@@ -1079,13 +1289,15 @@ export default function DrivePanel({ workspaceId, userRole, currentUserId }: {
                         ))}
                       </div>
                     )}
-                    {files.length > 0 && (
+                    {filteredFiles.length > 0 && (
                       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                        {files.map(f => (
+                        {filteredFiles.map(f => (
                           <FileCard key={f.id} file={f} viewMode="grid"
                             onView={() => setViewingFile({ id: f.id, name: f.name })}
                             onDelete={() => handleDeleteFile(f.id, f.name)}
                             onShare={() => setSharingFile({ id: f.id, name: f.name })}
+                            onReplace={() => setReplacingFile({ id: f.id, name: f.name })}
+                            uploaderName={memberNames[f.uploaded_by] || 'Usuario'}
                             isAdmin={f.uploaded_by === currentUserId || isAdmin} />
                         ))}
                       </div>
@@ -1123,6 +1335,16 @@ export default function DrivePanel({ workspaceId, userRole, currentUserId }: {
           fileName={sharingFile.name}
           workspaceId={workspaceId}
           onClose={() => setSharingFile(null)}
+        />
+      )}
+
+      {replacingFile && (
+        <ReplaceModal
+          fileId={replacingFile.id}
+          workspaceId={workspaceId}
+          folderId={currentFolder.id}
+          currentName={replacingFile.name}
+          onClose={() => { setReplacingFile(null); loadContents(currentFolder.id) }}
         />
       )}
     </div>

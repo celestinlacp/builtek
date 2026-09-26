@@ -69,6 +69,7 @@ export interface Project {
   frente: string | null
   project_type: string | null
   cover_image_url: string | null
+  parent_project_id: string | null
   created_at: string
 }
 

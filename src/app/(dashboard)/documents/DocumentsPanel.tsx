@@ -3,10 +3,10 @@
 import React, { useState, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Project } from '@/types'
-import { saveDocument, updateDocumentStatus, requestDeleteDocument, approveDeleteRequest, rejectDeleteRequest, deleteDocument, submitForReview, approveDocument, rejectDocument, replaceDocument, updateProjectCover } from './actions'
+import { saveDocument, updateDocumentStatus, requestDeleteDocument, approveDeleteRequest, rejectDeleteRequest, deleteDocument, submitForReview, approveDocument, rejectDocument, replaceDocument, updateProjectCover, createSubproject } from './actions'
 import {
   Upload, Download, Trash2, ChevronDown, ChevronRight, ArrowLeft, Package,
-  FolderOpen, CheckCircle2, Clock, XCircle, Eye, AlertTriangle, ShieldCheck, ShieldX, X, Loader2, History, GitBranch, SlidersHorizontal, Info, RefreshCw, Camera,
+  FolderOpen, CheckCircle2, Clock, XCircle, Eye, AlertTriangle, ShieldCheck, ShieldX, X, Loader2, History, GitBranch, SlidersHorizontal, Info, RefreshCw, Camera, Plus, Layers,
 } from 'lucide-react'
 import { parseDocKey } from './utils'
 import DocumentSlideOver from './DocumentSlideOver'
@@ -284,7 +284,17 @@ function UploadModal({
             <select value={projectId} onChange={e => setProjectId(e.target.value)}
               className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50">
               <option value="">Seleccionar proyecto...</option>
-              {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+              {projects.filter(p => !p.parent_project_id).map(p => {
+                const subs = projects.filter(s => s.parent_project_id === p.id)
+                return (
+                  <React.Fragment key={p.id}>
+                    <option value={p.id}>{p.name}</option>
+                    {subs.map(s => (
+                      <option key={s.id} value={s.id}>{'  ↳ '}{s.name}</option>
+                    ))}
+                  </React.Fragment>
+                )
+              })}
             </select>
           </div>
 
@@ -916,16 +926,19 @@ function ProjectsView({
   const [filterFrente, setFilterFrente] = useState('all')
   const [filterType,   setFilterType]   = useState('all')
 
-  const frentes      = [...new Set(projects.map(p => p.frente).filter(Boolean))] as string[]
-  const projectTypes = [...new Set(projects.map(p => p.project_type).filter(Boolean))] as string[]
+  // Solo proyectos raíz (sin padre)
+  const rootProjects = projects.filter(p => !p.parent_project_id)
 
-  const filtered = projects.filter(p => {
+  const frentes      = [...new Set(rootProjects.map(p => p.frente).filter(Boolean))] as string[]
+  const projectTypes = [...new Set(rootProjects.map(p => p.project_type).filter(Boolean))] as string[]
+
+  const filtered = rootProjects.filter(p => {
     if (filterFrente !== 'all' && p.frente !== filterFrente) return false
     if (filterType   !== 'all' && p.project_type !== filterType) return false
     return true
   })
 
-  if (projects.length === 0) {
+  if (rootProjects.length === 0) {
     return (
       <div className="bg-white border border-slate-100 rounded-xl p-16 text-center">
         <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
@@ -966,7 +979,7 @@ function ProjectsView({
             </button>
           )}
           <span className="text-xs text-slate-400 ml-1">
-            {filtered.length} proyecto{filtered.length !== 1 ? 's' : ''}
+            {filtered.length} proyecto{filtered.length !== 1 ? 's' : ''} raíz
           </span>
         </div>
       )}
@@ -1006,7 +1019,7 @@ function ProjectsView({
 
 function ProjectDetailView({
   project, documents, specialties, workspaceId, userRole, deleteRequests, currentUserId,
-  onBack, onUpload,
+  subprojects, parentProject, onBack, onUpload, onSelectSub,
 }: {
   project: Project
   documents: Doc[]
@@ -1015,8 +1028,11 @@ function ProjectDetailView({
   userRole: string
   deleteRequests: DeleteRequest[]
   currentUserId: string
+  subprojects: Project[]
+  parentProject: Project | null
   onBack: () => void
   onUpload: () => void
+  onSelectSub: (id: string) => void
 }) {
   const [selected,         setSelected]         = useState<Set<string>>(new Set())
   const [filterStatus,     setFilterStatus]     = useState('all')
@@ -1026,7 +1042,26 @@ function ProjectDetailView({
   const [replaceDoc,       setReplaceDoc]       = useState<Doc | null>(null)
   const [downloading,      setDownloading]      = useState(false)
   const [expandedHistory,  setExpandedHistory]  = useState<Set<string>>(new Set())
+  const [showCreateSub,    setShowCreateSub]    = useState(false)
+  const [newSubName,       setNewSubName]       = useState('')
+  const [newSubDesc,       setNewSubDesc]       = useState('')
+  const [creatingSub,      setCreatingSub]      = useState(false)
   const isAdmin = userRole === 'owner' || userRole === 'admin'
+
+  async function handleCreateSubproject() {
+    if (!newSubName.trim()) return
+    setCreatingSub(true)
+    await createSubproject({
+      workspace_id:      workspaceId,
+      parent_project_id: project.id,
+      name:              newSubName.trim(),
+      description:       newSubDesc.trim() || null,
+    })
+    setCreatingSub(false)
+    setShowCreateSub(false)
+    setNewSubName('')
+    setNewSubDesc('')
+  }
 
   // Todos los docs del proyecto (para historial de versiones)
   const projectDocs = documents.filter(d => d.project_id === project.id)
@@ -1116,14 +1151,19 @@ function ProjectDetailView({
   return (
     <div>
       {/* Breadcrumb */}
-      <div className="flex items-center gap-2 mb-5">
+      <div className="flex items-center gap-2 mb-5 flex-wrap">
         <button onClick={onBack}
           className="flex items-center gap-1.5 text-sm text-slate-400 hover:text-[#1A2744] transition-colors">
           <ArrowLeft className="w-4 h-4" />
-          Proyectos
+          {parentProject ? parentProject.name : 'Proyectos'}
         </button>
         <span className="text-slate-300">/</span>
         <span className="text-sm font-semibold text-[#1A2744]">{project.name}</span>
+        {parentProject && (
+          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-violet-100 text-violet-600 flex items-center gap-1">
+            <Layers className="w-2.5 h-2.5" /> Subproyecto
+          </span>
+        )}
         {project.frente && (
           <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#00C2FF]/10 text-[#0099CC]">
             {project.frente}
@@ -1138,6 +1178,96 @@ function ProjectDetailView({
           ({currentDocs.length} documento{currentDocs.length !== 1 ? 's' : ''})
         </span>
       </div>
+
+      {/* ── Sección de Subproyectos (solo si el proyecto es raíz y tiene/puede tener subproyectos) ── */}
+      {!parentProject && (
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Layers className="w-4 h-4 text-violet-500" />
+              <span className="text-sm font-bold text-[#1A2744]">Subproyectos</span>
+              {subprojects.length > 0 && (
+                <span className="text-xs bg-violet-100 text-violet-600 font-semibold px-2 py-0.5 rounded-full">
+                  {subprojects.length}
+                </span>
+              )}
+            </div>
+            {isAdmin && (
+              <button onClick={() => setShowCreateSub(v => !v)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-violet-200 text-xs font-semibold text-violet-600 hover:bg-violet-50 transition-colors">
+                <Plus className="w-3.5 h-3.5" />
+                Nuevo subproyecto
+              </button>
+            )}
+          </div>
+
+          {/* Formulario crear subproyecto */}
+          {showCreateSub && (
+            <div className="mb-3 bg-violet-50 border border-violet-200 rounded-xl p-4 space-y-3">
+              <input value={newSubName} onChange={e => setNewSubName(e.target.value)}
+                placeholder="Nombre del subproyecto *"
+                onKeyDown={e => { if (e.key === 'Enter') handleCreateSubproject(); if (e.key === 'Escape') setShowCreateSub(false) }}
+                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400/50" />
+              <input value={newSubDesc} onChange={e => setNewSubDesc(e.target.value)}
+                placeholder="Descripción (opcional)"
+                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400/50" />
+              <div className="flex gap-3">
+                <button onClick={() => { setShowCreateSub(false); setNewSubName(''); setNewSubDesc('') }}
+                  className="flex-1 py-2 rounded-lg border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50">
+                  Cancelar
+                </button>
+                <button onClick={handleCreateSubproject} disabled={!newSubName.trim() || creatingSub}
+                  className="flex-1 py-2 rounded-lg bg-violet-600 text-white text-sm font-bold hover:bg-violet-700 disabled:opacity-60 flex items-center justify-center gap-2">
+                  {creatingSub ? <><Loader2 className="w-4 h-4 animate-spin" /> Creando...</> : 'Crear'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Cards de subproyectos */}
+          {subprojects.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+              {subprojects.map(sub => {
+                const subDocs = documents.filter(d =>
+                  d.project_id === sub.id && d.is_current !== false &&
+                  d.doc_status !== 'archived' && d.doc_status !== 'deleted'
+                )
+                return (
+                  <button key={sub.id} onClick={() => onSelectSub(sub.id)}
+                    className="flex items-center gap-3 p-4 bg-white border border-slate-100 rounded-xl hover:border-violet-200 hover:shadow-sm transition-all text-left group">
+                    <div className="w-10 h-10 rounded-xl bg-violet-50 flex items-center justify-center flex-shrink-0 group-hover:bg-violet-100 transition-colors">
+                      <Layers className="w-5 h-5 text-violet-500" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-[#1A2744] truncate">{sub.name}</p>
+                      {sub.description && (
+                        <p className="text-xs text-slate-400 truncate mt-0.5">{sub.description}</p>
+                      )}
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        {subDocs.length} documento{subDocs.length !== 1 ? 's' : ''}
+                      </p>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-violet-400 transition-colors flex-shrink-0" />
+                  </button>
+                )
+              })}
+            </div>
+          ) : (
+            !showCreateSub && (
+              <div className="bg-white border border-dashed border-slate-200 rounded-xl p-6 text-center">
+                <Layers className="w-6 h-6 text-slate-300 mx-auto mb-2" />
+                <p className="text-sm text-slate-400">Sin subproyectos aún.</p>
+                {isAdmin && (
+                  <button onClick={() => setShowCreateSub(true)}
+                    className="text-xs text-violet-500 hover:text-violet-700 font-medium mt-1">
+                    Crear el primero →
+                  </button>
+                )}
+              </div>
+            )
+          )}
+        </div>
+      )}
 
       {/* Toolbar */}
       <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
@@ -1426,14 +1556,24 @@ export default function DocumentsPanel({
   const [showUpload, setShowUpload] = useState(false)
   const isAdmin = userRole === 'owner' || userRole === 'admin'
 
-  const selectedProject = projects.find(p => p.id === selectedProjectId) ?? null
+  const selectedProject  = projects.find(p => p.id === selectedProjectId) ?? null
+  const parentProject    = selectedProject?.parent_project_id
+    ? (projects.find(p => p.id === selectedProject.parent_project_id) ?? null)
+    : null
+  const subprojects      = selectedProject
+    ? projects.filter(p => p.parent_project_id === selectedProject.id)
+    : []
 
   function selectProject(id: string) {
     router.push(`/documents?project=${id}`)
   }
 
   function goBack() {
-    router.push('/documents')
+    if (parentProject) {
+      router.push(`/documents?project=${parentProject.id}`)
+    } else {
+      router.push('/documents')
+    }
   }
 
   return (
@@ -1477,8 +1617,11 @@ export default function DocumentsPanel({
           userRole={userRole}
           deleteRequests={deleteRequests}
           currentUserId={currentUserId}
+          subprojects={subprojects}
+          parentProject={parentProject}
           onBack={goBack}
           onUpload={() => setShowUpload(true)}
+          onSelectSub={selectProject}
         />
       )}
 

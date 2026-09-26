@@ -289,6 +289,28 @@ export async function updateProjectClassification(projectId: string, data: {
   return { success: true }
 }
 
+// ── Subproyectos ──────────────────────────────────────────────────────────────
+
+export async function createSubproject(data: {
+  workspace_id:      string
+  parent_project_id: string
+  name:              string
+  description:       string | null
+}) {
+  await getUser()
+  const admin = getAdminClient()
+  const { error } = await admin.from('projects').insert({
+    workspace_id:      data.workspace_id,
+    parent_project_id: data.parent_project_id,
+    name:              data.name.trim(),
+    description:       data.description,
+    status:            'active',
+  })
+  if (error) return { error: error.message }
+  revalidatePath('/documents')
+  return { success: true }
+}
+
 // ── Reemplazo manual de documento ─────────────────────────────────────────────
 
 export async function replaceDocument(data: {

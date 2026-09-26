@@ -51,7 +51,7 @@ export async function saveDriveFile(data: {
   const { user } = await getUser()
   const admin = getAdminClient()
 
-  const { error } = await admin.from('drive_files').insert({
+  const { data: file, error } = await admin.from('drive_files').insert({
     workspace_id: data.workspace_id,
     folder_id:    data.folder_id,
     name:         data.name,
@@ -60,9 +60,54 @@ export async function saveDriveFile(data: {
     file_type:    data.file_type,
     file_size:    data.file_size,
     uploaded_by:  user.id,
-  })
+  }).select('id').single()
 
   if (error) return { error: error.message }
+
+  // Registrar evento de upload para trazabilidad
+  await admin.from('drive_upload_logs').insert({
+    workspace_id: data.workspace_id,
+    file_id:      file.id,
+    file_name:    data.file_name,
+    storage_key:  data.storage_key,
+    uploaded_by:  user.id,
+    action:       'upload',
+  })
+
+  revalidatePath('/drive')
+  return { success: true }
+}
+
+export async function replaceFile(data: {
+  file_id:      string
+  workspace_id: string
+  file_name:    string
+  storage_key:  string
+  file_type:    string
+  file_size:    number
+}) {
+  const { user } = await getUser()
+  const admin = getAdminClient()
+
+  const { error } = await admin.from('drive_files').update({
+    file_name:   data.file_name,
+    storage_key: data.storage_key,
+    file_type:   data.file_type,
+    file_size:   data.file_size,
+  }).eq('id', data.file_id)
+
+  if (error) return { error: error.message }
+
+  // Registrar evento de reemplazo
+  await admin.from('drive_upload_logs').insert({
+    workspace_id: data.workspace_id,
+    file_id:      data.file_id,
+    file_name:    data.file_name,
+    storage_key:  data.storage_key,
+    uploaded_by:  user.id,
+    action:       'replace',
+  })
+
   revalidatePath('/drive')
   return { success: true }
 }
