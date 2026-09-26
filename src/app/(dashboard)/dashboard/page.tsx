@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { CheckSquare, FolderOpen, FileText, Bot, TrendingUp, Clock, AlertCircle, CheckCircle2, User, Zap } from 'lucide-react'
+import { CheckSquare, FolderOpen, FileText, Bot, TrendingUp, Clock, AlertCircle, CheckCircle2, User, Zap, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
 import Greeting from './Greeting'
 
@@ -18,17 +18,35 @@ async function getWorkspaceData(userId: string) {
 
   const wsId = membership.workspace_id
 
-  const [projects, tasks, documents] = await Promise.all([
-    supabase.from('projects').select('id, name, status').eq('workspace_id', wsId),
+  const [projects, tasks, documents, imageDocs, allDocs] = await Promise.all([
+    supabase.from('projects').select('id, name, status, frente, cover_image_url').eq('workspace_id', wsId).eq('status', 'active').order('name'),
     supabase.from('tasks').select('id, name, status, priority, due_date, project_id, assignee_id').order('created_at', { ascending: false }),
-    supabase.from('documents').select('id, name, status, created_at').order('created_at', { ascending: false }).limit(5),
+    supabase.from('documents').select('id, name, status, created_at').eq('workspace_id', wsId).neq('doc_status', 'deleted').order('created_at', { ascending: false }).limit(5),
+    supabase.from('documents').select('id, project_id, created_at').eq('workspace_id', wsId).eq('file_type', 'img').order('created_at', { ascending: false }),
+    supabase.from('documents').select('project_id').eq('workspace_id', wsId).neq('doc_status', 'deleted').eq('is_current', true),
   ])
+
+  // Última foto por proyecto (fallback si no tiene cover_image_url)
+  const latestImageByProject: Record<string, string> = {}
+  for (const d of (imageDocs.data ?? [])) {
+    if (d.project_id && !latestImageByProject[d.project_id]) {
+      latestImageByProject[d.project_id] = d.id
+    }
+  }
+
+  // Conteo de documentos vigentes por proyecto
+  const docCountByProject: Record<string, number> = {}
+  for (const d of (allDocs.data ?? [])) {
+    if (d.project_id) docCountByProject[d.project_id] = (docCountByProject[d.project_id] ?? 0) + 1
+  }
 
   return {
     workspace: membership.workspaces as unknown as { id: string; name: string },
     projects: projects.data || [],
     tasks: tasks.data || [],
     documents: documents.data || [],
+    latestImageByProject,
+    docCountByProject,
   }
 }
 
@@ -40,7 +58,7 @@ export default async function DashboardPage() {
   const data = await getWorkspaceData(user.id)
   if (!data) redirect('/onboarding')
 
-  const { workspace, projects, tasks, documents } = data
+  const { workspace, projects, tasks, documents, latestImageByProject, docCountByProject } = data
 
   const tasksDone = tasks.filter(t => t.status === 'done').length
   const tasksInProgress = tasks.filter(t => t.status === 'in_progress').length
@@ -108,6 +126,68 @@ export default async function DashboardPage() {
           Nueva tarea
         </Link>
       </div>
+
+      {/* Filmstrip de proyectos */}
+      {projects.length > 0 && (
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Proyectos activos</h2>
+            <Link href="/documents" className="text-xs text-[#00C2FF] font-semibold hover:underline flex items-center gap-0.5">
+              Ver todos <ChevronRight className="w-3 h-3" />
+            </Link>
+          </div>
+          <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+            {(projects as any[]).map(p => {
+              const hasCover  = !!p.cover_image_url
+              const imgDocId  = latestImageByProject[p.id]
+              const imgSrc    = hasCover
+                ? `/api/projects/${p.id}/cover`
+                : imgDocId
+                  ? `/api/documents/download/${imgDocId}?inline=1`
+                  : null
+
+              return (
+                <Link key={p.id} href={`/documents?project=${p.id}`}
+                  className="flex-shrink-0 w-44 rounded-xl overflow-hidden border border-slate-100 hover:shadow-lg hover:border-[#00C2FF]/30 transition-all group">
+                  {/* Foto */}
+                  <div className="relative h-28 bg-[#1A2744]/8 overflow-hidden">
+                    {imgSrc ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={imgSrc}
+                        alt={p.name}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#1A2744]/10 to-[#00C2FF]/10">
+                        <FolderOpen className="w-8 h-8 text-[#1A2744]/25" />
+                      </div>
+                    )}
+                    {/* Gradiente nombre */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/10 to-transparent" />
+                    <div className="absolute bottom-0 left-0 right-0 px-2.5 pb-2">
+                      <p className="text-white text-[11px] font-bold leading-tight line-clamp-2 drop-shadow-sm">{p.name}</p>
+                    </div>
+                    {/* Frente badge */}
+                    {p.frente && (
+                      <span className="absolute top-2 left-2 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-black/40 text-white/90 backdrop-blur-sm">
+                        {p.frente}
+                      </span>
+                    )}
+                  </div>
+                  {/* Footer */}
+                  <div className="bg-white px-2.5 py-1.5 flex items-center justify-between">
+                    <span className="text-[10px] text-slate-400">
+                      {docCountByProject[p.id] ?? 0} docs
+                    </span>
+                    <ChevronRight className="w-3 h-3 text-slate-300 group-hover:text-[#00C2FF] transition-colors" />
+                  </div>
+                </Link>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
