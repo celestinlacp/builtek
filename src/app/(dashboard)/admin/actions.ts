@@ -40,6 +40,8 @@ export async function createProject(formData: FormData) {
     status: 'active',
     start_date: formData.get('start_date') as string || null,
     end_date: formData.get('end_date') as string || null,
+    frente: formData.get('frente') as string || null,
+    project_type: formData.get('project_type') as string || null,
   })
 
   if (error) return { error: error.message }
@@ -59,6 +61,8 @@ export async function updateProject(projectId: string, formData: FormData) {
     status: formData.get('status') as string,
     start_date: formData.get('start_date') as string || null,
     end_date: formData.get('end_date') as string || null,
+    frente: formData.get('frente') as string || null,
+    project_type: formData.get('project_type') as string || null,
   }).eq('id', projectId)
 
   if (error) return { error: error.message }

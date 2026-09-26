@@ -471,6 +471,46 @@ function ProjectModal({
             </div>
           </div>
 
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">Frente</label>
+              <select name="frente" defaultValue={project?.frente || ''}
+                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50 focus:border-[#00C2FF]">
+                <option value="">Sin frente</option>
+                <option value="Frente 1">Frente 1</option>
+                <option value="Frente 2">Frente 2</option>
+                <option value="Frente 3">Frente 3</option>
+                <option value="Frente 4">Frente 4</option>
+                <option value="Frente 5">Frente 5</option>
+                <option value="Frente 6">Frente 6</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">Tipo de proyecto</label>
+              <select name="project_type" defaultValue={project?.project_type || ''}
+                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50 focus:border-[#00C2FF]">
+                <option value="">Sin tipo</option>
+                <option value="Estación">Estación</option>
+                <option value="Puente Ferroviario">Puente Ferroviario</option>
+                <option value="Puente Vehicular">Puente Vehicular</option>
+                <option value="Paso Inferior Ferroviario">Paso Inf. Ferroviario</option>
+                <option value="Paso Superior Ferroviario">Paso Sup. Ferroviario</option>
+                <option value="Puente Peatonal">Puente Peatonal</option>
+                <option value="Viaducto">Viaducto</option>
+                <option value="Túnel">Túnel</option>
+                <option value="Muro">Muro</option>
+                <option value="Cruce a Nivel">Cruce a Nivel</option>
+                <option value="Drenaje Transversal">Drenaje Transversal</option>
+                <option value="Vía Ferrea">Vía Ferrea</option>
+                <option value="Vialidad">Vialidad</option>
+                <option value="Cuneta">Cuneta</option>
+                <option value="Parapeto">Parapeto</option>
+                <option value="Mesa">Mesa</option>
+                <option value="General">General</option>
+              </select>
+            </div>
+          </div>
+
           {isEdit && (
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">Estado</label>
@@ -540,10 +580,22 @@ function ProjectCard({ project, onEdit }: { project: Project; onEdit: (p: Projec
         </div>
       </div>
 
-      <div className="flex items-center justify-between mt-4">
-        <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${cfg.color}`}>
-          {cfg.label}
-        </span>
+      <div className="flex items-center justify-between mt-4 flex-wrap gap-2">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${cfg.color}`}>
+            {cfg.label}
+          </span>
+          {project.frente && (
+            <span className="text-xs px-2.5 py-1 rounded-full font-medium bg-[#00C2FF]/10 text-[#0099CC]">
+              {project.frente}
+            </span>
+          )}
+          {project.project_type && (
+            <span className="text-xs px-2.5 py-1 rounded-full font-medium bg-slate-100 text-slate-500">
+              {project.project_type}
+            </span>
+          )}
+        </div>
 
         {(project.start_date || project.end_date) && (
           <div className="flex items-center gap-1 text-xs text-slate-400">

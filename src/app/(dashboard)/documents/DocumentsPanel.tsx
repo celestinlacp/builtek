@@ -3,10 +3,10 @@
 import React, { useState, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Project } from '@/types'
-import { saveDocument, updateDocumentStatus, requestDeleteDocument, approveDeleteRequest, rejectDeleteRequest, deleteDocument, submitForReview, approveDocument, rejectDocument } from './actions'
+import { saveDocument, updateDocumentStatus, requestDeleteDocument, approveDeleteRequest, rejectDeleteRequest, deleteDocument, submitForReview, approveDocument, rejectDocument, replaceDocument } from './actions'
 import {
   Upload, Download, Trash2, ChevronDown, ChevronRight, ArrowLeft, Package,
-  FolderOpen, CheckCircle2, Clock, XCircle, Eye, AlertTriangle, ShieldCheck, ShieldX, X, Loader2, History, GitBranch, SlidersHorizontal, Info,
+  FolderOpen, CheckCircle2, Clock, XCircle, Eye, AlertTriangle, ShieldCheck, ShieldX, X, Loader2, History, GitBranch, SlidersHorizontal, Info, RefreshCw,
 } from 'lucide-react'
 import { parseDocKey } from './utils'
 import DocumentSlideOver from './DocumentSlideOver'
@@ -48,6 +48,7 @@ type Doc = {
   version: number
   version_number: number | null
   doc_key: string | null
+  specialty_id: string | null
   is_current: boolean
   emission_date: string | null
   author: string | null
@@ -407,6 +408,199 @@ function UploadModal({
   )
 }
 
+function ReplaceDocModal({
+  doc, workspaceId, onClose,
+}: {
+  doc: Doc
+  workspaceId: string
+  onClose: () => void
+}) {
+  const [file,         setFile]         = useState<File | null>(null)
+  const [author,       setAuthor]       = useState(doc.author || '')
+  const [emissionDate, setEmissionDate] = useState('')
+  const [displayName,  setDisplayName]  = useState(doc.display_name || '')
+  const [notes,        setNotes]        = useState('')
+  const [uploading,    setUploading]    = useState(false)
+  const [step,         setStep]         = useState('')
+  const [uploadPct,    setUploadPct]    = useState(0)
+  const [error,        setError]        = useState<string | null>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  const docName = doc.display_name || doc.file_name || doc.name
+
+  async function handleReplace() {
+    if (!file) { setError('Selecciona un archivo'); return }
+    if (!author.trim()) { setError('El campo Autor es requerido'); return }
+    if (!emissionDate) { setError('Selecciona la fecha de versión'); return }
+    setUploading(true); setError(null); setUploadPct(0)
+
+    setStep('Preparando subida...')
+    const presignRes = await fetch('/api/documents/presign', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        workspaceId,
+        projectId: doc.project_id,
+        specialtyCode: doc.specialty?.code || 'GEN',
+        fileName: file.name,
+        contentType: file.type || 'application/octet-stream',
+        fileSize: file.size,
+      }),
+    })
+    const presignData = await presignRes.json()
+    if (!presignRes.ok) {
+      setError(presignData.error || 'Error al preparar subida')
+      setUploading(false); setStep(''); return
+    }
+
+    setStep('Subiendo archivo...')
+    const uploadOk = await new Promise<boolean>((resolve) => {
+      const xhr = new XMLHttpRequest()
+      xhr.open('PUT', presignData.uploadUrl)
+      xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream')
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) setUploadPct(Math.round((e.loaded / e.total) * 100))
+      }
+      xhr.onload  = () => resolve(xhr.status >= 200 && xhr.status < 300)
+      xhr.onerror = () => resolve(false)
+      xhr.send(file)
+    })
+
+    if (!uploadOk) {
+      setError('Error al subir el archivo a R2')
+      setUploading(false); setStep(''); return
+    }
+
+    setStep('Registrando reemplazo...')
+    setUploadPct(100)
+    const result = await replaceDocument({
+      old_doc_id:    doc.id,
+      workspace_id:  workspaceId,
+      project_id:    doc.project_id!,
+      specialty_id:  doc.specialty_id ?? null,
+      file_name:     file.name,
+      display_name:  displayName.trim() || null,
+      emission_date: emissionDate,
+      author:        author.trim(),
+      notes:         notes.trim() || null,
+      storage_key:   presignData.storageKey,
+      file_type:     presignData.fileType,
+      file_size:     file.size,
+    })
+
+    if (result?.error) { setError(result.error); setUploading(false); setStep(''); return }
+    onClose()
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 sticky top-0 bg-white z-10">
+          <div>
+            <h2 className="text-base font-bold text-[#1A2744] flex items-center gap-2">
+              <RefreshCw className="w-4 h-4 text-[#00C2FF]" />
+              Reemplazar documento
+            </h2>
+            <p className="text-xs text-slate-400 mt-0.5 truncate max-w-[300px]">{docName}</p>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100">
+            <X className="w-4 h-4 text-slate-400" />
+          </button>
+        </div>
+
+        <div className="p-6 space-y-4">
+          <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-xs text-amber-800">
+            La versión actual quedará archivada y podrá consultarse en el historial de versiones.
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
+              Nuevo archivo <span className="text-red-400">*</span>
+            </label>
+            <input ref={inputRef} type="file" className="hidden"
+              accept=".pdf,.dwg,.dxf,.xlsx,.xls,.docx,.doc,.png,.jpg,.jpeg,.zip"
+              onChange={e => setFile(e.target.files?.[0] || null)} />
+            <button onClick={() => inputRef.current?.click()}
+              className={`w-full border-2 border-dashed rounded-lg py-5 text-center transition-colors ${
+                file ? 'border-[#00C2FF] bg-[#00C2FF]/5' : 'border-slate-200 hover:border-slate-300'
+              }`}>
+              <Upload className={`w-5 h-5 mx-auto mb-1.5 ${file ? 'text-[#00C2FF]' : 'text-slate-300'}`} />
+              <p className="text-sm font-medium text-slate-600">
+                {file ? file.name : 'Clic para seleccionar archivo'}
+              </p>
+              <p className="text-xs text-slate-400 mt-0.5">
+                {file ? formatSize(file.size) : 'PDF, DWG, DXF, Excel, Word, imágenes'}
+              </p>
+            </button>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
+              Autor <span className="text-red-400">*</span>
+            </label>
+            <input type="text" value={author} onChange={e => setAuthor(e.target.value)}
+              placeholder="Nombre del autor"
+              className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50" />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
+              Fecha de versión <span className="text-red-400">*</span>
+            </label>
+            <input type="date" value={emissionDate} onChange={e => setEmissionDate(e.target.value)}
+              className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50" />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
+              Nombre descriptivo <span className="text-slate-400 font-normal">(opcional)</span>
+            </label>
+            <input type="text" value={displayName} onChange={e => setDisplayName(e.target.value)}
+              placeholder={file?.name || docName}
+              className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50" />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
+              Nota <span className="text-slate-400 font-normal">(opcional)</span>
+            </label>
+            <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2}
+              placeholder="Cambios o motivo del reemplazo..."
+              className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50 resize-none" />
+          </div>
+
+          {error && <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-600">{error}</div>}
+
+          {uploading && (
+            <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-4 space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-blue-700 font-medium">{step}</span>
+                <span className="text-blue-500 font-bold tabular-nums">{uploadPct}%</span>
+              </div>
+              <div className="w-full bg-blue-100 rounded-full h-2 overflow-hidden">
+                <div className="bg-[#00C2FF] h-2 rounded-full transition-all duration-200" style={{ width: `${uploadPct}%` }} />
+              </div>
+            </div>
+          )}
+
+          <div className="flex gap-3 pt-2">
+            <button onClick={onClose}
+              className="flex-1 py-2.5 rounded-lg border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50">
+              Cancelar
+            </button>
+            <button onClick={handleReplace} disabled={uploading || !file || !author.trim() || !emissionDate}
+              className="flex-1 py-2.5 rounded-lg bg-[#1A2744] text-white text-sm font-bold hover:bg-[#243660] disabled:opacity-60 flex items-center justify-center gap-2">
+              <RefreshCw className="w-3.5 h-3.5" />
+              {uploading ? 'Subiendo...' : 'Reemplazar'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function PdfViewerModal({ docId, docName, onClose }: { docId: string; docName: string; onClose: () => void }) {
   const [loading, setLoading] = useState(true)
 
@@ -672,6 +866,7 @@ function ProjectDetailView({
   const [filterSpecialty,  setFilterSpecialty]  = useState('all')
   const [viewingDoc,       setViewingDoc]       = useState<{ id: string; name: string } | null>(null)
   const [slideDoc,         setSlideDoc]         = useState<Doc | null>(null)
+  const [replaceDoc,       setReplaceDoc]       = useState<Doc | null>(null)
   const [downloading,      setDownloading]      = useState(false)
   const [expandedHistory,  setExpandedHistory]  = useState<Set<string>>(new Set())
   const isAdmin = userRole === 'owner' || userRole === 'admin'
@@ -863,7 +1058,7 @@ function ProjectDetailView({
                   <span className="hidden lg:block w-28">Autor</span>
                   <span className="hidden lg:block w-24">Versión</span>
                   <span className="w-28">Flujo</span>
-                  <span className="w-20 text-right">Acciones</span>
+                  <span className="w-28 text-right">Acciones</span>
                 </div>
 
                 {docs.map((doc, idx) => {
@@ -940,10 +1135,14 @@ function ProjectDetailView({
                       </div>
 
                       {/* Acciones */}
-                      <div className="flex items-center gap-0.5 w-20 justify-end">
+                      <div className="flex items-center gap-0.5 w-28 justify-end">
                         <button onClick={() => setSlideDoc(doc)} title="Ver detalles y comentarios"
                           className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-[#00C2FF]/10 text-slate-400 hover:text-[#00C2FF] transition-colors">
                           <SlidersHorizontal className="w-3.5 h-3.5" />
+                        </button>
+                        <button onClick={() => setReplaceDoc(doc)} title="Reemplazar con nueva versión"
+                          className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-amber-50 text-slate-400 hover:text-amber-600 transition-colors">
+                          <RefreshCw className="w-3.5 h-3.5" />
                         </button>
                         {doc.storage_key && (
                           <a href={`/api/documents/download/${doc.id}`} target="_blank" rel="noopener noreferrer"
@@ -1024,6 +1223,14 @@ function ProjectDetailView({
           workspaceId={workspaceId}
           currentUserId={currentUserId}
           onClose={() => setSlideDoc(null)}
+        />
+      )}
+
+      {replaceDoc && (
+        <ReplaceDocModal
+          doc={replaceDoc}
+          workspaceId={workspaceId}
+          onClose={() => setReplaceDoc(null)}
         />
       )}
     </div>

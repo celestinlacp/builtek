@@ -64,10 +64,10 @@ export default async function DocumentsPage() {
         <div>
           <h1 className="text-2xl font-bold text-[#1A2744] flex items-center gap-2">
             <FileText className="w-6 h-6 text-[#00C2FF]" />
-            Documentos
+            Documentos de Proyecto
           </h1>
           <p className="text-slate-500 text-sm mt-0.5">
-            Documentos de proyecto organizados por disciplina · {documents.length} archivo{documents.length !== 1 ? 's' : ''} en Cloudflare R2
+            Documentos organizados por proyecto y disciplina · {documents.length} archivo{documents.length !== 1 ? 's' : ''} en Cloudflare R2
           </p>
         </div>
         <div className="flex items-center gap-2 text-xs text-green-600 bg-green-50 border border-green-200 px-3 py-1.5 rounded-full font-medium">

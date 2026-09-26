@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { CheckSquare, FolderOpen, FileText, Bot, TrendingUp, Clock, AlertCircle, CheckCircle2, User, Zap } from 'lucide-react'
 import Link from 'next/link'
+import Greeting from './Greeting'
 
 async function getWorkspaceData(userId: string) {
   const supabase = await createClient()
@@ -89,8 +90,6 @@ export default async function DashboardPage() {
   }
 
   const firstName = (user.user_metadata?.full_name || '').split(' ')[0] || 'equipo'
-  const hour = new Date().getHours()
-  const greeting = hour < 12 ? 'Buenos días' : hour < 19 ? 'Buenas tardes' : 'Buenas noches'
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
@@ -98,7 +97,7 @@ export default async function DashboardPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-[#1A2744]">{greeting}, {firstName} 👋</h1>
+          <h1 className="text-2xl font-bold text-[#1A2744]"><Greeting firstName={firstName} /></h1>
           <p className="text-slate-500 text-sm mt-0.5">{workspace.name} — resumen del equipo</p>
         </div>
         <Link

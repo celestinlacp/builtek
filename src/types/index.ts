@@ -66,6 +66,8 @@ export interface Project {
   status: ProjectStatus
   start_date: string | null
   end_date: string | null
+  frente: string | null
+  project_type: string | null
   created_at: string
 }
 

@@ -14,7 +14,7 @@ const BASE_NAV = [
   { href: '/tasks',        icon: CheckSquare,     label: 'Tareas' },
   { href: '/calendar',     icon: Calendar,        label: 'Calendario' },
   { href: '/deliverables', icon: Package,         label: 'Entregables' },
-  { href: '/documents',    icon: FileText,        label: 'Documentos' },
+  { href: '/documents',    icon: FileText,        label: 'Proyectos' },
   { href: '/drive',        icon: HardDrive,       label: 'Drive', badge: 'NEW' },
   { href: '/chat',         icon: MessageSquare,   label: 'Chat / Notificaciones' },
   { href: '/ai-agent',     icon: Bot,             label: 'Agente AI' },

@@ -258,3 +258,86 @@ export async function deleteDocumentComment(commentId: string) {
   if (error) return { error: error.message }
   return { success: true }
 }
+
+// ── Reemplazo manual de documento ─────────────────────────────────────────────
+
+export async function replaceDocument(data: {
+  old_doc_id:    string
+  workspace_id:  string
+  project_id:    string
+  specialty_id:  string | null
+  file_name:     string
+  display_name:  string | null
+  emission_date: string | null
+  author:        string
+  notes:         string | null
+  storage_key:   string
+  file_type:     string
+  file_size:     number
+}) {
+  const { user } = await getUser()
+  const admin = getAdminClient()
+
+  const { data: oldDoc } = await admin
+    .from('documents')
+    .select('id, doc_key, version_number')
+    .eq('id', data.old_doc_id)
+    .single()
+
+  if (!oldDoc) return { error: 'Documento no encontrado' }
+
+  // Para docs sin nomenclatura AEC generar clave man-{id_corto}
+  let docKey = oldDoc.doc_key
+  let newVersionNumber = (oldDoc.version_number ?? 1) + 1
+
+  if (!docKey) {
+    docKey = `man-${data.old_doc_id.slice(0, 8)}`
+    newVersionNumber = 2
+    await admin.from('documents').update({
+      doc_key: docKey,
+      version_number: 1,
+    }).eq('id', data.old_doc_id)
+  }
+
+  // Archivar versión anterior
+  await admin.from('documents').update({
+    is_current: false,
+    doc_status: 'archived',
+  }).eq('id', data.old_doc_id)
+
+  // Insertar nueva versión
+  const { data: inserted, error } = await admin.from('documents').insert({
+    project_id:       data.project_id,
+    workspace_id:     data.workspace_id,
+    specialty_id:     data.specialty_id,
+    name:             data.display_name || data.file_name,
+    file_name:        data.file_name,
+    display_name:     data.display_name,
+    emission_date:    data.emission_date,
+    author:           data.author,
+    notes:            data.notes,
+    storage_key:      data.storage_key,
+    file_url:         data.storage_key,
+    file_type:        data.file_type,
+    file_size:        data.file_size,
+    version:          newVersionNumber,
+    doc_key:          docKey,
+    version_number:   newVersionNumber,
+    is_current:       true,
+    status:           'draft',
+    doc_status:       'active',
+    uploaded_by:      user.id,
+    embedding_status: 'pending',
+  }).select('id').single()
+
+  if (error) return { error: error.message }
+
+  if (inserted?.id) {
+    await admin.from('documents').update({
+      superseded_by: inserted.id,
+    }).eq('id', data.old_doc_id)
+  }
+
+  revalidatePath('/documents')
+  return { success: true }
+}
