@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import {
   X, Send, Trash2, Download, GitBranch, User,
-  Calendar, Weight, Tag, FileText, MessageSquare, Loader2, History, CheckCircle2, XCircle, Clock,
+  Calendar, Weight, Tag, FileText, MessageSquare, Loader2, History, CheckCircle2, XCircle, Clock, Eye,
 } from 'lucide-react'
 import { addDocumentComment, deleteDocumentComment, getDocumentVersions } from './actions'
 
@@ -402,6 +402,20 @@ export default function DocumentSlideOver({
                                   <span>{new Date(v.emission_date).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
                                 </>
                               )}
+                            </div>
+                            <div className="flex items-center gap-1 mt-2">
+                              <a href={`/api/documents/download/${v.id}?inline=1`} target="_blank" rel="noopener noreferrer"
+                                title="Ver / Abrir"
+                                className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-slate-100 hover:bg-[#00C2FF]/10 text-slate-500 hover:text-[#00C2FF] transition-colors">
+                                <Eye className="w-3 h-3" />
+                                Ver
+                              </a>
+                              <a href={`/api/documents/download/${v.id}`} target="_blank" rel="noopener noreferrer"
+                                title="Descargar"
+                                className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-700 transition-colors">
+                                <Download className="w-3 h-3" />
+                                Descargar
+                              </a>
                             </div>
                           </div>
                         </div>

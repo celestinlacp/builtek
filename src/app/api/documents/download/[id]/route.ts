@@ -10,10 +10,11 @@ import { getR2Client, R2_BUCKET, r2IsConfigured } from '@/lib/r2/client'
  * El usuario es redirigido directamente al archivo.
  */
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
+  const inline = req.nextUrl.searchParams.get('inline') === '1'
 
   if (!r2IsConfigured()) {
     return NextResponse.json({ error: 'R2 no configurado en el servidor' }, { status: 503 })
@@ -33,10 +34,14 @@ export async function GET(
     return NextResponse.json({ error: 'Documento no encontrado' }, { status: 404 })
   }
 
+  const disposition = inline
+    ? `inline; filename="${doc.file_name || 'documento'}"`
+    : `attachment; filename="${doc.file_name || 'documento'}"`
+
   const command = new GetObjectCommand({
     Bucket: R2_BUCKET(),
     Key:    doc.storage_key,
-    ResponseContentDisposition: `attachment; filename="${doc.file_name || 'documento'}"`,
+    ResponseContentDisposition: disposition,
   })
 
   const url = await getSignedUrl(getR2Client(), command, { expiresIn: 3600 })
