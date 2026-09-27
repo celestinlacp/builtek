@@ -6,7 +6,7 @@ import { Project, Company } from '@/types'
 import { saveDocument, updateDocumentStatus, requestDeleteDocument, approveDeleteRequest, rejectDeleteRequest, deleteDocument, submitForReview, approveDocument, rejectDocument, replaceDocument, updateProjectCover, createSubproject, updateProjectClassification } from './actions'
 import {
   Upload, Download, Trash2, ChevronDown, ChevronRight, ArrowLeft, Package,
-  FolderOpen, CheckCircle2, Clock, XCircle, Eye, AlertTriangle, ShieldCheck, ShieldX, X, Loader2, History, GitBranch, SlidersHorizontal, Info, RefreshCw, Camera, Plus, Layers, Pencil, Milestone,
+  FolderOpen, CheckCircle2, Clock, XCircle, Eye, AlertTriangle, ShieldCheck, ShieldX, X, Loader2, History, GitBranch, SlidersHorizontal, Info, RefreshCw, Camera, Plus, Layers, Pencil, Milestone, LayoutList, AlignJustify,
 } from 'lucide-react'
 import { parseDocKey, parseMicSegments, TIPO_PLANO_DEFAULT } from './utils'
 import DocumentSlideOver from './DocumentSlideOver'
@@ -64,6 +64,7 @@ type Doc = {
   mic_version: string | null
   project?: { name: string } | null
   specialty?: { name: string; code: string; category: string } | null
+  uploader?: { full_name: string | null; initials: string | null } | null
 }
 
 type MicNomenclature = { id: string; segment: string; code: string; name: string; sort_order: number }
@@ -1073,13 +1074,14 @@ function QuickEditProjectModal({ project, onClose }: {
   )
 }
 
-function ProjectCard({ project, docCount, disciplines, lastUpload, workspaceId, isAdmin, onSelect, onEdit }: {
+function ProjectCard({ project, docCount, disciplines, lastUpload, workspaceId, isAdmin, subprojectCount, onSelect, onEdit }: {
   project: Project
   docCount: number
   disciplines: number
   lastUpload: string | null
   workspaceId: string
   isAdmin: boolean
+  subprojectCount: number
   onSelect: (id: string) => void
   onEdit: (project: Project) => void
 }) {
@@ -1148,6 +1150,9 @@ function ProjectCard({ project, docCount, disciplines, lastUpload, workspaceId, 
           <span>{docCount} documento{docCount !== 1 ? 's' : ''}</span>
           {disciplines > 0 && (
             <><span>·</span><span>{disciplines} disciplina{disciplines !== 1 ? 's' : ''}</span></>
+          )}
+          {subprojectCount > 0 && (
+            <><span>·</span><span className="flex items-center gap-1"><Layers className="w-3 h-3" />{subprojectCount} subproyecto{subprojectCount !== 1 ? 's' : ''}</span></>
           )}
         </div>
         {lastUpload && (
@@ -1282,8 +1287,14 @@ function ProjectsView({
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {filtered.map(project => {
+          const subprojectIds = projects
+            .filter(p => p.parent_project_id === project.id)
+            .map(p => p.id)
+          const subprojectCount = subprojectIds.length
+
+          // Docs del proyecto raíz + sus subproyectos, vigentes y no eliminados
           const projectDocs = documents.filter(d =>
-            d.project_id === project.id &&
+            (d.project_id === project.id || subprojectIds.includes(d.project_id!)) &&
             d.is_current !== false &&
             d.doc_status !== 'archived' &&
             d.doc_status !== 'deleted'
@@ -1302,6 +1313,7 @@ function ProjectsView({
               lastUpload={lastUpload}
               workspaceId={workspaceId}
               isAdmin={isAdmin}
+              subprojectCount={subprojectCount}
               onSelect={onSelect}
               onEdit={setEditingProject}
             />
@@ -1341,6 +1353,7 @@ function ProjectDetailView({
   const [selected,         setSelected]         = useState<Set<string>>(new Set())
   const [filterStatus,     setFilterStatus]     = useState('all')
   const [filterSpecialty,  setFilterSpecialty]  = useState('all')
+  const [sortMode,         setSortMode]         = useState<'discipline' | 'recent'>('discipline')
   const [viewingDoc,       setViewingDoc]       = useState<{ id: string; name: string } | null>(null)
   const [slideDoc,         setSlideDoc]         = useState<Doc | null>(null)
   const [replaceDoc,       setReplaceDoc]       = useState<Doc | null>(null)
@@ -1404,6 +1417,16 @@ function ProjectDetailView({
     if (!grouped[key]) grouped[key] = []
     grouped[key].push(doc)
   })
+
+  // Vista recientes: docs vigentes ordenados por fecha de subida desc
+  const recentFlat = filtered
+    .filter(d => d.is_current !== false)
+    .slice()
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+
+  const displayGroups: Record<string, Doc[]> = sortMode === 'recent'
+    ? (recentFlat.length > 0 ? { Recientes: recentFlat } : {})
+    : grouped
 
   function toggleDoc(id: string) {
     setSelected(prev => {
@@ -1541,8 +1564,7 @@ function ProjectDetailView({
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
               {subprojects.map(sub => {
                 const subDocs = documents.filter(d =>
-                  d.project_id === sub.id && d.is_current !== false &&
-                  d.doc_status !== 'archived' && d.doc_status !== 'deleted'
+                  d.project_id === sub.id && d.doc_status !== 'deleted'
                 )
                 return (
                   <button key={sub.id} onClick={() => onSelectSub(sub.id)}
@@ -1626,6 +1648,18 @@ function ProjectDetailView({
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Toggle vista disciplina / recientes */}
+          <div className="flex items-center rounded-lg border border-slate-200 overflow-hidden">
+            <button onClick={() => setSortMode('discipline')} title="Agrupar por disciplina"
+              className={`px-2.5 py-1.5 transition-colors ${sortMode === 'discipline' ? 'bg-[#1A2744] text-white' : 'bg-white text-slate-400 hover:bg-slate-50'}`}>
+              <AlignJustify className="w-3.5 h-3.5" />
+            </button>
+            <button onClick={() => setSortMode('recent')} title="Recientes primero"
+              className={`px-2.5 py-1.5 transition-colors ${sortMode === 'recent' ? 'bg-[#1A2744] text-white' : 'bg-white text-slate-400 hover:bg-slate-50'}`}>
+              <LayoutList className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
           {/* Botón ZIP */}
           {selected.size > 0 && (
             <button onClick={handleDownloadZip} disabled={downloading}
@@ -1653,13 +1687,21 @@ function ProjectDetailView({
         </div>
       ) : (
         <div className="space-y-6">
-          {Object.entries(grouped).map(([group, docs]) => (
+          {Object.entries(displayGroups).map(([group, docs]) => (
             <div key={group}>
-              {/* Encabezado de disciplina */}
-              <div className="flex items-center gap-2 mb-2 px-1">
-                <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">{group}</span>
-                <span className="text-xs text-slate-300">{docs.length}</span>
-              </div>
+              {/* Encabezado de disciplina / recientes */}
+              {sortMode === 'discipline' && (
+                <div className="flex items-center gap-2 mb-2 px-1">
+                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">{group}</span>
+                  <span className="text-xs text-slate-300">{docs.length}</span>
+                </div>
+              )}
+              {sortMode === 'recent' && (
+                <div className="flex items-center gap-2 mb-2 px-1">
+                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Recientes</span>
+                  <span className="text-xs text-slate-300">{docs.length} documentos</span>
+                </div>
+              )}
 
               <div className="bg-white rounded-xl border border-slate-100">
                 {/* Header columnas */}
@@ -1668,7 +1710,7 @@ function ProjectDetailView({
                   <span className="w-5" />
                   <span className="flex-1">Documento</span>
                   <span className="hidden lg:block w-28">Autor</span>
-                  <span className="hidden lg:block w-24">Versión</span>
+                  <span className="hidden lg:block w-24">{sortMode === 'recent' ? 'Subido' : 'Versión'}</span>
                   <span className="w-28">Flujo</span>
                   <span className="w-28 text-right">Acciones</span>
                 </div>
@@ -1716,10 +1758,23 @@ function ProjectDetailView({
                               {doc.mic_version}
                             </span>
                           )}
+                          {sortMode === 'recent' && doc.specialty && (
+                            <span className="font-mono bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded text-[10px] font-bold">{doc.specialty.code}</span>
+                          )}
                           <span>·</span>
                           <span>{doc.file_type?.toUpperCase() || '—'}</span>
                           <span>·</span>
                           <span>{formatSize(doc.file_size)}</span>
+                          {doc.uploader?.initials && (
+                            <>
+                              <span>·</span>
+                              <span
+                                title={doc.uploader.full_name || doc.uploader.initials}
+                                className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-[#1A2744] text-white font-bold text-[9px] flex-shrink-0 cursor-default">
+                                {doc.uploader.initials}
+                              </span>
+                            </>
+                          )}
                           {isPendingDelete && <span className="text-amber-500 font-medium">· Borrado pendiente</span>}
                           {doc.doc_key && archivedByDocKey[doc.doc_key]?.length > 0 && (
                             <button
@@ -1744,9 +1799,12 @@ function ProjectDetailView({
                         {doc.author || '—'}
                       </span>
 
-                      {/* Fecha de versión */}
+                      {/* Fecha de versión / subida */}
                       <span className="hidden lg:block text-xs text-slate-400 w-24">
-                        {doc.emission_date ? new Date(doc.emission_date).toLocaleDateString('es-MX') : '—'}
+                        {sortMode === 'recent'
+                          ? doc.created_at ? new Date(doc.created_at).toLocaleDateString('es-MX') : '—'
+                          : doc.emission_date ? new Date(doc.emission_date).toLocaleDateString('es-MX') : '—'
+                        }
                       </span>
 
                       {/* Estado — Flujo ELAB → REV → APR */}

@@ -35,7 +35,7 @@ export default async function DocumentsPage() {
       .order('name'),
     supabase
       .from('documents')
-      .select('id, name, file_name, display_name, specialty_id, project_id, storage_key, file_type, file_size, status, doc_status, version, version_number, doc_key, is_current, emission_date, author, company_id, notes, created_at, approved_by, approved_at, review_requested_by, review_requested_at, rejection_note, doc_view, doc_element, mic_version, project:projects(name), specialty:specialties(name, code, category)')
+      .select('id, name, file_name, display_name, specialty_id, project_id, storage_key, file_type, file_size, status, doc_status, version, version_number, doc_key, is_current, emission_date, author, company_id, notes, created_at, approved_by, approved_at, review_requested_by, review_requested_at, rejection_note, doc_view, doc_element, mic_version, project:projects(name), specialty:specialties(name, code, category), uploader:profiles!documents_uploaded_by_fkey(full_name, initials)')
       .eq('workspace_id', wsId)
       .neq('doc_status', 'deleted')
       .order('version_number', { ascending: false })
