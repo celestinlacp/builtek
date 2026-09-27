@@ -26,7 +26,7 @@ export default async function DocumentsPage() {
   const wsId    = membership.workspace_id
   const userRole = membership.role as string
 
-  const [projectsRes, docsRes, specialtiesRes, deleteReqRes, companiesRes, membersRes, nomenclaturesRes] = await Promise.all([
+  const [projectsRes, docsRes, deleteReqRes, companiesRes, membersRes, nomenclaturesRes] = await Promise.all([
     supabase
       .from('projects')
       .select('id, name, status, workspace_id, description, start_date, end_date, frente, project_type, cover_image_url, parent_project_id, chainage_start, chainage_end, created_at')
@@ -35,17 +35,11 @@ export default async function DocumentsPage() {
       .order('name'),
     supabase
       .from('documents')
-      .select('id, name, file_name, display_name, specialty_id, project_id, storage_key, file_type, file_size, status, doc_status, version, version_number, doc_key, is_current, emission_date, author, company_id, notes, created_at, approved_by, approved_at, review_requested_by, review_requested_at, rejection_note, doc_view, doc_element, mic_version, project:projects(name), specialty:specialties(name, code, category), uploader:profiles!documents_uploaded_by_fkey(full_name, initials)')
+      .select('id, name, file_name, display_name, specialty_id, project_id, storage_key, file_type, file_size, status, doc_status, version, version_number, doc_key, is_current, emission_date, author, company_id, notes, created_at, approved_by, approved_at, review_requested_by, review_requested_at, rejection_note, doc_view, doc_element, doc_type, mic_version, project:projects(name), specialty:specialties(name, code, category), uploader:profiles!documents_uploaded_by_fkey(full_name, initials)')
       .eq('workspace_id', wsId)
       .neq('doc_status', 'deleted')
       .order('version_number', { ascending: false })
       .order('created_at', { ascending: false }),
-    supabase
-      .from('specialties')
-      .select('id, name, code, category')
-      .eq('is_active', true)
-      .order('category')
-      .order('name'),
     getAdminClient()
       .from('delete_requests')
       .select('id, document_id, reason, requested_by, created_at, document:documents(id, name, file_name, display_name)')
@@ -72,7 +66,6 @@ export default async function DocumentsPage() {
 
   const projects         = projectsRes.data       || []
   const documents        = docsRes.data           || []
-  const specialties      = specialtiesRes.data    || []
   const deleteRequests   = deleteReqRes.data      || []
   const companies        = companiesRes.data      || []
   const micNomenclatures = nomenclaturesRes.data  || []
@@ -108,7 +101,6 @@ export default async function DocumentsPage() {
       <DocumentsPanel
         documents={documents as any}
         projects={projects as any}
-        specialties={specialties}
         workspaceId={wsId}
         userRole={userRole}
         deleteRequests={deleteRequests as any}

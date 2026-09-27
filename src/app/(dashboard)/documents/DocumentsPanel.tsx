@@ -8,7 +8,7 @@ import {
   Upload, Download, Trash2, ChevronDown, ChevronRight, ArrowLeft, Package,
   FolderOpen, CheckCircle2, Clock, XCircle, Eye, AlertTriangle, ShieldCheck, ShieldX, X, Loader2, History, GitBranch, SlidersHorizontal, Info, RefreshCw, Camera, Plus, Layers, Pencil, Milestone, LayoutList, AlignJustify,
 } from 'lucide-react'
-import { parseDocKey, parseMicSegments, TIPO_PLANO_DEFAULT } from './utils'
+import { parseDocKey, parseMicSegments, TIPO_PLANO_DEFAULT, TIPO_DOC_DEFAULT, detectFileFormat } from './utils'
 import DocumentSlideOver from './DocumentSlideOver'
 
 type Specialty = { id: string; name: string; code: string; category: string }
@@ -62,6 +62,7 @@ type Doc = {
   doc_view:    string | null
   doc_element: string | null
   mic_version: string | null
+  doc_type:    string | null
   project?: { name: string } | null
   specialty?: { name: string; code: string; category: string } | null
   uploader?: { full_name: string | null; initials: string | null } | null
@@ -192,10 +193,9 @@ function WorkflowBadge({ doc, userRole }: { doc: Doc; userRole: string }) {
 type Member = { user_id: string; full_name: string | null; initials: string | null }
 
 function UploadModal({
-  projects, specialties, workspaceId, defaultProjectId, existingDocs, companies, members, micNomenclatures, onClose
+  projects, workspaceId, defaultProjectId, existingDocs, companies, members, micNomenclatures, onClose
 }: {
   projects: Project[]
-  specialties: Specialty[]
   workspaceId: string
   defaultProjectId?: string
   existingDocs: Doc[]
@@ -205,7 +205,7 @@ function UploadModal({
   onClose: () => void
 }) {
   const [projectId,      setProjectId]      = useState(defaultProjectId || '')
-  const [specialtyId,    setSpecialtyId]    = useState('')
+  const [specialtyCode,  setSpecialtyCode]  = useState('')
   const [displayName,    setDisplayName]    = useState('')
   const [emissionDate,   setEmissionDate]   = useState('')
   const [authorSel,      setAuthorSel]      = useState('')
@@ -218,7 +218,9 @@ function UploadModal({
   const [versionWarning, setVersionWarning] = useState<{ prevVersion: number; newVersion: number } | null>(null)
   const [docView,        setDocView]        = useState('')
   const [docElement,     setDocElement]     = useState('')
+  const [docType,        setDocType]        = useState('')
   const [micVersion,     setMicVersion]     = useState<'V0' | 'V1'>('V0')
+  const [fileFormat,     setFileFormat]     = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   // Catálogo TIPO_PLANO: preferir valores del workspace, si vacío usar defaults
@@ -226,36 +228,39 @@ function UploadModal({
     ? micNomenclatures.filter(n => n.segment === 'TIPO_PLANO')
     : TIPO_PLANO_DEFAULT.map((t, i) => ({ id: t.code, segment: 'TIPO_PLANO', code: t.code, name: t.name, sort_order: i }))
 
+  // Catálogo TIPO_DOC: preferir valores del workspace, si vacío usar defaults
+  const tipoDocOptions = micNomenclatures.filter(n => n.segment === 'TIPO_DOC').length > 0
+    ? micNomenclatures.filter(n => n.segment === 'TIPO_DOC')
+    : TIPO_DOC_DEFAULT.map((t, i) => ({ id: t.code, segment: 'TIPO_DOC', code: t.code, name: t.name, sort_order: i }))
+
+  // Autocomplete para elemento estructural: valores únicos usados en este workspace
+  const docElementSuggestions = Array.from(
+    new Set(existingDocs.map(d => d.doc_element).filter((v): v is string => !!v))
+  ).sort()
+
   function handleFileChange(f: File | null) {
     setFile(f)
     setVersionWarning(null)
-    if (!f) return
+    if (!f) { setFileFormat(null); return }
+    // Auto-detectar formato de archivo
+    setFileFormat(detectFileFormat(f.name))
     const parsed = parseDocKey(f.name)
     if (parsed) {
       const existing = existingDocs.find(d => d.doc_key === parsed.doc_key && d.is_current)
       if (existing && existing.version_number !== null && existing.version_number !== parsed.version_number) {
         setVersionWarning({ prevVersion: existing.version_number, newVersion: parsed.version_number })
       }
-      // Auto-llenar doc_view desde segmento TIPO_PLANO del código MIC
+      // Auto-llenar segmentos desde el código MIC del filename
       const segments = parseMicSegments(parsed.doc_key)
-      if (segments && !docView) setDocView(segments.tipo_plano)
+      if (segments) {
+        if (!docView)  setDocView(segments.tipo_plano)
+        if (!docType)  setDocType(segments.tipo_doc)
+      }
     }
   }
 
-  const selectedSpecialty = specialties.find(s => s.id === specialtyId)
-
-  // Solo técnicas y seguridad — administrativos y otro son TIPO_DOC o están fuera de scope
-  const byCategory = specialties
-    .filter(s => s.category !== 'administrativo' && s.category !== 'otro')
-    .reduce<Record<string, Specialty[]>>((acc, s) => {
-      if (!acc[s.category]) acc[s.category] = []
-      acc[s.category].push(s)
-      return acc
-    }, {})
-
-  const categoryLabels: Record<string, string> = {
-    tecnico: 'Técnicas', seguridad: 'Seguridad', otro: 'Otro'
-  }
+  // Catálogo ESPECIALIDAD desde mic_nomenclatures (fuente de verdad del workspace)
+  const especialidadOptions = micNomenclatures.filter(n => n.segment === 'ESPECIALIDAD')
 
   // Decodificar selección de autor
   let authorText   = ''
@@ -273,6 +278,7 @@ function UploadModal({
 
   async function handleUpload() {
     if (!file || !projectId) { setError('Selecciona proyecto y archivo'); return }
+    if (!specialtyCode) { setError('Selecciona la disciplina / especialidad'); return }
     if (!authorSel) { setError('Selecciona el autor o empresa'); return }
     setUploading(true); setError(null); setUploadPct(0)
 
@@ -282,7 +288,7 @@ function UploadModal({
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         workspaceId, projectId,
-        specialtyCode: selectedSpecialty?.code || 'GEN',
+        specialtyCode: specialtyCode || 'GEN',
         fileName: file.name,
         contentType: file.type || 'application/octet-stream',
         fileSize: file.size,
@@ -317,7 +323,7 @@ function UploadModal({
     const result = await saveDocument({
       project_id:    projectId,
       workspace_id:  workspaceId,
-      specialty_id:  specialtyId || null,
+      specialty_id:  null,
       file_name:     file.name,
       display_name:  displayName.trim() || null,
       emission_date: emissionDate || null,
@@ -329,6 +335,7 @@ function UploadModal({
       file_size:     file.size,
       doc_view:      docView.trim() || null,
       doc_element:   docElement.trim() || null,
+      doc_type:      docType.trim() || null,
       mic_version:   micVersion,
     })
 
@@ -371,17 +378,26 @@ function UploadModal({
 
           <div>
             <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
-              Disciplina / Especialidad
+              Disciplina / Especialidad <span className="text-red-400">*</span>
             </label>
-            <select value={specialtyId} onChange={e => setSpecialtyId(e.target.value)}
+            <select value={specialtyCode} onChange={e => setSpecialtyCode(e.target.value)}
+              className={`w-full px-3 py-2.5 rounded-lg border text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50 ${!specialtyCode ? 'border-slate-300' : 'border-[#00C2FF]'}`}>
+              <option value="">Seleccionar disciplina...</option>
+              {especialidadOptions.map(s => (
+                <option key={s.code} value={s.code}>[{s.code}] {s.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
+              Tipo de documento
+            </label>
+            <select value={docType} onChange={e => setDocType(e.target.value)}
               className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50">
-              <option value="">Sin disciplina</option>
-              {Object.entries(byCategory).map(([cat, items]) => (
-                <optgroup key={cat} label={categoryLabels[cat] || cat}>
-                  {items.map(s => (
-                    <option key={s.id} value={s.id}>[{s.code}] {s.name}</option>
-                  ))}
-                </optgroup>
+              <option value="">Sin tipo</option>
+              {tipoDocOptions.map(t => (
+                <option key={t.code} value={t.code}>[{t.code}] {t.name}</option>
               ))}
             </select>
           </div>
@@ -433,9 +449,12 @@ function UploadModal({
             <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
               Elemento estructural <span className="text-slate-400 font-normal">(opcional)</span>
             </label>
-            <input type="text" value={docElement} onChange={e => setDocElement(e.target.value)}
+            <input type="text" list="doc-element-suggestions" value={docElement} onChange={e => setDocElement(e.target.value)}
               placeholder="Ej: Zapata, Pilote, Trabe, Losa, Columna..."
               className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50" />
+            <datalist id="doc-element-suggestions">
+              {docElementSuggestions.map(v => <option key={v} value={v} />)}
+            </datalist>
           </div>
 
           <div>
@@ -456,6 +475,11 @@ function UploadModal({
               <p className="text-xs text-slate-400 mt-1">
                 {file ? formatSize(file.size) : 'PDF, DWG, DXF, Excel, Word, imágenes'}
               </p>
+              {fileFormat && (
+                <span className="inline-block mt-2 px-2 py-0.5 rounded font-mono font-bold text-[11px] bg-[#1A2744] text-white">
+                  {fileFormat}
+                </span>
+              )}
             </button>
           </div>
 
@@ -1337,12 +1361,11 @@ function ProjectsView({
 // ── Vista detalle: documentos de un proyecto agrupados por disciplina ──────────
 
 function ProjectDetailView({
-  project, documents, specialties, workspaceId, userRole, deleteRequests, currentUserId,
+  project, documents, workspaceId, userRole, deleteRequests, currentUserId,
   subprojects, parentProject, onBack, onUpload, onSelectSub,
 }: {
   project: Project
   documents: Doc[]
-  specialties: Specialty[]
   workspaceId: string
   userRole: string
   deleteRequests: DeleteRequest[]
@@ -1943,11 +1966,10 @@ function ProjectDetailView({
 // ── Componente principal ───────────────────────────────────────────────────────
 
 export default function DocumentsPanel({
-  documents, projects, specialties, workspaceId, userRole, deleteRequests, currentUserId, companies, members, micNomenclatures
+  documents, projects, workspaceId, userRole, deleteRequests, currentUserId, companies, members, micNomenclatures
 }: {
   documents: Doc[]
   projects: Project[]
-  specialties: Specialty[]
   workspaceId: string
   userRole: string
   deleteRequests: DeleteRequest[]
@@ -2018,7 +2040,6 @@ export default function DocumentsPanel({
         <ProjectDetailView
           project={selectedProject}
           documents={documents}
-          specialties={specialties}
           workspaceId={workspaceId}
           userRole={userRole}
           deleteRequests={deleteRequests}
@@ -2035,7 +2056,6 @@ export default function DocumentsPanel({
       {showUpload && (
         <UploadModal
           projects={projects}
-          specialties={specialties}
           workspaceId={workspaceId}
           defaultProjectId={selectedProjectId ?? undefined}
           existingDocs={documents}

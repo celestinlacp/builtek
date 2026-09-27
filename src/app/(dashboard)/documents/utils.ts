@@ -40,6 +40,38 @@ export function parseMicSegments(docKey: string): MicSegments | null {
   }
 }
 
+// ── Catálogo estático TIPO_DOC ────────────────────────────────────────────────
+export const TIPO_DOC_DEFAULT: { code: string; name: string }[] = [
+  { code: 'PLA', name: 'Plano' },
+  { code: 'MEM', name: 'Memoria de Cálculo' },
+  { code: 'ESP', name: 'Especificación Técnica' },
+  { code: 'INF', name: 'Informe / Reporte' },
+  { code: 'PRO', name: 'Procedimiento Constructivo' },
+  { code: 'OFI', name: 'Oficio' },
+  { code: 'MIN', name: 'Minuta de Reunión' },
+  { code: 'ACT', name: 'Acta' },
+  { code: 'PRE', name: 'Presupuesto' },
+  { code: 'PRG', name: 'Programa de Obra' },
+  { code: 'CON', name: 'Contrato' },
+  { code: 'TAR', name: 'Tarjeta / Formato' },
+]
+
+// ── Detección automática de formato de archivo ────────────────────────────────
+export function detectFileFormat(fileName: string): string | null {
+  const ext = fileName.split('.').pop()?.toLowerCase()
+  if (!ext) return null
+  const MAP: Record<string, string> = {
+    pdf: 'PDF', dwg: 'DWG', dxf: 'DXF',
+    xlsx: 'XLSX', xls: 'XLS',
+    docx: 'DOCX', doc: 'DOC',
+    pptx: 'PPTX', ppt: 'PPT',
+    png: 'PNG', jpg: 'JPG', jpeg: 'JPG', webp: 'WEBP',
+    zip: 'ZIP', rar: 'RAR', '7z': '7Z',
+    mp4: 'MP4', avi: 'AVI',
+  }
+  return MAP[ext] || ext.toUpperCase()
+}
+
 // ── Catálogo estático TIPO_PLANO ───────────────────────────────────────────────
 // Valores provisionales para doc_view. Extensible vía /admin/nomenclaturas.
 export const TIPO_PLANO_DEFAULT: { code: string; name: string }[] = [

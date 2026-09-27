@@ -49,6 +49,7 @@ export async function saveDocument(data: {
   file_size:     number
   doc_view:      string | null
   doc_element:   string | null
+  doc_type:      string | null
   mic_version:   'V0' | 'V1' | null
 }) {
   const { user } = await getUser()
@@ -122,6 +123,7 @@ export async function saveDocument(data: {
     ref_code:         refCode as string ?? null,
     doc_view:         autoDocView,
     doc_element:      data.doc_element || null,
+    doc_type:         data.doc_type || null,
     mic_version:      data.mic_version || 'V0',
   }).select('id').single()
 
