@@ -1698,11 +1698,13 @@ export default function AdminPanel({
                 {rootProjects.length} proyecto{rootProjects.length !== 1 ? 's' : ''} ·{' '}
                 {rootProjects.filter(p => p.status === 'active').length} activos
               </p>
-              <button onClick={() => setShowModal(true)}
-                className="flex items-center gap-2 bg-[#1A2744] text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-[#243660] transition-colors">
-                <Plus className="w-4 h-4" />
-                Nuevo proyecto
-              </button>
+              {['owner', 'admin', 'manager'].includes(currentUserRole) && (
+                <button onClick={() => setShowModal(true)}
+                  className="flex items-center gap-2 bg-[#1A2744] text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-[#243660] transition-colors">
+                  <Plus className="w-4 h-4" />
+                  Nuevo proyecto
+                </button>
+              )}
             </div>
 
             {rootProjects.length === 0 ? (

@@ -1228,7 +1228,7 @@ function ProjectsView({
   const [filterFrente, setFilterFrente] = useState('all')
   const [filterType,   setFilterType]   = useState('all')
   const [editingProject, setEditingProject] = useState<Project | null>(null)
-  const isAdmin = userRole === 'owner' || userRole === 'admin'
+  const isAdmin = ['owner', 'admin', 'manager'].includes(userRole)
 
   // Solo proyectos raíz (sin padre)
   const rootProjects = projects.filter(p => !p.parent_project_id)
@@ -1367,7 +1367,8 @@ function ProjectDetailView({
   const [newSubDesc,       setNewSubDesc]       = useState('')
   const [newSubType,       setNewSubType]       = useState('')
   const [creatingSub,      setCreatingSub]      = useState(false)
-  const isAdmin = userRole === 'owner' || userRole === 'admin'
+  const isAdmin        = ['owner', 'admin'].includes(userRole)
+  const canManageProjects = ['owner', 'admin', 'manager'].includes(userRole)
 
   async function handleCreateSubproject() {
     if (!newSubName.trim()) return
@@ -1525,7 +1526,7 @@ function ProjectDetailView({
                 </span>
               )}
             </div>
-            {isAdmin && (
+            {canManageProjects && (
               <button onClick={() => setShowCreateSub(v => !v)}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-violet-200 text-xs font-semibold text-violet-600 hover:bg-violet-50 transition-colors">
                 <Plus className="w-3.5 h-3.5" />
@@ -1594,7 +1595,7 @@ function ProjectDetailView({
               <div className="bg-white border border-dashed border-slate-200 rounded-xl p-6 text-center">
                 <Layers className="w-6 h-6 text-slate-300 mx-auto mb-2" />
                 <p className="text-sm text-slate-400">Sin subproyectos aún.</p>
-                {isAdmin && (
+                {canManageProjects && (
                   <button onClick={() => setShowCreateSub(true)}
                     className="text-xs text-violet-500 hover:text-violet-700 font-medium mt-1">
                     Crear el primero →
