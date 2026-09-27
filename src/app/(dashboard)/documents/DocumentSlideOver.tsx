@@ -377,10 +377,9 @@ export default function DocumentSlideOver({
               {!doc.doc_key ? (
                 <div className="text-center py-12">
                   <GitBranch className="w-8 h-8 text-slate-200 mx-auto mb-3" />
-                  <p className="text-sm text-slate-400 font-medium">Sin nomenclatura AEC</p>
+                  <p className="text-sm text-slate-400 font-medium">Sin historial de versiones</p>
                   <p className="text-xs text-slate-300 mt-1 max-w-xs mx-auto">
-                    El control de versiones requiere nomenclatura AEC en el nombre del archivo<br/>
-                    (ej: TQM-0000-PLA-AARQ-PLT-0004.pdf)
+                    Para subir una nueva versión de este documento, usa el botón <span className="font-semibold text-slate-400">Reemplazar</span> en la lista de documentos.
                   </p>
                 </div>
               ) : loadingVers ? (
