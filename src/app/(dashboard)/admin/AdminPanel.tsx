@@ -800,19 +800,21 @@ function StorageGauge({ pct }: { pct: number }) {
 }
 
 function StoragePanel({
-  workspace, storageUsed, storageByModule,
+  workspace, storageUsed, storageByModule, storageByUser,
 }: {
   workspace: Workspace
   storageUsed: number
-  storageByModule: { documents: number; oficios: number }
+  storageByModule: { documents: number; oficios: number; drive: number }
+  storageByUser: { userId: string; name: string; initials: string; bytes: number }[]
 }) {
   const limit     = PLAN_STORAGE_BYTES[workspace.plan] || PLAN_STORAGE_BYTES.free
   const pct       = storageUsed / limit
   const available = Math.max(limit - storageUsed, 0)
 
   const modules = [
-    { label: 'Documentos', bytes: storageByModule.documents, icon: Files,    color: 'bg-[#00C2FF]' },
-    { label: 'Oficios',    bytes: storageByModule.oficios,   icon: FileText, color: 'bg-indigo-400' },
+    { label: 'Documentos', bytes: storageByModule.documents, icon: Files,       color: 'bg-[#00C2FF]' },
+    { label: 'Oficios',    bytes: storageByModule.oficios,   icon: FileText,    color: 'bg-indigo-400' },
+    { label: 'Drive',      bytes: storageByModule.drive,     icon: HardDrive,   color: 'bg-violet-400' },
   ]
 
   return (
@@ -876,6 +878,36 @@ function StoragePanel({
           ))}
         </div>
       </div>
+
+      {/* Desglose por usuario */}
+      {storageByUser.length > 0 && (
+        <div className="bg-white border border-slate-100 rounded-xl p-5">
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-4">
+            Desglose por usuario
+          </p>
+          <div className="space-y-3">
+            {storageByUser.map(({ userId, name, initials, bytes }) => (
+              <div key={userId}>
+                <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-full bg-[#1A2744]/10 flex items-center justify-center flex-shrink-0">
+                      <span className="text-[9px] font-bold text-[#1A2744]">{initials}</span>
+                    </div>
+                    <span className="text-sm text-slate-600 font-medium truncate max-w-[180px]">{name}</span>
+                  </div>
+                  <span className="text-xs font-semibold text-slate-500 flex-shrink-0">{formatBytes(bytes)}</span>
+                </div>
+                <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-[#1A2744]/30 transition-all duration-500"
+                    style={{ width: `${Math.min((bytes / storageUsed) * 100, 100)}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Alerta de capacidad */}
       {pct > 0.8 && (
@@ -1709,7 +1741,7 @@ function NomenclaturasPanel({ nomenclatures, workspaceId }: { nomenclatures: Mic
 export default function AdminPanel({
   projects, workspace, members, currentUserId, currentUserRole,
   currentUserEmail, currentUserName, pendingInvites, dropboxConnected,
-  storageUsed, storageByModule, companies, biDocs, workspaceId, micNomenclatures,
+  storageUsed, storageByModule, storageByUser, companies, biDocs, workspaceId, micNomenclatures,
 }: {
   projects: Project[]
   workspace: Workspace
@@ -1721,7 +1753,8 @@ export default function AdminPanel({
   pendingInvites: PendingInvite[]
   dropboxConnected: boolean
   storageUsed: number
-  storageByModule: { documents: number; oficios: number }
+  storageByModule: { documents: number; oficios: number; drive: number }
+  storageByUser: { userId: string; name: string; initials: string; bytes: number }[]
   companies: Company[]
   biDocs: BiDoc[]
   workspaceId: string
@@ -1823,6 +1856,7 @@ export default function AdminPanel({
           workspace={workspace}
           storageUsed={storageUsed}
           storageByModule={storageByModule}
+          storageByUser={storageByUser}
         />
       )}
 

@@ -90,15 +90,39 @@ export default async function AdminPage() {
 
   // Storage usage
   const projectIds = projects.map((p: any) => p.id)
-  const [docsStorageRes, oficiosStorageRes] = await Promise.all([
+  const [docsStorageRes, oficiosStorageRes, driveStorageRes] = await Promise.all([
     projectIds.length > 0
-      ? supabase.from('documents').select('file_size').in('project_id', projectIds)
-      : Promise.resolve({ data: [] as { file_size: number | null }[] }),
-    supabase.from('oficios').select('file_size').eq('workspace_id', wsId),
+      ? supabase.from('documents').select('file_size, uploaded_by').in('project_id', projectIds)
+      : Promise.resolve({ data: [] as { file_size: number | null; uploaded_by: string | null }[] }),
+    supabase.from('oficios').select('file_size, created_by').eq('workspace_id', wsId),
+    supabase.from('drive_files').select('file_size, uploaded_by').eq('workspace_id', wsId),
   ])
   const docBytes    = ((docsStorageRes as any).data || []).reduce((s: number, r: any) => s + (r.file_size || 0), 0)
   const oficioBytes = ((oficiosStorageRes as any).data || []).reduce((s: number, r: any) => s + (r.file_size || 0), 0)
-  const storageUsed = docBytes + oficioBytes
+  const driveBytes  = ((driveStorageRes as any).data || []).reduce((s: number, r: any) => s + (r.file_size || 0), 0)
+  const storageUsed = docBytes + oficioBytes + driveBytes
+
+  // Storage por usuario
+  const userBytesMap: Record<string, number> = {}
+  const addBytes = (rows: any[], key: string) => {
+    for (const r of rows || []) {
+      const uid = r[key]
+      if (uid) userBytesMap[uid] = (userBytesMap[uid] || 0) + (r.file_size || 0)
+    }
+  }
+  addBytes((docsStorageRes as any).data, 'uploaded_by')
+  addBytes((oficiosStorageRes as any).data, 'created_by')
+  addBytes((driveStorageRes as any).data, 'uploaded_by')
+
+  // Resolver nombres desde profileMap
+  const storageByUser = Object.entries(userBytesMap)
+    .map(([userId, bytes]) => ({
+      userId,
+      name:     profileMap[userId]?.full_name || 'Usuario desconocido',
+      initials: profileMap[userId]?.initials   || '?',
+      bytes,
+    }))
+    .sort((a, b) => b.bytes - a.bytes)
 
   // Get auth data (email + last_sign_in_at) for all workspace members
   let authMap: Record<string, { email?: string; last_sign_in_at?: string }> = {}
@@ -143,7 +167,8 @@ export default async function AdminPage() {
         pendingInvites={pendingInvites as any}
         dropboxConnected={dropboxConnected}
         storageUsed={storageUsed}
-        storageByModule={{ documents: docBytes, oficios: oficioBytes }}
+        storageByModule={{ documents: docBytes, oficios: oficioBytes, drive: driveBytes }}
+        storageByUser={storageByUser}
         companies={companies as any}
         biDocs={biDocs as any}
         workspaceId={wsId}
