@@ -6,18 +6,19 @@ import { logout } from '@/app/(auth)/actions'
 import Logo from '@/components/Logo'
 import {
   LayoutDashboard, CheckSquare, Calendar, Package,
-  FileText, Bot, Settings, LogOut, ChevronRight, HardDrive, Mail, MessageSquare
+  FileText, Bot, Settings, LogOut, ChevronRight, HardDrive, Mail, MessageSquare, BookOpen
 } from 'lucide-react'
 
 const BASE_NAV = [
-  { href: '/dashboard',    icon: LayoutDashboard, label: 'Dashboard' },
-  { href: '/tasks',        icon: CheckSquare,     label: 'Tareas' },
-  { href: '/calendar',     icon: Calendar,        label: 'Calendario' },
-  { href: '/deliverables', icon: Package,         label: 'Entregables' },
-  { href: '/documents',    icon: FileText,        label: 'Proyectos' },
-  { href: '/drive',        icon: HardDrive,       label: 'Drive', badge: 'NEW' },
-  { href: '/chat',         icon: MessageSquare,   label: 'Chat / Notificaciones' },
-  { href: '/ai-agent',     icon: Bot,             label: 'Agente AI' },
+  { href: '/dashboard',       icon: LayoutDashboard, label: 'Dashboard' },
+  { href: '/tasks',           icon: CheckSquare,     label: 'Tareas' },
+  { href: '/calendar',        icon: Calendar,        label: 'Calendario' },
+  { href: '/deliverables',    icon: Package,         label: 'Entregables' },
+  { href: '/documents',       icon: FileText,        label: 'Proyectos' },
+  { href: '/especificaciones',icon: BookOpen,        label: 'Especificaciones' },
+  { href: '/drive',           icon: HardDrive,       label: 'Drive', badge: 'NEW' },
+  { href: '/chat',            icon: MessageSquare,   label: 'Chat / Notificaciones' },
+  { href: '/ai-agent',        icon: Bot,             label: 'Agente AI' },
 ]
 
 export default function Sidebar({ workspaceName, features }: { workspaceName: string; features?: Record<string, boolean> }) {
