@@ -2,14 +2,14 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { addComment, deleteComment, linkDocument, unlinkDocument, reprogramTask, uploadEntregable, approveEntregable, rejectEntregable, linkOficioToTask, unlinkOficioFromTask } from './actions'
+import { addComment, deleteComment, linkDocument, unlinkDocument, reprogramTask, uploadEntregable, approveEntregable, rejectEntregable, linkOficioToTask, unlinkOficioFromTask, updateTaskName } from './actions'
 import { Task, Project } from '@/types'
 import {
   X, MessageSquare, Send, Trash2, Paperclip,
   FileText, HardDrive, ChevronDown, Calendar,
   AlertCircle, Clock, CheckCircle2, XCircle,
   Eye, Download, Plus, Loader2, User, Timer,
-  Upload, Package, ThumbsUp, ThumbsDown, Mail
+  Upload, Package, ThumbsUp, ThumbsDown, Mail, Pencil, Check,
 } from 'lucide-react'
 
 // ── Tipos ────────────────────────────────────────────────────────────────────
@@ -237,8 +237,23 @@ export default function TaskSlideOver({
   const [availableOficios,   setAvailableOficios]   = useState<LinkedOficio[]>([])
   const [loadingOficios,     setLoadingOficios]     = useState(false)
   const [unlinkingOficio,    setUnlinkingOficio]    = useState<string | null>(null)
+  const [editingName,  setEditingName]  = useState(false)
+  const [localName,    setLocalName]    = useState(task.name)
+  const [savingName,   setSavingName]   = useState(false)
+  const nameInputRef = useRef<HTMLInputElement>(null)
   const commentsEndRef = useRef<HTMLDivElement>(null)
   const inputRef       = useRef<HTMLTextAreaElement>(null)
+
+  const canEdit = !['viewer'].includes(currentUserRole || '')
+
+  async function handleSaveName() {
+    const trimmed = localName.trim()
+    if (!trimmed || trimmed === task.name) { setEditingName(false); setLocalName(task.name); return }
+    setSavingName(true)
+    await updateTaskName(task.id, trimmed)
+    setSavingName(false)
+    setEditingName(false)
+  }
 
   const status   = STATUS_CONFIG[task.status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.pending
   const priority = PRIORITY_CONFIG[task.priority as keyof typeof PRIORITY_CONFIG] || PRIORITY_CONFIG.medium
@@ -484,7 +499,33 @@ export default function TaskSlideOver({
                 <span className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">{task.specialty}</span>
               )}
             </div>
-            <h2 className="text-lg font-bold text-[#1A2744] leading-snug">{task.name}</h2>
+            {editingName ? (
+              <div className="flex items-center gap-2 mt-1">
+                <input
+                  ref={nameInputRef}
+                  value={localName}
+                  onChange={e => setLocalName(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') handleSaveName(); if (e.key === 'Escape') { setEditingName(false); setLocalName(task.name) } }}
+                  onBlur={handleSaveName}
+                  autoFocus
+                  className="flex-1 text-lg font-bold text-[#1A2744] leading-snug border-b-2 border-[#00C2FF] outline-none bg-transparent"
+                />
+                {savingName
+                  ? <Loader2 className="w-4 h-4 text-[#00C2FF] animate-spin flex-shrink-0" />
+                  : <Check className="w-4 h-4 text-[#00C2FF] flex-shrink-0" />}
+              </div>
+            ) : (
+              <div className="flex items-start gap-2 group/title mt-1">
+                <h2 className="text-lg font-bold text-[#1A2744] leading-snug flex-1">{localName}</h2>
+                {canEdit && (
+                  <button
+                    onClick={() => { setEditingName(true); setTimeout(() => nameInputRef.current?.focus(), 30) }}
+                    className="opacity-0 group-hover/title:opacity-100 transition-opacity p-1 rounded hover:bg-slate-100 flex-shrink-0 mt-0.5">
+                    <Pencil className="w-3.5 h-3.5 text-slate-400" />
+                  </button>
+                )}
+              </div>
+            )}
             <div className="flex items-center gap-3 mt-1 flex-wrap">
               {task.project?.name && (
                 <p className="text-xs text-slate-400">{task.project.name}</p>

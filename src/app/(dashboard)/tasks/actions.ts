@@ -80,6 +80,15 @@ export async function createTask(formData: FormData) {
   return { success: true }
 }
 
+export async function updateTaskName(taskId: string, name: string) {
+  await getWorkspaceId()
+  const admin = getAdminClient()
+  const { error } = await admin.from('tasks').update({ name: name.trim() }).eq('id', taskId)
+  if (error) return { error: error.message }
+  revalidatePath('/tasks')
+  return { success: true }
+}
+
 export async function updateTaskStatus(taskId: string, status: string) {
   await getWorkspaceId()
   const admin = getAdminClient()
