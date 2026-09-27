@@ -45,5 +45,6 @@ export async function GET(
   })
 
   const url = await getSignedUrl(getR2Client(), command, { expiresIn: 3600 })
-  return NextResponse.redirect(url)
+  // Return JSON so the client can open the URL directly (avoids redirect+content-type issues)
+  return NextResponse.json({ url })
 }

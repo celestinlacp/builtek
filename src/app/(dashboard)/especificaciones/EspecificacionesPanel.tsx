@@ -1,11 +1,12 @@
 'use client'
 
 import React, { useState, useRef } from 'react'
+import QRCode from 'react-qr-code'
 import { saveDesignSpec, updateSpecStatus, deleteDesignSpec, updateDesignSpec } from './actions'
 import {
   Plus, X, Upload, FileText, ChevronDown, Loader2, Trash2,
   Eye, AlertTriangle, CheckCircle2, Clock, ArrowLeft, Folder,
-  BookOpen, Mail, ArrowDownToLine, ArrowUpFromLine, Pencil, Download, Link, Check,
+  BookOpen, Mail, ArrowDownToLine, ArrowUpFromLine, Pencil, Download, Link, Check, Copy, CheckCheck,
 } from 'lucide-react'
 
 // ── Paleta de colores (rotativa por índice) ───────────────────────────────────
@@ -96,26 +97,40 @@ function formatDate(s: string | null) {
   return new Date(s + 'T12:00:00').toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
-// ── Modal: editar notas y oficio vinculado ────────────────────────────────────
+// ── Modal: editar especificación completa ─────────────────────────────────────
 
 function EditSpecModal({
-  spec, oficios, onClose,
+  spec, oficios, companies, onClose,
 }: {
-  spec:    DesignSpec
-  oficios: Oficio[]
-  onClose: () => void
+  spec:      DesignSpec
+  oficios:   Oficio[]
+  companies: Company[]
+  onClose:   () => void
 }) {
-  const [notes,    setNotes]    = useState(spec.notes    || '')
-  const [oficioId, setOficioId] = useState(spec.oficio_id || '')
-  const [saving,   setSaving]   = useState(false)
-  const [error,    setError]    = useState<string | null>(null)
+  const [title,       setTitle]       = useState(spec.title        || '')
+  const [specCode,    setSpecCode]    = useState(spec.spec_code    || '')
+  const [version,     setVersion]     = useState(spec.version      || 'V1')
+  const [issuedBy,    setIssuedBy]    = useState(spec.issued_by    || '')
+  const [companyId,   setCompanyId]   = useState(spec.company_id   || '')
+  const [issuedDate,  setIssuedDate]  = useState(spec.issued_date  || '')
+  const [oficioId,    setOficioId]    = useState(spec.oficio_id    || '')
+  const [notes,       setNotes]       = useState(spec.notes        || '')
+  const [saving,      setSaving]      = useState(false)
+  const [error,       setError]       = useState<string | null>(null)
 
   async function handleSave() {
+    if (!title.trim()) { setError('El título es requerido'); return }
     setSaving(true); setError(null)
     try {
       await updateDesignSpec(spec.id, {
-        notes:     notes.trim() || null,
-        oficio_id: oficioId || null,
+        title:       title.trim(),
+        spec_code:   specCode.trim()   || null,
+        version:     version.trim()    || 'V1',
+        issued_by:   issuedBy.trim()   || null,
+        company_id:  companyId         || null,
+        issued_date: issuedDate        || null,
+        oficio_id:   oficioId          || null,
+        notes:       notes.trim()      || null,
       })
       onClose()
     } catch (e: any) {
@@ -126,14 +141,50 @@ function EditSpecModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 sticky top-0 bg-white z-10">
           <h2 className="text-base font-bold text-[#1A2744]">Editar especificación</h2>
           <button onClick={onClose} className="p-1 rounded-lg hover:bg-slate-100"><X className="w-4 h-4" /></button>
         </div>
         <div className="px-6 py-5 space-y-4">
-          <p className="text-sm font-medium text-slate-700 truncate">{spec.title}</p>
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1.5">Título *</label>
+            <input value={title} onChange={e => setTitle(e.target.value)}
+              className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/40" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1.5">Código</label>
+              <input value={specCode} onChange={e => setSpecCode(e.target.value)} placeholder="Ej: ET-EST-001"
+                className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/40" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1.5">Versión</label>
+              <input value={version} onChange={e => setVersion(e.target.value)} placeholder="V1"
+                className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/40" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1.5">Empresa emisora</label>
+              <select value={companyId} onChange={e => setCompanyId(e.target.value)}
+                className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/40">
+                <option value="">Sin empresa</option>
+                {companies.map(c => <option key={c.id} value={c.id}>{c.short_name || c.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1.5">Fecha de emisión</label>
+              <input type="date" value={issuedDate} onChange={e => setIssuedDate(e.target.value)}
+                className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/40" />
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1.5">Emitido por</label>
+            <input value={issuedBy} onChange={e => setIssuedBy(e.target.value)} placeholder="Nombre del autor o firmante"
+              className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/40" />
+          </div>
           <div>
             <label className="block text-xs font-semibold text-slate-600 mb-1.5">Oficio vinculado</label>
             <select value={oficioId} onChange={e => setOficioId(e.target.value)}
@@ -161,6 +212,82 @@ function EditSpecModal({
             {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
             Guardar
           </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Modal: compartir especificación ───────────────────────────────────────────
+
+function ShareSpecModal({ spec, onClose }: { spec: DesignSpec; onClose: () => void }) {
+  const [copied, setCopied] = useState(false)
+  const qrRef = useRef<HTMLDivElement>(null)
+  const shareUrl = typeof window !== 'undefined'
+    ? `${window.location.origin}/api/specs/file/${spec.id}`
+    : `/api/specs/file/${spec.id}`
+
+  function handleCopy() {
+    navigator.clipboard.writeText(shareUrl)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  function downloadQR() {
+    const svg = qrRef.current?.querySelector('svg')
+    if (!svg) return
+    const svgData = new XMLSerializer().serializeToString(svg)
+    const canvas  = document.createElement('canvas')
+    canvas.width  = 400; canvas.height = 400
+    const ctx = canvas.getContext('2d')!
+    const img = new Image()
+    img.onload = () => {
+      ctx.fillStyle = '#ffffff'
+      ctx.fillRect(0, 0, 400, 400)
+      ctx.drawImage(img, 0, 0, 400, 400)
+      const a = document.createElement('a')
+      a.href     = canvas.toDataURL('image/png')
+      a.download = `qr-${(spec.spec_code || spec.title).replace(/\s+/g, '-')}.png`
+      a.click()
+    }
+    img.src = `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svgData)))}`
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+          <div>
+            <h2 className="text-base font-bold text-[#1A2744]">Compartir especificación</h2>
+            <p className="text-xs text-slate-400 mt-0.5 truncate max-w-[280px]">{spec.title}</p>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100">
+            <X className="w-4 h-4 text-slate-400" />
+          </button>
+        </div>
+        <div className="p-6 space-y-4">
+          <div className="flex flex-col items-center gap-2 p-4 bg-white border border-slate-100 rounded-xl">
+            <div ref={qrRef}>
+              <QRCode value={shareUrl} size={160} />
+            </div>
+            <button onClick={downloadQR}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50">
+              <Download className="w-3.5 h-3.5" />
+              Descargar QR
+            </button>
+          </div>
+          <div className="flex items-center gap-2 bg-slate-50 rounded-lg px-3 py-2.5">
+            <span className="flex-1 text-xs text-slate-600 truncate font-mono">{shareUrl}</span>
+            <button onClick={handleCopy}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#1A2744] text-white text-xs font-semibold hover:bg-[#243660] flex-shrink-0">
+              {copied ? <CheckCheck className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+              {copied ? 'Copiado' : 'Copiar'}
+            </button>
+          </div>
+          <p className="text-xs text-slate-400 text-center">
+            Este enlace requiere sesión activa en Builtek.
+          </p>
         </div>
       </div>
     </div>
@@ -541,29 +668,28 @@ function MesaDetailView({
   const [showUpload,   setShowUpload]   = useState(false)
   const [filterStatus, setFilterStatus] = useState('all')
   const [editingSpec,  setEditingSpec]  = useState<DesignSpec | null>(null)
-  const [copiedId,     setCopiedId]     = useState<string | null>(null)
+  const [sharingSpec,  setSharingSpec]  = useState<DesignSpec | null>(null)
   const canUpload = ['owner', 'admin', 'manager', 'engineer'].includes(userRole)
   const isAdmin   = ['owner', 'admin'].includes(userRole)
-
-  function handleCopyLink(spec: DesignSpec) {
-    const url = `${window.location.origin}/api/specs/file/${spec.id}`
-    navigator.clipboard.writeText(url)
-    setCopiedId(spec.id)
-    setTimeout(() => setCopiedId(null), 2000)
-  }
   const palette   = getPalette(mesaIdx)
 
   const filtered = filterStatus === 'all' ? specs : specs.filter(s => s.status === filterStatus)
   const vigentes = specs.filter(s => s.status === 'vigente').length
 
-  function handleView(spec: DesignSpec) {
+  async function handleView(spec: DesignSpec) {
     if (!spec.storage_key) return
-    window.open(`/api/specs/file/${spec.id}`, '_blank')
+    const res = await fetch(`/api/specs/file/${spec.id}`)
+    if (!res.ok) return
+    const { url } = await res.json()
+    window.open(url, '_blank')
   }
 
-  function handleDownload(spec: DesignSpec) {
+  async function handleDownload(spec: DesignSpec) {
     if (!spec.storage_key) return
-    window.open(`/api/specs/file/${spec.id}?dl=1`, '_blank')
+    const res = await fetch(`/api/specs/file/${spec.id}?dl=1`)
+    if (!res.ok) return
+    const { url } = await res.json()
+    window.open(url, '_blank')
   }
 
   async function handleDelete(spec: DesignSpec) {
@@ -715,11 +841,9 @@ function MesaDetailView({
                           className="p-1.5 rounded-lg text-slate-400 hover:text-[#00C2FF] hover:bg-slate-100">
                           <Download className="w-3.5 h-3.5" />
                         </button>
-                        <button onClick={() => handleCopyLink(spec)} title="Copiar enlace"
+                        <button onClick={() => setSharingSpec(spec)} title="Compartir"
                           className="p-1.5 rounded-lg text-slate-400 hover:text-green-600 hover:bg-green-50">
-                          {copiedId === spec.id
-                            ? <Check className="w-3.5 h-3.5 text-green-600" />
-                            : <Link className="w-3.5 h-3.5" />}
+                          <Link className="w-3.5 h-3.5" />
                         </button>
                       </>)}
                       <button onClick={() => setEditingSpec(spec)} title="Editar notas / oficio"
@@ -755,9 +879,13 @@ function MesaDetailView({
 
       {editingSpec && (
         <EditSpecModal
-          spec={editingSpec} oficios={oficios}
+          spec={editingSpec} oficios={oficios} companies={companies}
           onClose={() => setEditingSpec(null)}
         />
+      )}
+
+      {sharingSpec && (
+        <ShareSpecModal spec={sharingSpec} onClose={() => setSharingSpec(null)} />
       )}
     </div>
   )

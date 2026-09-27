@@ -38,8 +38,14 @@ export async function saveDesignSpec(data: {
 }
 
 export async function updateDesignSpec(id: string, data: {
-  notes:     string | null
-  oficio_id: string | null
+  title:       string
+  spec_code:   string | null
+  version:     string
+  issued_by:   string | null
+  company_id:  string | null
+  issued_date: string | null
+  oficio_id:   string | null
+  notes:       string | null
 }) {
   const { supabase } = await getUser()
   const { error } = await supabase.from('design_specs').update(data).eq('id', id)
