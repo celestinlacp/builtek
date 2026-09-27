@@ -448,7 +448,7 @@ function OficioModal({
               <label className={labelCls}>Especialidad</label>
               <select value={especialidad} onChange={e => setEspecialidad(e.target.value)} className={inputCls}>
                 <option value="">— Sin especialidad —</option>
-                {especialidades.map(e => <option key={e.code} value={e.name}>{e.name}</option>)}
+                {especialidades.map(e => <option key={e.code} value={e.code}>[{e.code}] {e.name}</option>)}
               </select>
             </div>
           </div>
@@ -572,12 +572,13 @@ function CopyLinkButton({ oficioId }: { oficioId: string }) {
 // ── OficioRow ─────────────────────────────────────────────────────────────────
 
 function OficioRow({
-  oficio, projects, members, workspaceId, canEdit, canDelete,
+  oficio, projects, members, especialidades, workspaceId, canEdit, canDelete,
   isSelected, onToggleSelect, onEdit,
 }: {
   oficio: Oficio
   projects: Project[]
   members: Member[]
+  especialidades: { code: string; name: string }[]
   workspaceId: string
   canEdit: boolean
   canDelete: boolean
@@ -653,7 +654,9 @@ function OficioRow({
             <p className="text-xs font-medium text-slate-600 truncate max-w-[140px]">{oficio.proyecto.name}</p>
           )}
           {oficio.especialidad && (
-            <p className="text-[10px] text-slate-400">{oficio.especialidad}</p>
+            <p className="text-[10px] text-slate-400">
+              {especialidades.find(e => e.code === oficio.especialidad)?.name || oficio.especialidad}
+            </p>
           )}
           {!oficio.proyecto && !oficio.especialidad && (
             <span className="text-slate-300 text-xs">—</span>
@@ -895,7 +898,7 @@ export default function OficiosPanel({
 
         <select value={filterEsp} onChange={e => setFilterEsp(e.target.value)} className={inputCls}>
           <option value="">Todas las especialidades</option>
-          {especialidades.map(e => <option key={e.code} value={e.name}>{e.name}</option>)}
+          {especialidades.map(e => <option key={e.code} value={e.code}>{e.name}</option>)}
         </select>
 
         <select value={filterEstado} onChange={e => setFilterEstado(e.target.value)} className={inputCls}>
@@ -1010,6 +1013,7 @@ export default function OficiosPanel({
                     oficio={o}
                     projects={projects}
                     members={members}
+                    especialidades={especialidades}
                     workspaceId={workspaceId}
                     canEdit={canEdit}
                     canDelete={canDelete}
