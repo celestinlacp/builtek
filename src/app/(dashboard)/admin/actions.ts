@@ -94,6 +94,7 @@ export async function createProject(formData: FormData) {
   })
 
   if (error) return { error: error.message }
+  await syncIdentificadoresFromProjects()
   revalidatePath('/admin')
   revalidatePath('/tasks')
   revalidatePath('/dashboard')
@@ -115,6 +116,7 @@ export async function updateProject(projectId: string, formData: FormData) {
   }).eq('id', projectId)
 
   if (error) return { error: error.message }
+  await syncIdentificadoresFromProjects()
   revalidatePath('/admin')
   revalidatePath('/tasks')
   revalidatePath('/dashboard')
@@ -126,6 +128,7 @@ export async function deleteProject(projectId: string) {
   const admin = getAdminClient()
   const { error } = await admin.from('projects').delete().eq('id', projectId)
   if (error) return { error: error.message }
+  await syncIdentificadoresFromProjects()
   revalidatePath('/admin')
   revalidatePath('/tasks')
   revalidatePath('/dashboard')
