@@ -5,6 +5,20 @@ import { createClient as createAdmin } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { parseDocKey, parseMicSegments } from './utils'
+import { DeleteObjectCommand } from '@aws-sdk/client-s3'
+import { getR2Client, R2_BUCKET, r2IsConfigured } from '@/lib/r2/client'
+
+async function deleteFromR2(storageKey: string | null) {
+  if (!storageKey || !r2IsConfigured()) return
+  try {
+    await getR2Client().send(new DeleteObjectCommand({
+      Bucket: R2_BUCKET(),
+      Key:    storageKey,
+    }))
+  } catch (e) {
+    console.error('[R2] Error al eliminar objeto:', storageKey, e)
+  }
+}
 
 function getAdminClient() {
   return createAdmin(
@@ -174,8 +188,10 @@ export async function requestDeleteDocument(docId: string, reason?: string) {
 export async function deleteDocument(docId: string) {
   await getUser()
   const admin = getAdminClient()
+  const { data: doc } = await admin.from('documents').select('storage_key').eq('id', docId).single()
   const { error } = await admin.from('documents').delete().eq('id', docId)
   if (error) return { error: error.message }
+  await deleteFromR2(doc?.storage_key ?? null)
   revalidatePath('/documents')
   return { success: true }
 }
@@ -184,6 +200,9 @@ export async function approveDeleteRequest(requestId: string, docId: string) {
   const { user } = await getUser()
   const admin = getAdminClient()
 
+  // Obtener storage_key antes de marcar como deleted
+  const { data: doc } = await admin.from('documents').select('storage_key').eq('id', docId).single()
+
   await admin.from('delete_requests').update({
     status:      'approved',
     reviewed_by: user.id,
@@ -191,6 +210,9 @@ export async function approveDeleteRequest(requestId: string, docId: string) {
   }).eq('id', requestId)
 
   await admin.from('documents').update({ doc_status: 'deleted' }).eq('id', docId)
+
+  // Eliminar el archivo físico de R2
+  await deleteFromR2(doc?.storage_key ?? null)
 
   revalidatePath('/documents')
   return { success: true }
