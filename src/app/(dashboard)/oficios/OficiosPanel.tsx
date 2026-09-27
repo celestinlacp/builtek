@@ -126,10 +126,7 @@ const FILE_TYPE_COLORS: Record<string, string> = {
   other: 'bg-slate-50 text-slate-400 border-slate-100',
 }
 
-const ESPECIALIDADES = [
-  'Estructuras', 'Arquitectura', 'Instalaciones', 'Civil', 'Topografía',
-  'Mecánica', 'Eléctrica', 'Hidráulica', 'Sanitaria', 'General',
-]
+// Especialidades se inyectan desde mic_nomenclatures (ver page.tsx)
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -225,12 +222,13 @@ async function uploadFile(file: File, workspaceId: string, tipo: string): Promis
 // ── OficioModal ───────────────────────────────────────────────────────────────
 
 function OficioModal({
-  oficio, tipo, projects, members, workspaceId, onClose,
+  oficio, tipo, projects, members, especialidades, workspaceId, onClose,
 }: {
   oficio?: Oficio | null
   tipo: 'entrada' | 'salida'
   projects: Project[]
   members: Member[]
+  especialidades: { code: string; name: string }[]
   workspaceId: string
   onClose: (saved?: boolean) => void
 }) {
@@ -450,7 +448,7 @@ function OficioModal({
               <label className={labelCls}>Especialidad</label>
               <select value={especialidad} onChange={e => setEspecialidad(e.target.value)} className={inputCls}>
                 <option value="">— Sin especialidad —</option>
-                {ESPECIALIDADES.map(e => <option key={e} value={e}>{e}</option>)}
+                {especialidades.map(e => <option key={e.code} value={e.name}>{e.name}</option>)}
               </select>
             </div>
           </div>
@@ -730,11 +728,12 @@ function OficioRow({
 type Tab = 'entrada' | 'salida'
 
 export default function OficiosPanel({
-  oficios, projects, members, workspaceId, currentUserId, currentUserRole,
+  oficios, projects, members, especialidades, workspaceId, currentUserId, currentUserRole,
 }: {
   oficios: Oficio[]
   projects: Project[]
   members: Member[]
+  especialidades: { code: string; name: string }[]
   workspaceId: string
   currentUserId: string
   currentUserRole: string
@@ -896,7 +895,7 @@ export default function OficiosPanel({
 
         <select value={filterEsp} onChange={e => setFilterEsp(e.target.value)} className={inputCls}>
           <option value="">Todas las especialidades</option>
-          {ESPECIALIDADES.map(e => <option key={e} value={e}>{e}</option>)}
+          {especialidades.map(e => <option key={e.code} value={e.name}>{e.name}</option>)}
         </select>
 
         <select value={filterEstado} onChange={e => setFilterEstado(e.target.value)} className={inputCls}>
@@ -1037,6 +1036,7 @@ export default function OficiosPanel({
           tipo={editOficio ? editOficio.tipo : tab}
           projects={projects}
           members={members}
+          especialidades={especialidades}
           workspaceId={workspaceId}
           onClose={closeModal}
         />

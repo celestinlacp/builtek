@@ -40,8 +40,8 @@ export default async function OficiosPage() {
 
   const wsId = workspace.id
 
-  // Cargar proyectos, miembros y oficios
-  const [projectsRes, membersRes, oficiosRes] = await Promise.all([
+  // Cargar proyectos, miembros, oficios y especialidades del workspace
+  const [projectsRes, membersRes, oficiosRes, especialidadesRes] = await Promise.all([
     supabase
       .from('projects')
       .select('id, name')
@@ -65,6 +65,14 @@ export default async function OficiosPage() {
       `)
       .eq('workspace_id', wsId)
       .order('created_at', { ascending: false }),
+    supabase
+      .from('mic_nomenclatures')
+      .select('code, name')
+      .eq('workspace_id', wsId)
+      .eq('segment', 'ESPECIALIDAD')
+      .eq('is_active', true)
+      .order('sort_order')
+      .order('name'),
   ])
 
   const currentUserName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Usuario'
@@ -85,6 +93,7 @@ export default async function OficiosPage() {
         oficios={(oficiosRes.data || []) as any}
         projects={projectsRes.data || []}
         members={(membersRes.data || []) as any}
+        especialidades={(especialidadesRes.data || []) as any}
         workspaceId={wsId}
         currentUserId={user.id}
         currentUserRole={membership.role as any}
