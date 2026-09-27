@@ -9,7 +9,7 @@ import {
   Mail, Clock, Send, Link2, LinkIcon, Building2, Zap, HardDrive, FileText, Files, Loader2,
   Database, Factory, ChevronDown, ChevronUp, Search, BookOpen,
 } from 'lucide-react'
-import { toggleFeature, createMicNomenclature, updateMicNomenclature, deleteMicNomenclature, seedMicTipoPlano } from './actions'
+import { toggleFeature, createMicNomenclature, updateMicNomenclature, deleteMicNomenclature, seedAllMicNomenclatures } from './actions'
 
 const ROLE_CONFIG: Record<UserRole, { label: string; color: string; icon: React.ElementType }> = {
   owner:    { label: 'Owner',    color: 'bg-purple-100 text-purple-700', icon: Crown },
@@ -1405,10 +1405,10 @@ function NomenclaturasPanel({ nomenclatures, workspaceId }: { nomenclatures: Mic
     await deleteMicNomenclature(item.id)
   }
 
-  async function handleSeedTipoPlano() {
-    if (!confirm('¿Cargar el catálogo estándar TIPO_PLANO? Esto agregará los 9 valores base (no sobreescribe los existentes).')) return
+  async function handleSeedAll() {
+    if (!confirm('¿Cargar el catálogo completo? Se agregarán los valores base de los 5 segmentos (no sobreescribe los existentes).')) return
     setSeeding(true)
-    await seedMicTipoPlano()
+    await seedAllMicNomenclatures()
     setSeeding(false)
   }
 
@@ -1429,13 +1429,11 @@ function NomenclaturasPanel({ nomenclatures, workspaceId }: { nomenclatures: Mic
             <span className="font-mono text-[#00C2FF] text-xs">TRONCAL-IDENTIFICADOR-TIPO_DOC-ESPECIALIDAD-TIPO_PLANO-0001</span>
           </p>
         </div>
-        {activeSegment === 'TIPO_PLANO' && segmentItems.length === 0 && (
-          <button onClick={handleSeedTipoPlano} disabled={seeding}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-[#00C2FF]/30 text-[#0099CC] text-xs font-semibold hover:bg-[#00C2FF]/5 disabled:opacity-60">
-            {seeding ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <BookOpen className="w-3.5 h-3.5" />}
-            Cargar catálogo estándar
-          </button>
-        )}
+        <button onClick={handleSeedAll} disabled={seeding}
+          className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-[#00C2FF]/30 text-[#0099CC] text-xs font-semibold hover:bg-[#00C2FF]/5 disabled:opacity-60">
+          {seeding ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <BookOpen className="w-3.5 h-3.5" />}
+          Cargar catálogo base
+        </button>
       </div>
 
       {/* Selector de segmento */}
@@ -1527,12 +1525,10 @@ function NomenclaturasPanel({ nomenclatures, workspaceId }: { nomenclatures: Mic
           <div className="p-10 text-center">
             <BookOpen className="w-8 h-8 text-slate-200 mx-auto mb-3" />
             <p className="text-sm text-slate-400">Sin entradas para este segmento.</p>
-            {activeSegment === 'TIPO_PLANO' && (
-              <button onClick={handleSeedTipoPlano} disabled={seeding}
-                className="mt-3 text-xs text-[#00C2FF] hover:text-[#0099CC] font-medium">
-                Cargar catálogo estándar →
-              </button>
-            )}
+            <button onClick={handleSeedAll} disabled={seeding}
+              className="mt-3 text-xs text-[#00C2FF] hover:text-[#0099CC] font-medium">
+              Cargar catálogo base →
+            </button>
           </div>
         ) : (
           <table className="w-full text-sm">

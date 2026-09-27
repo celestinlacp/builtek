@@ -382,12 +382,10 @@ function UploadModal({
             </select>
           </div>
 
-          {/* ── Campos MIC ──────────────────────────────────────────────── */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide flex items-center gap-1">
+              <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
                 Tipo de plano
-                <span className="text-[10px] font-mono bg-slate-100 text-slate-500 px-1 py-0.5 rounded ml-1 normal-case tracking-normal">TIPO_PLANO</span>
               </label>
               <select value={docView} onChange={e => setDocView(e.target.value)}
                 className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50">
@@ -399,14 +397,18 @@ function UploadModal({
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide flex items-center gap-1.5">
-                Versión MIC
+                Versión
                 <div className="relative group">
                   <Info className="w-3 h-3 text-slate-400 cursor-help" />
-                  <div className="absolute left-0 top-5 z-50 hidden group-hover:block w-56 bg-[#1A2744] text-white text-[11px] rounded-lg p-3 shadow-xl leading-relaxed">
-                    <p className="font-bold mb-1">V0 vs V1 — ¿Cuál es la diferencia?</p>
-                    <p><span className="font-semibold text-[#00C2FF]">V0 Proyecto</span> — Documentos de análisis y diseño. Fase de elaboración.</p>
-                    <p className="mt-1"><span className="font-semibold text-green-400">V1 Construcción</span> — Documentos liberados para ejecución en campo (APC).</p>
-                    <p className="mt-1.5 text-slate-300 text-[10px]">Independiente del flujo ELAB→REV→APR→APC.</p>
+                  <div className="absolute right-0 bottom-full mb-2 z-50 hidden group-hover:block w-48 bg-white border border-slate-200 text-slate-600 text-[11px] rounded-lg p-2.5 shadow-lg">
+                    <div className="flex items-start gap-2 mb-2">
+                      <span className="font-mono font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded flex-shrink-0">V0</span>
+                      <span className="text-slate-500">Diseño y análisis — fase de elaboración</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <span className="font-mono font-bold text-green-700 bg-green-50 px-1.5 py-0.5 rounded flex-shrink-0">V1</span>
+                      <span className="text-slate-500">Liberado para ejecución en campo</span>
+                    </div>
                   </div>
                 </div>
               </label>
@@ -430,7 +432,6 @@ function UploadModal({
             <input type="text" value={docElement} onChange={e => setDocElement(e.target.value)}
               placeholder="Ej: Zapata, Pilote, Trabe, Losa, Columna..."
               className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50" />
-            <p className="text-xs text-slate-400 mt-1">Elemento físico que documenta este plano (no forma parte del código MIC)</p>
           </div>
 
           <div>

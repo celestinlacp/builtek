@@ -408,25 +408,65 @@ export async function deleteMicNomenclature(id: string) {
 }
 
 export async function seedMicTipoPlano() {
+  return seedAllMicNomenclatures()
+}
+
+export async function seedAllMicNomenclatures() {
   const { workspaceId } = await getWorkspaceId()
   if (!workspaceId) return { error: 'Sin workspace' }
   const admin = getAdminClient()
 
-  const defaults = [
-    { code: 'PLT', name: 'Planta',         sort_order: 1 },
-    { code: 'COR', name: 'Corte',          sort_order: 2 },
-    { code: 'ALZ', name: 'Alzado',         sort_order: 3 },
-    { code: 'PER', name: 'Perfil',         sort_order: 4 },
-    { code: 'DET', name: 'Detalle',        sort_order: 5 },
-    { code: 'ISO', name: 'Isométrico',     sort_order: 6 },
-    { code: 'DIA', name: 'Diagrama',       sort_order: 7 },
-    { code: 'CUA', name: 'Cuadro / Tabla', sort_order: 8 },
-    { code: 'GEN', name: 'General',        sort_order: 9 },
+  const catalog: { segment: string; code: string; name: string; description?: string; sort_order: number }[] = [
+    // ── TRONCAL ──────────────────────────────────────────────────────────────
+    { segment: 'TRONCAL', code: 'TQM',  name: 'Tren México-Querétaro',       sort_order: 1 },
+
+    // ── IDENTIFICADOR ─────────────────────────────────────────────────────────
+    { segment: 'IDENTIFICADOR', code: '0000', name: 'Global (todo el proyecto)',  sort_order: 1 },
+    { segment: 'IDENTIFICADOR', code: 'F012', name: 'Frente 12',                  sort_order: 2 },
+    { segment: 'IDENTIFICADOR', code: 'F001', name: 'Frente 1',                   sort_order: 3 },
+    { segment: 'IDENTIFICADOR', code: 'F002', name: 'Frente 2',                   sort_order: 4 },
+    { segment: 'IDENTIFICADOR', code: 'F003', name: 'Frente 3',                   sort_order: 5 },
+    { segment: 'IDENTIFICADOR', code: 'F004', name: 'Frente 4',                   sort_order: 6 },
+    { segment: 'IDENTIFICADOR', code: 'F005', name: 'Frente 5',                   sort_order: 7 },
+    { segment: 'IDENTIFICADOR', code: 'F006', name: 'Frente 6',                   sort_order: 8 },
+
+    // ── TIPO_DOC ──────────────────────────────────────────────────────────────
+    { segment: 'TIPO_DOC', code: 'PLA', name: 'Plano',                    sort_order: 1 },
+    { segment: 'TIPO_DOC', code: 'MEM', name: 'Memoria de Cálculo',       sort_order: 2 },
+    { segment: 'TIPO_DOC', code: 'ESP', name: 'Especificación Técnica',   sort_order: 3 },
+    { segment: 'TIPO_DOC', code: 'INF', name: 'Informe / Reporte',        sort_order: 4 },
+    { segment: 'TIPO_DOC', code: 'OFI', name: 'Oficio',                   sort_order: 5 },
+    { segment: 'TIPO_DOC', code: 'MIN', name: 'Minuta de Reunión',        sort_order: 6 },
+    { segment: 'TIPO_DOC', code: 'PRO', name: 'Procedimiento Constructivo', sort_order: 7 },
+
+    // ── ESPECIALIDAD ──────────────────────────────────────────────────────────
+    { segment: 'ESPECIALIDAD', code: 'EEST', name: 'Estructuras',                   sort_order: 1 },
+    { segment: 'ESPECIALIDAD', code: 'AARQ', name: 'Arquitectura',                  sort_order: 2 },
+    { segment: 'ESPECIALIDAD', code: 'TOPO', name: 'Topografía',                    sort_order: 3 },
+    { segment: 'ESPECIALIDAD', code: 'HIDR', name: 'Hidráulica',                    sort_order: 4 },
+    { segment: 'ESPECIALIDAD', code: 'GEOM', name: 'Geométrico',                    sort_order: 5 },
+    { segment: 'ESPECIALIDAD', code: 'GECT', name: 'Geotecnia',                     sort_order: 6 },
+    { segment: 'ESPECIALIDAD', code: 'GEOF', name: 'Geofísica',                     sort_order: 7 },
+    { segment: 'ESPECIALIDAD', code: 'SUBC', name: 'Subestructura y Cimentación',   sort_order: 8 },
+    { segment: 'ESPECIALIDAD', code: 'SUPE', name: 'Superestructura',               sort_order: 9 },
+    { segment: 'ESPECIALIDAD', code: 'PROC', name: 'Proceso Constructivo',          sort_order: 10 },
+    { segment: 'ESPECIALIDAD', code: 'SEHI', name: 'Seguridad e Higiene',           sort_order: 11 },
+
+    // ── TIPO_PLANO ────────────────────────────────────────────────────────────
+    { segment: 'TIPO_PLANO', code: 'PLT', name: 'Planta',          sort_order: 1 },
+    { segment: 'TIPO_PLANO', code: 'COR', name: 'Corte',           sort_order: 2 },
+    { segment: 'TIPO_PLANO', code: 'ALZ', name: 'Alzado',          sort_order: 3 },
+    { segment: 'TIPO_PLANO', code: 'PER', name: 'Perfil',          sort_order: 4 },
+    { segment: 'TIPO_PLANO', code: 'DET', name: 'Detalle',         sort_order: 5 },
+    { segment: 'TIPO_PLANO', code: 'ISO', name: 'Isométrico',      sort_order: 6 },
+    { segment: 'TIPO_PLANO', code: 'DIA', name: 'Diagrama',        sort_order: 7 },
+    { segment: 'TIPO_PLANO', code: 'CUA', name: 'Cuadro / Tabla',  sort_order: 8 },
+    { segment: 'TIPO_PLANO', code: 'GEN', name: 'General',         sort_order: 9 },
   ]
 
-  const rows = defaults.map(d => ({
+  const rows = catalog.map(d => ({
     workspace_id: workspaceId,
-    segment:      'TIPO_PLANO',
+    segment:      d.segment,
     code:         d.code,
     name:         d.name,
     sort_order:   d.sort_order,
@@ -439,5 +479,5 @@ export async function seedMicTipoPlano() {
   if (error) return { error: error.message }
   revalidatePath('/admin')
   revalidatePath('/documents')
-  return { success: true }
+  return { success: true, count: rows.length }
 }
