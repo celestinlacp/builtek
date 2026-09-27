@@ -108,7 +108,7 @@ export async function updateProject(projectId: string, formData: FormData) {
   const { error } = await admin.from('projects').update({
     name: formData.get('name') as string,
     description: formData.get('description') as string || null,
-    status: formData.get('status') as string,
+    status: (formData.get('status') as string) || 'active',
     start_date: formData.get('start_date') as string || null,
     end_date: formData.get('end_date') as string || null,
     frente: formData.get('frente') as string || null,
