@@ -632,3 +632,54 @@ export async function updateMemberProfile(
   revalidatePath('/admin')
   return { success: true }
 }
+
+export async function updateDocKey(docId: string, fullCode: string) {
+  const admin   = getAdminClient()
+  const trimmed = fullCode.trim()
+  if (!trimmed) return { error: 'Código vacío' }
+
+  // Si el código tiene 6 segmentos (ej. TQM-0004-INF-GECT-GEN-0001), separar versión
+  const parts = trimmed.split('-')
+  let docKey      = trimmed
+  let versionNum: number | null = null
+
+  if (parts.length === 6 && /^\d{4}$/.test(parts[5])) {
+    docKey     = parts.slice(0, 5).join('-')
+    versionNum = parseInt(parts[5], 10)
+  } else if (parts.length === 5) {
+    // Solo base sin versión → asumir versión 1
+    docKey     = trimmed
+    versionNum = 1
+  }
+
+  const { error } = await admin
+    .from('documents')
+    .update({ doc_key: docKey, version_number: versionNum })
+    .eq('id', docId)
+  if (error) return { error: error.message }
+  revalidatePath('/admin')
+  return { success: true }
+}
+
+export async function getProjectShare(projectId: string) {
+  const admin = getAdminClient()
+  const { data } = await admin
+    .from('project_shares')
+    .select('token, expires_at, created_at')
+    .eq('project_id', projectId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  return data as { token: string; expires_at: string; created_at: string } | null
+}
+
+export async function upsertProjectShare(projectId: string) {
+  const admin = getAdminClient()
+  const token     = crypto.randomUUID().replace(/-/g, '')
+  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+  const { error } = await admin
+    .from('project_shares')
+    .upsert({ project_id: projectId, token, expires_at: expiresAt }, { onConflict: 'project_id' })
+  if (error) return { error: error.message }
+  return { token, expiresAt }
+}

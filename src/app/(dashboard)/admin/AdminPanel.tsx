@@ -2,16 +2,17 @@
 
 import { useState } from 'react'
 import { Project, Workspace, WorkspaceMember, UserRole, Company } from '@/types'
-import { createProject, updateProject, deleteProject, updateWorkspace, updateMemberRole, removeMember, inviteMember, cancelInvite, createCompany, updateCompany, deleteCompany, updateMemberProfile } from './actions'
+import { createProject, updateProject, deleteProject, updateWorkspace, updateMemberRole, removeMember, inviteMember, cancelInvite, createCompany, updateCompany, deleteCompany, updateMemberProfile, updateDocKey } from './actions'
 import {
   Plus, Pencil, Trash2, X, FolderOpen, Users, Settings,
   Calendar, CheckCircle2, PauseCircle, Archive, Shield, Crown, UserCog, Eye, Wrench,
   Mail, Clock, Send, Link2, LinkIcon, Building2, Zap, HardDrive, FileText, Files, Loader2,
-  Database, Factory, ChevronDown, ChevronUp, Search, BookOpen, Info, Layers,
+  Database, Factory, ChevronDown, ChevronUp, Search, BookOpen, Info, Layers, Check, Share2,
 } from 'lucide-react'
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { toggleFeature, createMicNomenclature, updateMicNomenclature, deleteMicNomenclature, seedAllMicNomenclatures, syncIdentificadoresFromProjects } from './actions'
+import { ShareProjectModal } from './ShareProjectModal'
 
 const ROLE_CONFIG: Record<UserRole, { label: string; color: string; icon: React.ElementType }> = {
   owner:    { label: 'Owner',    color: 'bg-purple-100 text-purple-700', icon: Crown },
@@ -614,7 +615,7 @@ function ProjectModal({
   )
 }
 
-function ProjectCard({ project, onEdit }: { project: Project; onEdit: (p: Project) => void }) {
+function ProjectCard({ project, onEdit, onShare }: { project: Project; onEdit: (p: Project) => void; onShare: (p: Project) => void }) {
   const cfg = STATUS_CONFIG[project.status] || STATUS_CONFIG.active
 
   async function handleDelete() {
@@ -648,6 +649,10 @@ function ProjectCard({ project, onEdit }: { project: Project; onEdit: (p: Projec
         </div>
 
         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+          <button onClick={() => onShare(project)} title="Compartir archivos"
+            className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-[#00C2FF]/10 text-slate-400 hover:text-[#00C2FF] transition-colors">
+            <Share2 className="w-3.5 h-3.5" />
+          </button>
           <button onClick={() => onEdit(project)}
             className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors">
             <Pencil className="w-3.5 h-3.5" />
@@ -1278,6 +1283,16 @@ function DatabasePanel({ docs, projects }: { docs: BiDoc[]; projects: Project[] 
   const [filterType,   setFilterType]   = useState('all')
   const [sortField,    setSortField]    = useState<'created_at' | 'ref_code' | 'name' | 'project'>('created_at')
   const [sortDir,      setSortDir]      = useState<'asc' | 'desc'>('desc')
+  const [editingDocKey, setEditingDocKey] = useState<string | null>(null)
+  const [editDocKeyVal, setEditDocKeyVal] = useState('')
+  const [savingDocKey,  setSavingDocKey]  = useState(false)
+
+  async function handleSaveDocKey(docId: string) {
+    setSavingDocKey(true)
+    await updateDocKey(docId, editDocKeyVal)
+    setSavingDocKey(false)
+    setEditingDocKey(null)
+  }
 
   const fileTypes = [...new Set(docs.map(d => d.file_type).filter(Boolean))] as string[]
   const rootProjects = projects.filter(p => !p.parent_project_id)
@@ -1293,6 +1308,7 @@ function DatabasePanel({ docs, projects }: { docs: BiDoc[]; projects: Project[] 
         return (
           d.name?.toLowerCase().includes(q) ||
           d.file_name?.toLowerCase().includes(q) ||
+          d.doc_key?.toLowerCase().includes(q) ||
           d.ref_code?.toLowerCase().includes(q) ||
           d.author?.toLowerCase().includes(q) ||
           d.project?.name?.toLowerCase().includes(q) ||
@@ -1408,17 +1424,49 @@ function DatabasePanel({ docs, projects }: { docs: BiDoc[]; projects: Project[] 
               ) : filtered.map(doc => {
                 const stCfg = STATUS_LABEL[doc.status] ?? STATUS_LABEL.draft
                 const docName = doc.display_name || doc.file_name || doc.name
+                const fullDocKey = doc.doc_key
+                  ? `${doc.doc_key}-${String(doc.version_number ?? 1).padStart(4, '0')}`
+                  : null
                 return (
                   <tr key={doc.id} className="hover:bg-slate-50/50 transition-colors">
                     <td className="px-3 py-2.5">
-                      <span className="font-mono text-[10px] bg-[#1A2744]/5 text-[#1A2744] px-1.5 py-0.5 rounded font-semibold">
-                        {doc.ref_code || '—'}
-                      </span>
+                      {editingDocKey === doc.id ? (
+                        <div className="flex items-center gap-1">
+                          <input
+                            autoFocus
+                            value={editDocKeyVal}
+                            onChange={e => setEditDocKeyVal(e.target.value.toUpperCase())}
+                            onKeyDown={e => { if (e.key === 'Enter') handleSaveDocKey(doc.id); if (e.key === 'Escape') setEditingDocKey(null) }}
+                            className="font-mono text-[10px] border border-[#00C2FF] rounded px-1.5 py-0.5 w-48 focus:outline-none"
+                            placeholder="TQM-0004-INF-GECT-GEN-0001"
+                          />
+                          <button onClick={() => handleSaveDocKey(doc.id)} disabled={savingDocKey}
+                            className="w-5 h-5 flex items-center justify-center rounded bg-green-100 hover:bg-green-200 text-green-700">
+                            <Check className="w-3 h-3" />
+                          </button>
+                          <button onClick={() => setEditingDocKey(null)}
+                            className="w-5 h-5 flex items-center justify-center rounded bg-slate-100 hover:bg-slate-200 text-slate-500">
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1 group">
+                          <span className="font-mono text-[10px] bg-[#1A2744]/5 text-[#1A2744] px-1.5 py-0.5 rounded font-semibold">
+                            {fullDocKey || doc.ref_code || '—'}
+                          </span>
+                          <button
+                            onClick={() => { setEditingDocKey(doc.id); setEditDocKeyVal(fullDocKey || doc.doc_key || '') }}
+                            className="opacity-0 group-hover:opacity-100 w-4 h-4 flex items-center justify-center rounded hover:bg-slate-100 text-slate-400"
+                            title="Editar ID Builtek">
+                            <Pencil className="w-2.5 h-2.5" />
+                          </button>
+                        </div>
+                      )}
                     </td>
                     <td className="px-3 py-2.5 max-w-[200px]">
                       <p className="font-medium text-[#1A2744] truncate" title={docName}>{docName}</p>
-                      {doc.doc_key && (
-                        <p className="text-[10px] text-slate-400 font-mono truncate">{doc.doc_key}</p>
+                      {doc.doc_key && doc.ref_code && (
+                        <p className="text-[10px] text-slate-400 font-mono truncate">{doc.ref_code}</p>
                       )}
                     </td>
                     <td className="px-3 py-2.5 text-slate-600 max-w-[140px] truncate">{doc.project?.name || '—'}</td>
@@ -1763,6 +1811,7 @@ export default function AdminPanel({
   const [tab, setTab] = useState<Tab>('projects')
   const [showModal, setShowModal] = useState(false)
   const [editProject, setEditProject] = useState<Project | null>(null)
+  const [shareProject, setShareProject] = useState<Project | null>(null)
 
   const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [
     { id: 'projects',       label: 'Proyectos',      icon: FolderOpen },
@@ -1777,6 +1826,14 @@ export default function AdminPanel({
 
   return (
     <div>
+      {shareProject && (
+        <ShareProjectModal
+          projectId={shareProject.id}
+          projectName={shareProject.name}
+          onClose={() => setShareProject(null)}
+        />
+      )}
+
       {/* Tabs */}
       <div className="flex items-center gap-1 mb-6 bg-slate-100 p-1 rounded-xl w-fit">
         {tabs.map(({ id, label, icon: Icon }) => (
@@ -1830,11 +1887,11 @@ export default function AdminPanel({
                   const subs = projects.filter(s => s.parent_project_id === p.id)
                   return (
                     <div key={p.id}>
-                      <ProjectCard project={p} onEdit={setEditProject} />
+                      <ProjectCard project={p} onEdit={setEditProject} onShare={setShareProject} />
                       {subs.length > 0 && (
                         <div className="ml-6 mt-2 space-y-2 border-l-2 border-slate-100 pl-4">
                           {subs.map(s => (
-                            <ProjectCard key={s.id} project={s} onEdit={setEditProject} />
+                            <ProjectCard key={s.id} project={s} onEdit={setEditProject} onShare={setShareProject} />
                           ))}
                         </div>
                       )}
