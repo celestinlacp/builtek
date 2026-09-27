@@ -4,12 +4,40 @@ import React, { useState, useRef } from 'react'
 import { saveDesignSpec, updateSpecStatus, deleteDesignSpec } from './actions'
 import {
   Plus, X, Upload, FileText, ChevronDown, Loader2, Trash2,
-  Eye, AlertTriangle, CheckCircle2, Clock, ArrowLeft, BookOpen,
+  Eye, AlertTriangle, CheckCircle2, Clock, ArrowLeft, Folder,
 } from 'lucide-react'
+
+// ── Mesas fijas ───────────────────────────────────────────────────────────────
+
+const MESAS = [
+  { code: 'EEST', name: 'Mesa Estructuras'     },
+  { code: 'GEO',  name: 'Mesa Geotecnia'       },
+  { code: 'CAR',  name: 'Mesa de Carreteras'   },
+  { code: 'ARQ',  name: 'Mesa de Arquitectura' },
+  { code: 'HID',  name: 'Mesa de Hidráulica'   },
+  { code: 'DDV',  name: 'Mesa de DDV'          },
+  { code: 'TOP',  name: 'Mesa de Topografía'   },
+]
+
+// Colors mapped 1:1 by index to MESAS
+const MESA_PALETTE = [
+  { iconBg: 'bg-blue-50',   iconColor: 'text-blue-500',   gradient: 'from-blue-600 to-blue-800',     badgeBg: 'bg-blue-500/20',   badgeText: 'text-blue-100'   },
+  { iconBg: 'bg-amber-50',  iconColor: 'text-amber-600',  gradient: 'from-amber-500 to-amber-700',   badgeBg: 'bg-amber-500/20',  badgeText: 'text-amber-100'  },
+  { iconBg: 'bg-slate-100', iconColor: 'text-slate-500',  gradient: 'from-slate-600 to-slate-800',   badgeBg: 'bg-slate-500/20',  badgeText: 'text-slate-100'  },
+  { iconBg: 'bg-violet-50', iconColor: 'text-violet-500', gradient: 'from-violet-600 to-violet-800', badgeBg: 'bg-violet-500/20', badgeText: 'text-violet-100' },
+  { iconBg: 'bg-cyan-50',   iconColor: 'text-cyan-500',   gradient: 'from-cyan-600 to-cyan-800',     badgeBg: 'bg-cyan-500/20',   badgeText: 'text-cyan-100'   },
+  { iconBg: 'bg-orange-50', iconColor: 'text-orange-500', gradient: 'from-orange-500 to-orange-700', badgeBg: 'bg-orange-500/20', badgeText: 'text-orange-100' },
+  { iconBg: 'bg-green-50',  iconColor: 'text-green-600',  gradient: 'from-green-600 to-green-800',   badgeBg: 'bg-green-500/20',  badgeText: 'text-green-100'  },
+]
+
+function getMesaPalette(code: string) {
+  const idx = MESAS.findIndex(m => m.code === code)
+  return MESA_PALETTE[idx >= 0 ? idx : 0]
+}
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
-type Mesa = { id: string; code: string; name: string; description: string | null; sort_order: number }
+type Mesa    = { code: string; name: string }
 type Company = { id: string; name: string; short_name: string | null }
 type Oficio  = { id: string; no_oficio: string | null; asunto: string; remitente: string | null }
 
@@ -35,24 +63,7 @@ type DesignSpec = {
   oficio?:   { no_oficio: string | null; asunto: string } | null
 }
 
-// ── Colores por mesa (índice rotativo) ────────────────────────────────────────
-
-const MESA_COLORS = [
-  { bg: 'from-blue-600 to-blue-800',    text: 'text-blue-100',   badge: 'bg-blue-500/30'   },
-  { bg: 'from-violet-600 to-violet-800',text: 'text-violet-100', badge: 'bg-violet-500/30' },
-  { bg: 'from-emerald-600 to-emerald-800',text:'text-emerald-100',badge:'bg-emerald-500/30'},
-  { bg: 'from-amber-600 to-amber-800',  text: 'text-amber-100',  badge: 'bg-amber-500/30'  },
-  { bg: 'from-rose-600 to-rose-800',    text: 'text-rose-100',   badge: 'bg-rose-500/30'   },
-  { bg: 'from-cyan-600 to-cyan-800',    text: 'text-cyan-100',   badge: 'bg-cyan-500/30'   },
-  { bg: 'from-indigo-600 to-indigo-800',text: 'text-indigo-100', badge: 'bg-indigo-500/30' },
-  { bg: 'from-teal-600 to-teal-800',    text: 'text-teal-100',   badge: 'bg-teal-500/30'   },
-]
-
-function getMesaColor(idx: number) {
-  return MESA_COLORS[idx % MESA_COLORS.length]
-}
-
-// ── Configuración de estado ───────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 const STATUS_CONFIG = {
   vigente:     { label: 'Vigente',     color: 'bg-green-100 text-green-700', icon: CheckCircle2 },
@@ -74,28 +85,27 @@ function formatDate(s: string | null) {
 // ── Modal: nueva especificación ───────────────────────────────────────────────
 
 function UploadModal({
-  workspaceId, mesas, companies, oficios, defaultMesaCode, onClose,
+  workspaceId, companies, oficios, defaultMesaCode, onClose,
 }: {
   workspaceId:     string
-  mesas:           Mesa[]
   companies:       Company[]
   oficios:         Oficio[]
   defaultMesaCode: string
   onClose:         () => void
 }) {
-  const [title,       setTitle]       = useState('')
-  const [specCode,    setSpecCode]    = useState('')
-  const [version,     setVersion]     = useState('V1')
-  const [mesaCode,    setMesaCode]    = useState(defaultMesaCode)
-  const [issuedBy,    setIssuedBy]    = useState('')
-  const [companyId,   setCompanyId]   = useState('')
-  const [oficioId,    setOficioId]    = useState('')
-  const [issuedDate,  setIssuedDate]  = useState('')
-  const [notes,       setNotes]       = useState('')
-  const [file,        setFile]        = useState<File | null>(null)
-  const [uploading,   setUploading]   = useState(false)
-  const [uploadPct,   setUploadPct]   = useState(0)
-  const [error,       setError]       = useState<string | null>(null)
+  const [title,      setTitle]      = useState('')
+  const [specCode,   setSpecCode]   = useState('')
+  const [version,    setVersion]    = useState('V1')
+  const [mesaCode,   setMesaCode]   = useState(defaultMesaCode)
+  const [issuedBy,   setIssuedBy]   = useState('')
+  const [companyId,  setCompanyId]  = useState('')
+  const [oficioId,   setOficioId]   = useState('')
+  const [issuedDate, setIssuedDate] = useState('')
+  const [notes,      setNotes]      = useState('')
+  const [file,       setFile]       = useState<File | null>(null)
+  const [uploading,  setUploading]  = useState(false)
+  const [uploadPct,  setUploadPct]  = useState(0)
+  const [error,      setError]      = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   async function handleSubmit() {
@@ -178,7 +188,7 @@ function UploadModal({
             <select value={mesaCode} onChange={e => setMesaCode(e.target.value)}
               className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/40">
               <option value="">Sin asignar</option>
-              {mesas.map(m => <option key={m.code} value={m.code}>[{m.code}] {m.name}</option>)}
+              {MESAS.map(m => <option key={m.code} value={m.code}>{m.name}</option>)}
             </select>
           </div>
 
@@ -336,23 +346,21 @@ function StatusBadge({ spec, userRole }: { spec: DesignSpec; userRole: string })
 // ── Vista detalle de una mesa ─────────────────────────────────────────────────
 
 function MesaDetailView({
-  mesa, specs, userRole, workspaceId, mesas, companies, oficios, colorIdx, onBack,
+  mesa, specs, userRole, workspaceId, companies, oficios, onBack,
 }: {
   mesa:        Mesa
   specs:       DesignSpec[]
   userRole:    string
   workspaceId: string
-  mesas:       Mesa[]
   companies:   Company[]
   oficios:     Oficio[]
-  colorIdx:    number
   onBack:      () => void
 }) {
-  const [showUpload, setShowUpload] = useState(false)
-  const [filterStatus, setFilterStatus] = useState('all')
+  const [showUpload,    setShowUpload]    = useState(false)
+  const [filterStatus,  setFilterStatus]  = useState('all')
   const canUpload = ['owner', 'admin', 'manager', 'engineer'].includes(userRole)
   const isAdmin   = ['owner', 'admin'].includes(userRole)
-  const color = getMesaColor(colorIdx)
+  const palette   = getMesaPalette(mesa.code)
 
   const filtered = filterStatus === 'all' ? specs : specs.filter(s => s.status === filterStatus)
 
@@ -372,27 +380,46 @@ function MesaDetailView({
     await deleteDesignSpec(spec.id)
   }
 
+  const vigentes    = specs.filter(s => s.status === 'vigente').length
+  const enRevision  = specs.filter(s => s.status === 'en_revision').length
+
   return (
     <div>
-      {/* Header degradado de la mesa */}
-      <div className={`relative rounded-2xl bg-gradient-to-br ${color.bg} p-6 mb-6 overflow-hidden`}>
+      {/* Header */}
+      <div className={`relative rounded-2xl bg-gradient-to-br ${palette.gradient} p-6 mb-6 overflow-hidden`}>
         <div className="absolute inset-0 opacity-10"
           style={{ backgroundImage: 'radial-gradient(circle at 80% 20%, white 0%, transparent 60%)' }} />
         <button onClick={onBack}
           className="flex items-center gap-1.5 text-white/70 hover:text-white text-xs font-medium mb-4 transition-colors">
-          <ArrowLeft className="w-3.5 h-3.5" /> Volver a mesas
+          <ArrowLeft className="w-3.5 h-3.5" /> Todas las mesas
         </button>
-        <div className="flex items-end justify-between">
-          <div>
-            <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${color.badge} ${color.text} mb-3 inline-block`}>
-              {mesa.code}
-            </span>
-            <h2 className="text-2xl font-bold text-white">{mesa.name}</h2>
-            {mesa.description && <p className="text-white/70 text-sm mt-1">{mesa.description}</p>}
+        <div className="flex items-end justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-white/15 flex items-center justify-center flex-shrink-0">
+              <Folder className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <p className="text-white/60 text-xs font-semibold uppercase tracking-widest mb-1">{mesa.code}</p>
+              <h2 className="text-xl font-bold text-white leading-tight">{mesa.name}</h2>
+            </div>
           </div>
-          <div className="text-right">
-            <p className="text-3xl font-bold text-white">{specs.length}</p>
-            <p className="text-white/70 text-xs">especificaciones</p>
+          <div className="flex items-center gap-4 text-right flex-shrink-0">
+            <div>
+              <p className="text-2xl font-bold text-white tabular-nums">{specs.length}</p>
+              <p className="text-white/60 text-xs">total</p>
+            </div>
+            {vigentes > 0 && (
+              <div>
+                <p className="text-2xl font-bold text-white tabular-nums">{vigentes}</p>
+                <p className="text-white/60 text-xs">vigentes</p>
+              </div>
+            )}
+            {enRevision > 0 && (
+              <div>
+                <p className="text-2xl font-bold text-white tabular-nums">{enRevision}</p>
+                <p className="text-white/60 text-xs">en revisión</p>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -417,7 +444,7 @@ function MesaDetailView({
         )}
       </div>
 
-      {/* Tabla de specs */}
+      {/* Lista de specs */}
       {filtered.length === 0 ? (
         <div className="bg-white border border-slate-100 rounded-xl p-12 text-center">
           <FileText className="w-8 h-8 text-slate-200 mx-auto mb-3" />
@@ -442,12 +469,12 @@ function MesaDetailView({
             <span className="w-16" />
           </div>
           {filtered.map(spec => {
-            const mesa2 = spec.company?.short_name || spec.company?.name || spec.issued_by || '—'
+            const emisor = spec.company?.short_name || spec.company?.name || spec.issued_by || '—'
             return (
               <div key={spec.id}
                 className="flex items-center gap-3 px-4 py-3 border-b border-slate-50 hover:bg-slate-50 group last:border-b-0">
                 <span className="text-base w-5 flex-shrink-0">
-                  {spec.file_type === 'pdf' ? '📄' : spec.storage_key ? '📁' : '📋'}
+                  {spec.storage_key ? '📄' : '📋'}
                 </span>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-slate-700 truncate">{spec.title}</p>
@@ -460,7 +487,7 @@ function MesaDetailView({
                     {spec.oficio && <><span>·</span><span className="text-[#1A2744]">Oficio: {spec.oficio.no_oficio || spec.oficio.asunto.slice(0, 25)}</span></>}
                   </p>
                 </div>
-                <span className="hidden md:block text-xs text-slate-500 w-32 truncate">{mesa2}</span>
+                <span className="hidden md:block text-xs text-slate-500 w-32 truncate">{emisor}</span>
                 <span className="hidden lg:block text-xs text-slate-400 w-28">{formatDate(spec.issued_date)}</span>
                 <div className="w-28"><StatusBadge spec={spec} userRole={userRole} /></div>
                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity w-16 justify-end">
@@ -485,7 +512,7 @@ function MesaDetailView({
 
       {showUpload && (
         <UploadModal
-          workspaceId={workspaceId} mesas={mesas} companies={companies} oficios={oficios}
+          workspaceId={workspaceId} companies={companies} oficios={oficios}
           defaultMesaCode={mesa.code} onClose={() => setShowUpload(false)}
         />
       )}
@@ -493,59 +520,54 @@ function MesaDetailView({
   )
 }
 
-// ── Card de mesa ──────────────────────────────────────────────────────────────
+// ── Card de mesa (estilo carpeta) ─────────────────────────────────────────────
 
 function MesaCard({
-  mesa, specs, colorIdx, onSelect,
+  mesa, specs, onSelect,
 }: {
   mesa:     Mesa
   specs:    DesignSpec[]
-  colorIdx: number
   onSelect: () => void
 }) {
-  const color    = getMesaColor(colorIdx)
+  const palette  = getMesaPalette(mesa.code)
   const vigentes = specs.filter(s => s.status === 'vigente').length
-  const lastDate = specs.length > 0
-    ? specs.reduce((l, s) => s.created_at > l ? s.created_at : l, specs[0].created_at)
-    : null
+  const revision = specs.filter(s => s.status === 'en_revision').length
 
   return (
     <button onClick={onSelect}
-      className="group bg-white border border-slate-100 rounded-2xl overflow-hidden hover:shadow-md hover:border-slate-200 transition-all text-left w-full">
-      {/* Banda de color superior */}
-      <div className={`h-20 bg-gradient-to-br ${color.bg} relative flex items-center px-5`}>
-        <div className="absolute inset-0 opacity-10"
-          style={{ backgroundImage: 'radial-gradient(circle at 80% 20%, white 0%, transparent 60%)' }} />
-        <span className={`text-2xl font-black ${color.text} opacity-30 absolute right-4 bottom-2 leading-none`}>
-          {mesa.code}
-        </span>
-        <div>
-          <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${color.badge} ${color.text}`}>
-            {mesa.code}
-          </span>
-        </div>
+      className="group bg-white border border-slate-200 rounded-xl p-5 hover:shadow-md hover:border-slate-300 transition-all text-left w-full flex flex-col items-start gap-3">
+      {/* Folder icon */}
+      <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${palette.iconBg}`}>
+        <Folder className={`w-5 h-5 ${palette.iconColor}`} strokeWidth={2} />
       </div>
 
-      {/* Info */}
-      <div className="p-4">
-        <h3 className="text-sm font-bold text-[#1A2744] mb-1 group-hover:text-[#00C2FF] transition-colors">
+      {/* Nombre */}
+      <div className="flex-1 min-w-0 w-full">
+        <h3 className="text-sm font-semibold text-[#1A2744] group-hover:text-[#007ACC] transition-colors leading-snug">
           {mesa.name}
         </h3>
-        {mesa.description && (
-          <p className="text-xs text-slate-400 mb-3 line-clamp-2">{mesa.description}</p>
-        )}
-        <div className="flex items-center justify-between text-xs text-slate-500">
-          <span>{specs.length} especificación{specs.length !== 1 ? 'es' : ''}</span>
+        <p className="text-xs text-slate-400 mt-0.5">
+          {specs.length === 0
+            ? 'Sin especificaciones'
+            : `${specs.length} especificación${specs.length !== 1 ? 'es' : ''}`}
+        </p>
+      </div>
+
+      {/* Stats */}
+      {specs.length > 0 && (
+        <div className="flex items-center gap-2 w-full pt-2 border-t border-slate-100">
           {vigentes > 0 && (
-            <span className="text-green-600 font-medium">{vigentes} vigente{vigentes !== 1 ? 's' : ''}</span>
+            <span className="text-[10px] font-semibold text-green-600 bg-green-50 px-2 py-0.5 rounded-full">
+              {vigentes} vigente{vigentes !== 1 ? 's' : ''}
+            </span>
+          )}
+          {revision > 0 && (
+            <span className="text-[10px] font-semibold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">
+              {revision} en revisión
+            </span>
           )}
         </div>
-        {lastDate && (
-          <p className="text-[10px] text-slate-300 mt-1">
-            Última: {formatDate(lastDate)}
-          </p>
-        )}
-      </div>
+      )}
     </button>
   )
 }
@@ -553,61 +575,42 @@ function MesaCard({
 // ── Panel principal ───────────────────────────────────────────────────────────
 
 export default function EspecificacionesPanel({
-  specs, mesas, companies, oficios, workspaceId, userRole,
+  specs, companies, oficios, workspaceId, userRole,
 }: {
   specs:       DesignSpec[]
-  mesas:       Mesa[]
   companies:   Company[]
   oficios:     Oficio[]
   workspaceId: string
   userRole:    string
 }) {
   const [selectedMesaCode, setSelectedMesaCode] = useState<string | null>(null)
-  const [showUpload, setShowUpload] = useState(false)
+  const [showUpload,        setShowUpload]        = useState(false)
   const canUpload = ['owner', 'admin', 'manager', 'engineer'].includes(userRole)
 
-  // Mesa seleccionada
-  const selectedMesa = mesas.find(m => m.code === selectedMesaCode)
-  const selectedIdx  = mesas.findIndex(m => m.code === selectedMesaCode)
+  const selectedMesa = selectedMesaCode ? MESAS.find(m => m.code === selectedMesaCode) ?? null : null
 
-  // Si hay una mesa seleccionada, mostrar su detalle
   if (selectedMesa) {
-    const mesaSpecs = specs.filter(s => s.specialty_code === selectedMesa.code)
     return (
       <MesaDetailView
         mesa={selectedMesa}
-        specs={mesaSpecs}
+        specs={specs.filter(s => s.specialty_code === selectedMesa.code)}
         userRole={userRole}
         workspaceId={workspaceId}
-        mesas={mesas}
         companies={companies}
         oficios={oficios}
-        colorIdx={selectedIdx}
         onBack={() => setSelectedMesaCode(null)}
       />
     )
   }
 
-  // Sin mesas configuradas
-  if (mesas.length === 0) {
-    return (
-      <div className="bg-white border border-slate-100 rounded-xl p-16 text-center">
-        <BookOpen className="w-10 h-10 text-slate-200 mx-auto mb-4" />
-        <h2 className="text-lg font-bold text-[#1A2744] mb-2">Sin mesas de especialidad configuradas</h2>
-        <p className="text-slate-400 text-sm max-w-sm mx-auto">
-          Ve a <span className="font-semibold text-[#1A2744]">Admin → Nomenclaturas → ESPECIALIDAD</span> y agrega las mesas de tu proyecto (Estructuras, Hidráulica, Vías…).
-        </p>
-      </div>
-    )
-  }
+  const totalSpecs = specs.length
 
-  // Vista de cards — una por mesa
   return (
     <div>
-      {/* Header */}
+      {/* Sub-header */}
       <div className="flex items-center justify-between mb-6">
         <p className="text-sm text-slate-500">
-          {mesas.length} mesa{mesas.length !== 1 ? 's' : ''} · {specs.length} especificación{specs.length !== 1 ? 'es' : ''} en total
+          {MESAS.length} mesas · {totalSpecs} especificación{totalSpecs !== 1 ? 'es' : ''} en total
         </p>
         {canUpload && (
           <button onClick={() => setShowUpload(true)}
@@ -617,27 +620,29 @@ export default function EspecificacionesPanel({
         )}
       </div>
 
-      {/* Grid de cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {mesas.map((mesa, idx) => (
+      {/* Grid de carpetas */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+        {MESAS.map(mesa => (
           <MesaCard
             key={mesa.code}
             mesa={mesa}
             specs={specs.filter(s => s.specialty_code === mesa.code)}
-            colorIdx={idx}
             onSelect={() => setSelectedMesaCode(mesa.code)}
           />
         ))}
       </div>
 
       {/* Specs sin mesa asignada */}
-      {specs.some(s => !s.specialty_code) && (
-        <div className="mt-4">
+      {specs.some(s => !s.specialty_code || !MESAS.find(m => m.code === s.specialty_code)) && (
+        <div className="mt-3">
           <button
-            onClick={() => setSelectedMesaCode('__unassigned__')}
-            className="w-full text-left p-4 bg-white border border-dashed border-slate-200 rounded-xl hover:border-slate-300 transition-colors">
+            onClick={() => setSelectedMesaCode('__other__')}
+            className="w-full text-left p-4 bg-white border border-dashed border-slate-200 rounded-xl hover:border-slate-300 transition-colors flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0">
+              <Folder className="w-4 h-4 text-slate-400" />
+            </div>
             <p className="text-sm font-medium text-slate-500">
-              Sin mesa asignada · {specs.filter(s => !s.specialty_code).length} especificaciones
+              Otras · {specs.filter(s => !s.specialty_code || !MESAS.find(m => m.code === s.specialty_code)).length} especificaciones
             </p>
           </button>
         </div>
@@ -645,8 +650,8 @@ export default function EspecificacionesPanel({
 
       {showUpload && (
         <UploadModal
-          workspaceId={workspaceId} mesas={mesas} companies={companies} oficios={oficios}
-          defaultMesaCode={mesas[0]?.code || ''} onClose={() => setShowUpload(false)}
+          workspaceId={workspaceId} companies={companies} oficios={oficios}
+          defaultMesaCode={MESAS[0].code} onClose={() => setShowUpload(false)}
         />
       )}
     </div>

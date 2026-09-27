@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { BookOpen } from 'lucide-react'
+// mesas are now hardcoded in EspecificacionesPanel — no mic_nomenclatures fetch needed
 import EspecificacionesPanel from './EspecificacionesPanel'
 
 export default async function EspecificacionesPage() {
@@ -18,22 +19,12 @@ export default async function EspecificacionesPage() {
   const wsId     = membership.workspace_id
   const userRole = membership.role as string
 
-  const [specsRes, mesasRes, companiesRes, oficiosRes] = await Promise.all([
-    // Specs sin join a specialties — ahora usamos specialty_code
+  const [specsRes, companiesRes, oficiosRes] = await Promise.all([
     supabase
       .from('design_specs')
       .select('*, company:companies(name, short_name), oficio:oficios(no_oficio, asunto)')
       .eq('workspace_id', wsId)
       .order('created_at', { ascending: false }),
-    // Mesas = nomenclaturas ESPECIALIDAD del workspace
-    supabase
-      .from('mic_nomenclatures')
-      .select('id, code, name, description, sort_order')
-      .eq('workspace_id', wsId)
-      .eq('segment', 'ESPECIALIDAD')
-      .eq('is_active', true)
-      .order('sort_order')
-      .order('name'),
     supabase
       .from('companies')
       .select('id, name, short_name')
@@ -49,10 +40,9 @@ export default async function EspecificacionesPage() {
       .limit(200),
   ])
 
-  const specs    = specsRes.data    || []
-  const mesas    = mesasRes.data    || []
+  const specs     = specsRes.data     || []
   const companies = companiesRes.data || []
-  const oficios  = oficiosRes.data  || []
+  const oficios   = oficiosRes.data   || []
 
   return (
     <div className="max-w-7xl mx-auto">
@@ -70,7 +60,6 @@ export default async function EspecificacionesPage() {
 
       <EspecificacionesPanel
         specs={specs as any}
-        mesas={mesas}
         companies={companies as any}
         oficios={oficios as any}
         workspaceId={wsId}
