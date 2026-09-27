@@ -7,9 +7,11 @@ import {
   Plus, Pencil, Trash2, X, FolderOpen, Users, Settings,
   Calendar, CheckCircle2, PauseCircle, Archive, Shield, Crown, UserCog, Eye, Wrench,
   Mail, Clock, Send, Link2, LinkIcon, Building2, Zap, HardDrive, FileText, Files, Loader2,
-  Database, Factory, ChevronDown, ChevronUp, Search, BookOpen,
+  Database, Factory, ChevronDown, ChevronUp, Search, BookOpen, Info,
 } from 'lucide-react'
-import { toggleFeature, createMicNomenclature, updateMicNomenclature, deleteMicNomenclature, seedAllMicNomenclatures } from './actions'
+import { useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { toggleFeature, createMicNomenclature, updateMicNomenclature, deleteMicNomenclature, seedAllMicNomenclatures, syncIdentificadoresFromProjects } from './actions'
 
 const ROLE_CONFIG: Record<UserRole, { label: string; color: string; icon: React.ElementType }> = {
   owner:    { label: 'Owner',    color: 'bg-purple-100 text-purple-700', icon: Crown },
@@ -1362,6 +1364,7 @@ function DatabasePanel({ docs, projects }: { docs: BiDoc[]; projects: Project[] 
 const MIC_SEGMENTS = ['TRONCAL', 'IDENTIFICADOR', 'TIPO_DOC', 'ESPECIALIDAD', 'TIPO_PLANO'] as const
 
 function NomenclaturasPanel({ nomenclatures, workspaceId }: { nomenclatures: MicNomenclature[]; workspaceId: string }) {
+  const router = useRouter()
   const [activeSegment, setActiveSegment] = useState<string>('TIPO_PLANO')
   const [showForm,      setShowForm]      = useState(false)
   const [editItem,      setEditItem]      = useState<MicNomenclature | null>(null)
@@ -1372,7 +1375,15 @@ function NomenclaturasPanel({ nomenclatures, workspaceId }: { nomenclatures: Mic
   const [formActive,    setFormActive]    = useState(true)
   const [saving,        setSaving]        = useState(false)
   const [seeding,       setSeeding]       = useState(false)
+  const [syncing,       setSyncing]       = useState(false)
   const [error,         setError]         = useState<string | null>(null)
+
+  // Auto-seed si la tabla está vacía
+  useEffect(() => {
+    if (nomenclatures.length === 0) {
+      seedAllMicNomenclatures().then(() => router.refresh())
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const segmentItems = nomenclatures.filter(n => n.segment === activeSegment)
 
@@ -1406,10 +1417,17 @@ function NomenclaturasPanel({ nomenclatures, workspaceId }: { nomenclatures: Mic
   }
 
   async function handleSeedAll() {
-    if (!confirm('¿Cargar el catálogo completo? Se agregarán los valores base de los 5 segmentos (no sobreescribe los existentes).')) return
     setSeeding(true)
     await seedAllMicNomenclatures()
     setSeeding(false)
+    router.refresh()
+  }
+
+  async function handleSyncProjects() {
+    setSyncing(true)
+    await syncIdentificadoresFromProjects()
+    setSyncing(false)
+    router.refresh()
   }
 
   const segmentDescriptions: Record<string, string> = {
@@ -1430,9 +1448,10 @@ function NomenclaturasPanel({ nomenclatures, workspaceId }: { nomenclatures: Mic
           </p>
         </div>
         <button onClick={handleSeedAll} disabled={seeding}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-[#00C2FF]/30 text-[#0099CC] text-xs font-semibold hover:bg-[#00C2FF]/5 disabled:opacity-60">
+          title="Agrega entradas base que falten — no sobreescribe las existentes"
+          className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-200 text-slate-500 text-xs font-semibold hover:bg-slate-50 disabled:opacity-60">
           {seeding ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <BookOpen className="w-3.5 h-3.5" />}
-          Cargar catálogo base
+          Completar catálogo
         </button>
       </div>
 
@@ -1514,21 +1533,53 @@ function NomenclaturasPanel({ nomenclatures, workspaceId }: { nomenclatures: Mic
           <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">
             {activeSegment} — {segmentItems.length} entrada{segmentItems.length !== 1 ? 's' : ''}
           </span>
-          <button onClick={openCreate}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1A2744] text-white text-xs font-bold hover:bg-[#243660]">
-            <Plus className="w-3.5 h-3.5" />
-            Agregar
-          </button>
+          <div className="flex items-center gap-2">
+            {/* Botón sincronizar proyectos — solo IDENTIFICADOR */}
+            {activeSegment === 'IDENTIFICADOR' && (
+              <button onClick={handleSyncProjects} disabled={syncing}
+                title="Crea automáticamente un identificador por cada proyecto activo del workspace"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-violet-200 text-violet-600 text-xs font-semibold hover:bg-violet-50 disabled:opacity-60">
+                {syncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Layers className="w-3.5 h-3.5" />}
+                Desde proyectos
+              </button>
+            )}
+            {/* No mostrar botón Agregar para TRONCAL (es fijo: TQM) */}
+            {activeSegment !== 'TRONCAL' && (
+              <button onClick={openCreate}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1A2744] text-white text-xs font-bold hover:bg-[#243660]">
+                <Plus className="w-3.5 h-3.5" />
+                Agregar
+              </button>
+            )}
+          </div>
         </div>
+
+        {/* Banner informativo para TRONCAL */}
+        {activeSegment === 'TRONCAL' && (
+          <div className="px-4 py-2.5 bg-amber-50 border-b border-amber-100 flex items-center gap-2">
+            <Info className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
+            <p className="text-xs text-amber-700">
+              El TRONCAL identifica el proyecto principal y es fijo para todo el workspace. Solo debe existir un valor: <span className="font-mono font-bold">TQM</span>.
+            </p>
+          </div>
+        )}
 
         {segmentItems.length === 0 ? (
           <div className="p-10 text-center">
             <BookOpen className="w-8 h-8 text-slate-200 mx-auto mb-3" />
             <p className="text-sm text-slate-400">Sin entradas para este segmento.</p>
-            <button onClick={handleSeedAll} disabled={seeding}
-              className="mt-3 text-xs text-[#00C2FF] hover:text-[#0099CC] font-medium">
-              Cargar catálogo base →
-            </button>
+            {activeSegment === 'IDENTIFICADOR' ? (
+              <button onClick={handleSyncProjects} disabled={syncing}
+                className="mt-3 text-xs text-violet-500 hover:text-violet-700 font-medium flex items-center gap-1 mx-auto">
+                {syncing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Layers className="w-3 h-3" />}
+                Crear desde proyectos →
+              </button>
+            ) : (
+              <button onClick={handleSeedAll} disabled={seeding}
+                className="mt-3 text-xs text-[#00C2FF] hover:text-[#0099CC] font-medium">
+                Completar catálogo →
+              </button>
+            )}
           </div>
         ) : (
           <table className="w-full text-sm">
@@ -1560,10 +1611,13 @@ function NomenclaturasPanel({ nomenclatures, workspaceId }: { nomenclatures: Mic
                         className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600">
                         <Pencil className="w-3.5 h-3.5" />
                       </button>
-                      <button onClick={() => handleDelete(item)} title="Eliminar"
-                        className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-500">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      {/* TRONCAL no se puede borrar */}
+                      {activeSegment !== 'TRONCAL' && (
+                        <button onClick={() => handleDelete(item)} title="Eliminar"
+                          className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-500">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

@@ -411,6 +411,49 @@ export async function seedMicTipoPlano() {
   return seedAllMicNomenclatures()
 }
 
+export async function syncIdentificadoresFromProjects() {
+  const { workspaceId } = await getWorkspaceId()
+  if (!workspaceId) return { error: 'Sin workspace' }
+  const admin = getAdminClient()
+
+  const { data: projects } = await admin
+    .from('projects')
+    .select('id, name, frente')
+    .eq('workspace_id', workspaceId)
+    .eq('status', 'active')
+    .is('parent_project_id', null)
+
+  if (!projects?.length) return { success: true, count: 0 }
+
+  const usedCodes = new Map<string, number>()
+  function deriveCode(name: string, frente: string | null): string {
+    const source = frente || name
+    const frenteMatch = source.match(/Frente\s+(\d+)/i)
+    if (frenteMatch) return 'F' + frenteMatch[1].padStart(3, '0')
+    const base = name.replace(/[^a-zA-Z]/g, '').slice(0, 3).toUpperCase() || 'PRJ'
+    const count = (usedCodes.get(base) || 0) + 1
+    usedCodes.set(base, count)
+    return base + String(count).padStart(2, '0')
+  }
+
+  const rows = projects.map((p, i) => ({
+    workspace_id: workspaceId,
+    segment:      'IDENTIFICADOR',
+    code:         deriveCode(p.name, p.frente),
+    name:         p.name,
+    sort_order:   20 + i,
+  }))
+
+  const { error } = await admin
+    .from('mic_nomenclatures')
+    .upsert(rows, { onConflict: 'workspace_id,segment,code', ignoreDuplicates: true })
+
+  if (error) return { error: error.message }
+  revalidatePath('/admin')
+  revalidatePath('/documents')
+  return { success: true, count: rows.length }
+}
+
 export async function seedAllMicNomenclatures() {
   const { workspaceId } = await getWorkspaceId()
   if (!workspaceId) return { error: 'Sin workspace' }
@@ -421,23 +464,29 @@ export async function seedAllMicNomenclatures() {
     { segment: 'TRONCAL', code: 'TQM',  name: 'Tren México-Querétaro',       sort_order: 1 },
 
     // ── IDENTIFICADOR ─────────────────────────────────────────────────────────
-    { segment: 'IDENTIFICADOR', code: '0000', name: 'Global (todo el proyecto)',  sort_order: 1 },
-    { segment: 'IDENTIFICADOR', code: 'F012', name: 'Frente 12',                  sort_order: 2 },
-    { segment: 'IDENTIFICADOR', code: 'F001', name: 'Frente 1',                   sort_order: 3 },
-    { segment: 'IDENTIFICADOR', code: 'F002', name: 'Frente 2',                   sort_order: 4 },
-    { segment: 'IDENTIFICADOR', code: 'F003', name: 'Frente 3',                   sort_order: 5 },
-    { segment: 'IDENTIFICADOR', code: 'F004', name: 'Frente 4',                   sort_order: 6 },
-    { segment: 'IDENTIFICADOR', code: 'F005', name: 'Frente 5',                   sort_order: 7 },
-    { segment: 'IDENTIFICADOR', code: 'F006', name: 'Frente 6',                   sort_order: 8 },
+    { segment: 'IDENTIFICADOR', code: '0000', name: 'Global (todo el proyecto)',       sort_order: 1 },
+    { segment: 'IDENTIFICADOR', code: 'F012', name: 'Frente 12',                       sort_order: 2 },
+    { segment: 'IDENTIFICADOR', code: 'VIA01', name: 'Viaducto de Pasajeros I',        sort_order: 3 },
+    { segment: 'IDENTIFICADOR', code: 'F001', name: 'Frente 1',                        sort_order: 4 },
+    { segment: 'IDENTIFICADOR', code: 'F002', name: 'Frente 2',                        sort_order: 5 },
+    { segment: 'IDENTIFICADOR', code: 'F003', name: 'Frente 3',                        sort_order: 6 },
+    { segment: 'IDENTIFICADOR', code: 'F004', name: 'Frente 4',                        sort_order: 7 },
+    { segment: 'IDENTIFICADOR', code: 'F005', name: 'Frente 5',                        sort_order: 8 },
+    { segment: 'IDENTIFICADOR', code: 'F006', name: 'Frente 6',                        sort_order: 9 },
 
     // ── TIPO_DOC ──────────────────────────────────────────────────────────────
-    { segment: 'TIPO_DOC', code: 'PLA', name: 'Plano',                    sort_order: 1 },
-    { segment: 'TIPO_DOC', code: 'MEM', name: 'Memoria de Cálculo',       sort_order: 2 },
-    { segment: 'TIPO_DOC', code: 'ESP', name: 'Especificación Técnica',   sort_order: 3 },
-    { segment: 'TIPO_DOC', code: 'INF', name: 'Informe / Reporte',        sort_order: 4 },
-    { segment: 'TIPO_DOC', code: 'OFI', name: 'Oficio',                   sort_order: 5 },
-    { segment: 'TIPO_DOC', code: 'MIN', name: 'Minuta de Reunión',        sort_order: 6 },
-    { segment: 'TIPO_DOC', code: 'PRO', name: 'Procedimiento Constructivo', sort_order: 7 },
+    { segment: 'TIPO_DOC', code: 'PLA', name: 'Plano',                      sort_order: 1  },
+    { segment: 'TIPO_DOC', code: 'MEM', name: 'Memoria de Cálculo',         sort_order: 2  },
+    { segment: 'TIPO_DOC', code: 'ESP', name: 'Especificación Técnica',     sort_order: 3  },
+    { segment: 'TIPO_DOC', code: 'INF', name: 'Informe / Reporte',          sort_order: 4  },
+    { segment: 'TIPO_DOC', code: 'PRO', name: 'Procedimiento Constructivo', sort_order: 5  },
+    { segment: 'TIPO_DOC', code: 'OFI', name: 'Oficio',                     sort_order: 6  },
+    { segment: 'TIPO_DOC', code: 'MIN', name: 'Minuta de Reunión',          sort_order: 7  },
+    { segment: 'TIPO_DOC', code: 'ACT', name: 'Acta',                       sort_order: 8  },
+    { segment: 'TIPO_DOC', code: 'PRE', name: 'Presupuesto',                sort_order: 9  },
+    { segment: 'TIPO_DOC', code: 'PRG', name: 'Programa de Obra',           sort_order: 10 },
+    { segment: 'TIPO_DOC', code: 'CON', name: 'Contrato',                   sort_order: 11 },
+    { segment: 'TIPO_DOC', code: 'TAR', name: 'Tarjeta / Formato',          sort_order: 12 },
 
     // ── ESPECIALIDAD ──────────────────────────────────────────────────────────
     { segment: 'ESPECIALIDAD', code: 'EEST', name: 'Estructuras',                   sort_order: 1 },

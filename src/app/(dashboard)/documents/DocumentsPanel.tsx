@@ -244,14 +244,17 @@ function UploadModal({
 
   const selectedSpecialty = specialties.find(s => s.id === specialtyId)
 
-  const byCategory = specialties.reduce<Record<string, Specialty[]>>((acc, s) => {
-    if (!acc[s.category]) acc[s.category] = []
-    acc[s.category].push(s)
-    return acc
-  }, {})
+  // Solo disciplinas técnicas, de seguridad y "otro" — los administrativos son TIPO_DOC
+  const byCategory = specialties
+    .filter(s => s.category !== 'administrativo')
+    .reduce<Record<string, Specialty[]>>((acc, s) => {
+      if (!acc[s.category]) acc[s.category] = []
+      acc[s.category].push(s)
+      return acc
+    }, {})
 
   const categoryLabels: Record<string, string> = {
-    tecnico: 'Técnicas', administrativo: 'Administrativas', seguridad: 'Seguridad', otro: 'Otro'
+    tecnico: 'Técnicas', seguridad: 'Seguridad', otro: 'Otro'
   }
 
   // Decodificar selección de autor
