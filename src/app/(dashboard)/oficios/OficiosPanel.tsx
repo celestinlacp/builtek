@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import {
   Plus, X, Pencil, Trash2, Eye, Upload, Loader2,
   FileText, Filter, ChevronDown, Check, ArrowDownToLine,
-  ArrowUpFromLine, Search, Sparkles, Download
+  ArrowUpFromLine, Search, Sparkles, Download, Link
 } from 'lucide-react'
 import { createOficio, updateOficio, deleteOficio, deleteOficios, updateOficioStatus } from './actions'
 
@@ -543,6 +543,34 @@ function EstadoDropdown({ oficio }: { oficio: Oficio }) {
   )
 }
 
+// ── CopyLinkButton ────────────────────────────────────────────────────────────
+
+function CopyLinkButton({ oficioId }: { oficioId: string }) {
+  const [copied, setCopied] = useState(false)
+
+  function handleCopy() {
+    const url = `${window.location.origin}/api/oficios/view/${oficioId}?download=1`
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
+
+  return (
+    <button
+      onClick={handleCopy}
+      title={copied ? '¡Copiado!' : 'Copiar link de descarga'}
+      className={`w-7 h-7 flex items-center justify-center rounded-lg transition-colors ${
+        copied
+          ? 'bg-green-50 text-green-500'
+          : 'hover:bg-slate-100 text-slate-400 hover:text-slate-600'
+      }`}
+    >
+      {copied ? <Check className="w-3.5 h-3.5" /> : <Link className="w-3.5 h-3.5" />}
+    </button>
+  )
+}
+
 // ── OficioRow ─────────────────────────────────────────────────────────────────
 
 function OficioRow({
@@ -669,6 +697,7 @@ function OficioRow({
               >
                 <Download className="w-3.5 h-3.5" />
               </a>
+              <CopyLinkButton oficioId={oficio.id} />
             </>
           )}
           {canEdit && (
