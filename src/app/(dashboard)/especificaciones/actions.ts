@@ -37,6 +37,16 @@ export async function saveDesignSpec(data: {
   revalidatePath('/especificaciones')
 }
 
+export async function updateDesignSpec(id: string, data: {
+  notes:     string | null
+  oficio_id: string | null
+}) {
+  const { supabase } = await getUser()
+  const { error } = await supabase.from('design_specs').update(data).eq('id', id)
+  if (error) throw new Error(error.message)
+  revalidatePath('/especificaciones')
+}
+
 export async function updateSpecStatus(id: string, status: 'vigente' | 'en_revision' | 'supersedida') {
   const { supabase } = await getUser()
   const { error } = await supabase.from('design_specs').update({ status }).eq('id', id)
