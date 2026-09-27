@@ -41,6 +41,20 @@ async function getActiveKeys(): Promise<Set<string>> {
     .not('cover_image_url', 'is', null)
   projects?.forEach(p => p.cover_image_url && keys.add(p.cover_image_url))
 
+  // Oficios (entrada y salida)
+  const { data: oficios } = await admin
+    .from('oficios')
+    .select('storage_key')
+    .not('storage_key', 'is', null)
+  oficios?.forEach(o => o.storage_key && keys.add(o.storage_key))
+
+  // Entregables
+  const { data: entregables } = await admin
+    .from('entregables')
+    .select('storage_key')
+    .not('storage_key', 'is', null)
+  entregables?.forEach(e => e.storage_key && keys.add(e.storage_key))
+
   return keys
 }
 
