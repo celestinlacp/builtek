@@ -1825,10 +1825,22 @@ export default function AdminPanel({
                 </button>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                {rootProjects.map(p => (
-                  <ProjectCard key={p.id} project={p} onEdit={setEditProject} />
-                ))}
+              <div className="space-y-4">
+                {rootProjects.map(p => {
+                  const subs = projects.filter(s => s.parent_project_id === p.id)
+                  return (
+                    <div key={p.id}>
+                      <ProjectCard project={p} onEdit={setEditProject} />
+                      {subs.length > 0 && (
+                        <div className="ml-6 mt-2 space-y-2 border-l-2 border-slate-100 pl-4">
+                          {subs.map(s => (
+                            <ProjectCard key={s.id} project={s} onEdit={setEditProject} />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
             )}
           </div>
