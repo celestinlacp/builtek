@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Project, Workspace, WorkspaceMember, UserRole, Company } from '@/types'
-import { createProject, updateProject, deleteProject, updateWorkspace, updateMemberRole, removeMember, inviteMember, cancelInvite, createCompany, updateCompany, deleteCompany } from './actions'
+import { createProject, updateProject, deleteProject, updateWorkspace, updateMemberRole, removeMember, inviteMember, cancelInvite, createCompany, updateCompany, deleteCompany, updateMemberProfile } from './actions'
 import {
   Plus, Pencil, Trash2, X, FolderOpen, Users, Settings,
   Calendar, CheckCircle2, PauseCircle, Archive, Shield, Crown, UserCog, Eye, Wrench,
@@ -119,7 +119,11 @@ function RoleDescription({ role }: { role: string }) {
   )
 }
 
-type MemberWithProfile = WorkspaceMember & { email?: string | null; last_sign_in_at?: string | null }
+type MemberWithProfile = WorkspaceMember & {
+  email?:           string | null
+  last_sign_in_at?: string | null
+  user?: { id: string; full_name: string | null; avatar_url: string | null; phone: string | null; initials: string | null } | null
+}
 
 function MemberRow({
   member, currentUserId, currentUserRole, canManage,
@@ -133,13 +137,30 @@ function MemberRow({
   const [error, setError] = useState<string | null>(null)
   const [selectedRole, setSelectedRole] = useState<string>(member.role)
   const [showDescription, setShowDescription] = useState(false)
-  const isSelf = member.user_id === currentUserId
+  const [editing, setEditing] = useState(false)
+  const [editName, setEditName] = useState(member.user?.full_name || '')
+  const [editPhone, setEditPhone] = useState(member.user?.phone || '')
+  const [saving, setSaving] = useState(false)
+  const isSelf  = member.user_id === currentUserId
   const isOwner = member.role === 'owner'
   const canEdit = canManage && !isOwner && !isSelf
+  const canEditProfile = canManage || isSelf   // owner/admin pueden editar a todos; cualquiera puede editarse a sí mismo
   const cfg = ROLE_CONFIG[member.role as UserRole] || ROLE_CONFIG.viewer
   const RoleIcon = cfg.icon
 
   const displayName = member.user?.full_name || member.email || member.user_id.slice(0, 8)
+
+  async function handleSaveProfile() {
+    if (!editName.trim()) return
+    setSaving(true); setError(null)
+    const result = await updateMemberProfile(member.user_id, {
+      full_name: editName,
+      phone:     editPhone.trim() || null,
+    })
+    setSaving(false)
+    if (result?.error) setError(result.error)
+    else setEditing(false)
+  }
 
   async function handleRoleChange(e: React.ChangeEvent<HTMLSelectElement>) {
     const newRole = e.target.value
@@ -173,6 +194,16 @@ function MemberRow({
           <div className="flex items-center gap-2">
             <span className="text-sm font-semibold text-[#1A2744] truncate">{displayName}</span>
             {isSelf && <span className="text-xs text-[#00C2FF] font-medium">(tú)</span>}
+            {member.user?.phone && (
+              <span className="text-xs text-slate-400 font-mono">{member.user.phone}</span>
+            )}
+            {canEditProfile && !editing && (
+              <button onClick={() => { setEditing(true); setEditName(member.user?.full_name || ''); setEditPhone(member.user?.phone || '') }}
+                title="Editar nombre y teléfono"
+                className="w-5 h-5 flex items-center justify-center rounded text-slate-300 hover:text-[#00C2FF] hover:bg-slate-100 transition-colors">
+                <Pencil className="w-3 h-3" />
+              </button>
+            )}
           </div>
           {member.email && <p className="text-xs text-slate-400 truncate">{member.email}</p>}
           <div className="flex items-center gap-3 mt-0.5">
@@ -234,6 +265,44 @@ function MemberRow({
       </div>
 
       {error && <p className="px-4 pb-2 text-xs text-red-500">{error}</p>}
+
+      {/* Formulario edición inline de nombre y teléfono */}
+      {editing && (
+        <div className="px-4 pb-4 pt-1 border-t border-slate-100 mt-1">
+          <div className="flex gap-2 items-end">
+            <div className="flex-1">
+              <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Nombre completo</label>
+              <input
+                value={editName}
+                onChange={e => setEditName(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') handleSaveProfile(); if (e.key === 'Escape') setEditing(false) }}
+                placeholder="Nombre completo"
+                className="w-full text-sm border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/40"
+              />
+            </div>
+            <div className="w-40">
+              <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Teléfono celular</label>
+              <input
+                value={editPhone}
+                onChange={e => setEditPhone(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') handleSaveProfile(); if (e.key === 'Escape') setEditing(false) }}
+                placeholder="+52 55 0000 0000"
+                className="w-full text-sm border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/40"
+              />
+            </div>
+            <button onClick={handleSaveProfile} disabled={saving || !editName.trim()}
+              className="px-3 py-1.5 bg-[#1A2744] text-white text-xs font-bold rounded-lg hover:bg-[#243560] disabled:opacity-50 flex items-center gap-1.5">
+              {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+              Guardar
+            </button>
+            <button onClick={() => setEditing(false)}
+              className="px-3 py-1.5 border border-slate-200 text-xs text-slate-500 rounded-lg hover:bg-slate-50">
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+
       {showDescription && canEdit && (
         <div className="px-4 pb-3">
           <RoleDescription role={selectedRole} />

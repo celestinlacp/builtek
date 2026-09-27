@@ -584,3 +584,49 @@ export async function seedAllMicNomenclatures() {
   revalidatePath('/documents')
   return { success: true, count: rows.length }
 }
+
+export async function updateMemberProfile(
+  targetUserId: string,
+  data: { full_name: string; phone: string | null }
+) {
+  const { supabase, userId, workspaceId } = await getWorkspaceId()
+  if (!workspaceId) return { error: 'Sin workspace' }
+
+  // Solo owner/admin puede editar a otros; cualquier rol puede editarse a sí mismo
+  const { data: myMembership } = await supabase
+    .from('workspace_members')
+    .select('role')
+    .eq('workspace_id', workspaceId)
+    .eq('user_id', userId)
+    .single()
+
+  const isSelf   = targetUserId === userId
+  const isAdmin  = ['owner', 'admin'].includes(myMembership?.role || '')
+  if (!isSelf && !isAdmin) return { error: 'Sin permisos' }
+
+  // Verificar que el target pertenece al workspace
+  const { data: target } = await supabase
+    .from('workspace_members')
+    .select('user_id')
+    .eq('workspace_id', workspaceId)
+    .eq('user_id', targetUserId)
+    .single()
+
+  if (!target) return { error: 'Usuario no encontrado en el workspace' }
+
+  const trimmedName = data.full_name.trim()
+  if (!trimmedName) return { error: 'El nombre no puede estar vacío' }
+
+  // Generar siglas desde el nombre
+  const words    = trimmedName.split(/\s+/).filter(Boolean)
+  const initials = words.map(w => w[0].toUpperCase()).join('').slice(0, 4)
+
+  const { error } = await supabase
+    .from('profiles')
+    .update({ full_name: trimmedName, phone: data.phone || null, initials })
+    .eq('id', targetUserId)
+
+  if (error) return { error: error.message }
+  revalidatePath('/admin')
+  return { success: true }
+}
