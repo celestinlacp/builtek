@@ -17,7 +17,7 @@ CREATE INDEX IF NOT EXISTS projects_mic_identifier_idx ON projects(workspace_id,
 
 DO $$
 DECLARE
-  ws_id UUID := '98572f46-87db-4ea6-93bb-ab8e64be9c03'; -- workspace Frente 12
+  ws_id UUID := '98572f46-a8bc-4e19-9878-8eae4158d708'; -- workspace Frente 12
   r RECORD;
   counter INT := 1;
   parent_num INT;
