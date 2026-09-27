@@ -138,9 +138,9 @@ function Navbar() {
           <Link href="/login" className="text-white/50 hover:text-white text-sm font-normal transition-colors hidden sm:block">
             Iniciar sesión
           </Link>
-          <a href="#contacto" className="bg-[#00C2FF] text-[#0D1729] px-4 py-2 rounded-lg text-sm font-semibold hover:bg-[#00C2FF]/90 transition-colors">
+          <Link href="/demo" className="bg-[#00C2FF] text-[#0D1729] px-4 py-2 rounded-lg text-sm font-semibold hover:bg-white transition-colors">
             Solicitar demo
-          </a>
+          </Link>
         </div>
       </div>
     </nav>
@@ -249,11 +249,11 @@ function Hero() {
         </p>
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16">
-          <a href="#precios"
+          <Link href="/demo"
             className="flex items-center gap-2 bg-[#00C2FF] text-[#0D1729] px-7 py-3.5 rounded-xl font-semibold text-base hover:bg-white transition-colors shadow-lg shadow-[#00C2FF]/20">
             Solicitar demo gratis
             <ArrowRight className="w-4 h-4" />
-          </a>
+          </Link>
           <a href="#modulos"
             className="flex items-center gap-2 border border-white/10 text-white/50 hover:text-white hover:border-white/30 px-7 py-3.5 rounded-xl font-normal text-base transition-colors">
             Ver módulos
@@ -765,11 +765,11 @@ function CTA() {
           </div>
         </div>
 
-        <a href="mailto:hola@builtek.app"
+        <Link href="/demo"
           className="inline-flex items-center gap-3 bg-[#00C2FF] text-[#0D1729] px-8 py-4 rounded-xl font-semibold text-lg hover:bg-white transition-colors shadow-2xl shadow-[#00C2FF]/25">
           Solicitar demo gratis
           <ArrowRight className="w-5 h-5" />
-        </a>
+        </Link>
         <p className="text-white/25 text-sm mt-4 font-light">Respuesta en menos de 24 horas · hola@builtek.app</p>
       </div>
     </section>
