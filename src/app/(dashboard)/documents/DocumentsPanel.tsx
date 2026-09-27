@@ -244,9 +244,9 @@ function UploadModal({
 
   const selectedSpecialty = specialties.find(s => s.id === specialtyId)
 
-  // Solo disciplinas técnicas, de seguridad y "otro" — los administrativos son TIPO_DOC
+  // Solo técnicas y seguridad — administrativos y otro son TIPO_DOC o están fuera de scope
   const byCategory = specialties
-    .filter(s => s.category !== 'administrativo')
+    .filter(s => s.category !== 'administrativo' && s.category !== 'otro')
     .reduce<Record<string, Specialty[]>>((acc, s) => {
       if (!acc[s.category]) acc[s.category] = []
       acc[s.category].push(s)
