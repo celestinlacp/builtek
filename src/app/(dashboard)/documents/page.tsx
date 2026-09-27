@@ -26,7 +26,7 @@ export default async function DocumentsPage() {
   const wsId    = membership.workspace_id
   const userRole = membership.role as string
 
-  const [projectsRes, docsRes, specialtiesRes, deleteReqRes, companiesRes, membersRes] = await Promise.all([
+  const [projectsRes, docsRes, specialtiesRes, deleteReqRes, companiesRes, membersRes, nomenclaturesRes] = await Promise.all([
     supabase
       .from('projects')
       .select('id, name, status, workspace_id, description, start_date, end_date, frente, project_type, cover_image_url, parent_project_id, chainage_start, chainage_end, created_at')
@@ -35,7 +35,7 @@ export default async function DocumentsPage() {
       .order('name'),
     supabase
       .from('documents')
-      .select('id, name, file_name, display_name, specialty_id, project_id, storage_key, file_type, file_size, status, doc_status, version, version_number, doc_key, is_current, emission_date, author, company_id, notes, created_at, approved_by, approved_at, review_requested_by, review_requested_at, rejection_note, project:projects(name), specialty:specialties(name, code, category)')
+      .select('id, name, file_name, display_name, specialty_id, project_id, storage_key, file_type, file_size, status, doc_status, version, version_number, doc_key, is_current, emission_date, author, company_id, notes, created_at, approved_by, approved_at, review_requested_by, review_requested_at, rejection_note, doc_view, doc_element, mic_version, project:projects(name), specialty:specialties(name, code, category)')
       .eq('workspace_id', wsId)
       .neq('doc_status', 'deleted')
       .order('version_number', { ascending: false })
@@ -61,13 +61,21 @@ export default async function DocumentsPage() {
       .from('workspace_members')
       .select('user_id')
       .eq('workspace_id', wsId),
+    supabase
+      .from('mic_nomenclatures')
+      .select('id, segment, code, name, sort_order')
+      .eq('workspace_id', wsId)
+      .eq('is_active', true)
+      .order('segment')
+      .order('sort_order'),
   ])
 
-  const projects       = projectsRes.data    || []
-  const documents      = docsRes.data        || []
-  const specialties    = specialtiesRes.data || []
-  const deleteRequests = deleteReqRes.data   || []
-  const companies      = companiesRes.data   || []
+  const projects         = projectsRes.data       || []
+  const documents        = docsRes.data           || []
+  const specialties      = specialtiesRes.data    || []
+  const deleteRequests   = deleteReqRes.data      || []
+  const companies        = companiesRes.data      || []
+  const micNomenclatures = nomenclaturesRes.data  || []
 
   const rawMemberIds = (membersRes.data || []).map((m: any) => m.user_id)
   const profilesRes  = rawMemberIds.length > 0
@@ -107,6 +115,7 @@ export default async function DocumentsPage() {
         currentUserId={user.id}
         companies={companies as any}
         members={members}
+        micNomenclatures={micNomenclatures as any}
       />
     </div>
   )

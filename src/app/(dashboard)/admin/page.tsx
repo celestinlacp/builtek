@@ -27,7 +27,7 @@ export default async function AdminPage() {
 
   const wsId = membership.workspace_id
 
-  const [workspaceRes, projectsRes, membersRes, myRoleRes, invitesRes, companiesRes, biDocsRes] = await Promise.all([
+  const [workspaceRes, projectsRes, membersRes, myRoleRes, invitesRes, companiesRes, biDocsRes, nomenclaturesRes] = await Promise.all([
     supabase.from('workspaces').select('*, dropbox_token').eq('id', wsId).single(),
     supabase.from('projects')
       .select('id, name, description, status, workspace_id, start_date, end_date, frente, project_type, cover_image_url, parent_project_id, chainage_start, chainage_end, created_at')
@@ -56,15 +56,21 @@ export default async function AdminPage() {
       .eq('workspace_id', wsId)
       .neq('doc_status', 'deleted')
       .order('created_at', { ascending: false }),
+    supabase.from('mic_nomenclatures')
+      .select('id, segment, code, name, description, is_active, sort_order')
+      .eq('workspace_id', wsId)
+      .order('segment')
+      .order('sort_order'),
   ])
 
   if (!workspaceRes.data) redirect('/onboarding')
 
-  const workspace  = workspaceRes.data
-  const projects   = projectsRes.data  || []
-  const companies  = companiesRes.data || []
-  const biDocs     = biDocsRes.data    || []
-  const rawMembers = membersRes.data   || []
+  const workspace         = workspaceRes.data
+  const projects          = projectsRes.data         || []
+  const companies         = companiesRes.data        || []
+  const biDocs            = biDocsRes.data           || []
+  const rawMembers        = membersRes.data          || []
+  const micNomenclatures  = nomenclaturesRes.data    || []
 
   // Fetch profiles separately (no FK between workspace_members and profiles)
   const memberUserIds = rawMembers.map((m: any) => m.user_id)
@@ -141,6 +147,7 @@ export default async function AdminPage() {
         companies={companies as any}
         biDocs={biDocs as any}
         workspaceId={wsId}
+        micNomenclatures={micNomenclatures as any}
       />
     </div>
   )

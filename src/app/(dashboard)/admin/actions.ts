@@ -334,3 +334,110 @@ export async function updateWorkspace(formData: FormData) {
   revalidatePath('/dashboard')
   return { success: true }
 }
+
+// ── Catálogo MIC de Nomenclaturas ─────────────────────────────────────────────
+
+export async function createMicNomenclature(data: {
+  segment:     string
+  code:        string
+  name:        string
+  description: string | null
+  sort_order:  number
+}) {
+  const { workspaceId } = await getWorkspaceId()
+  if (!workspaceId) return { error: 'Sin workspace' }
+  const admin = getAdminClient()
+
+  const { error } = await admin.from('mic_nomenclatures').insert({
+    workspace_id: workspaceId,
+    segment:      data.segment,
+    code:         data.code.trim().toUpperCase(),
+    name:         data.name.trim(),
+    description:  data.description?.trim() || null,
+    sort_order:   data.sort_order,
+  })
+
+  if (error) return { error: error.message }
+  revalidatePath('/admin')
+  revalidatePath('/documents')
+  return { success: true }
+}
+
+export async function updateMicNomenclature(id: string, data: {
+  code:        string
+  name:        string
+  description: string | null
+  is_active:   boolean
+  sort_order:  number
+}) {
+  const { workspaceId } = await getWorkspaceId()
+  if (!workspaceId) return { error: 'Sin workspace' }
+  const admin = getAdminClient()
+
+  const { error } = await admin.from('mic_nomenclatures')
+    .update({
+      code:        data.code.trim().toUpperCase(),
+      name:        data.name.trim(),
+      description: data.description?.trim() || null,
+      is_active:   data.is_active,
+      sort_order:  data.sort_order,
+    })
+    .eq('id', id)
+    .eq('workspace_id', workspaceId)
+
+  if (error) return { error: error.message }
+  revalidatePath('/admin')
+  revalidatePath('/documents')
+  return { success: true }
+}
+
+export async function deleteMicNomenclature(id: string) {
+  const { workspaceId } = await getWorkspaceId()
+  if (!workspaceId) return { error: 'Sin workspace' }
+  const admin = getAdminClient()
+
+  const { error } = await admin.from('mic_nomenclatures')
+    .delete()
+    .eq('id', id)
+    .eq('workspace_id', workspaceId)
+
+  if (error) return { error: error.message }
+  revalidatePath('/admin')
+  revalidatePath('/documents')
+  return { success: true }
+}
+
+export async function seedMicTipoPlano() {
+  const { workspaceId } = await getWorkspaceId()
+  if (!workspaceId) return { error: 'Sin workspace' }
+  const admin = getAdminClient()
+
+  const defaults = [
+    { code: 'PLT', name: 'Planta',         sort_order: 1 },
+    { code: 'COR', name: 'Corte',          sort_order: 2 },
+    { code: 'ALZ', name: 'Alzado',         sort_order: 3 },
+    { code: 'PER', name: 'Perfil',         sort_order: 4 },
+    { code: 'DET', name: 'Detalle',        sort_order: 5 },
+    { code: 'ISO', name: 'Isométrico',     sort_order: 6 },
+    { code: 'DIA', name: 'Diagrama',       sort_order: 7 },
+    { code: 'CUA', name: 'Cuadro / Tabla', sort_order: 8 },
+    { code: 'GEN', name: 'General',        sort_order: 9 },
+  ]
+
+  const rows = defaults.map(d => ({
+    workspace_id: workspaceId,
+    segment:      'TIPO_PLANO',
+    code:         d.code,
+    name:         d.name,
+    sort_order:   d.sort_order,
+  }))
+
+  const { error } = await admin
+    .from('mic_nomenclatures')
+    .upsert(rows, { onConflict: 'workspace_id,segment,code', ignoreDuplicates: true })
+
+  if (error) return { error: error.message }
+  revalidatePath('/admin')
+  revalidatePath('/documents')
+  return { success: true }
+}

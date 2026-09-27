@@ -7,9 +7,9 @@ import {
   Plus, Pencil, Trash2, X, FolderOpen, Users, Settings,
   Calendar, CheckCircle2, PauseCircle, Archive, Shield, Crown, UserCog, Eye, Wrench,
   Mail, Clock, Send, Link2, LinkIcon, Building2, Zap, HardDrive, FileText, Files, Loader2,
-  Database, Factory, ChevronDown, ChevronUp, Search,
+  Database, Factory, ChevronDown, ChevronUp, Search, BookOpen,
 } from 'lucide-react'
-import { toggleFeature } from './actions'
+import { toggleFeature, createMicNomenclature, updateMicNomenclature, deleteMicNomenclature, seedMicTipoPlano } from './actions'
 
 const ROLE_CONFIG: Record<UserRole, { label: string; color: string; icon: React.ElementType }> = {
   owner:    { label: 'Owner',    color: 'bg-purple-100 text-purple-700', icon: Crown },
@@ -820,7 +820,9 @@ function StoragePanel({
   )
 }
 
-type Tab = 'projects' | 'team' | 'settings' | 'workspace' | 'storage' | 'empresas' | 'database'
+type Tab = 'projects' | 'team' | 'settings' | 'workspace' | 'storage' | 'empresas' | 'database' | 'nomenclaturas'
+
+type MicNomenclature = { id: string; segment: string; code: string; name: string; description: string | null; is_active: boolean; sort_order: number }
 
 const PLAN_LABELS: Record<string, { label: string; color: string; description: string }> = {
   free:       { label: 'Free',        color: 'bg-slate-100 text-slate-600',   description: 'Hasta 3 proyectos · 5 miembros · 1 GB' },
@@ -1357,10 +1359,231 @@ function DatabasePanel({ docs, projects }: { docs: BiDoc[]; projects: Project[] 
   )
 }
 
+const MIC_SEGMENTS = ['TRONCAL', 'IDENTIFICADOR', 'TIPO_DOC', 'ESPECIALIDAD', 'TIPO_PLANO'] as const
+
+function NomenclaturasPanel({ nomenclatures, workspaceId }: { nomenclatures: MicNomenclature[]; workspaceId: string }) {
+  const [activeSegment, setActiveSegment] = useState<string>('TIPO_PLANO')
+  const [showForm,      setShowForm]      = useState(false)
+  const [editItem,      setEditItem]      = useState<MicNomenclature | null>(null)
+  const [formCode,      setFormCode]      = useState('')
+  const [formName,      setFormName]      = useState('')
+  const [formDesc,      setFormDesc]      = useState('')
+  const [formOrder,     setFormOrder]     = useState(0)
+  const [formActive,    setFormActive]    = useState(true)
+  const [saving,        setSaving]        = useState(false)
+  const [seeding,       setSeeding]       = useState(false)
+  const [error,         setError]         = useState<string | null>(null)
+
+  const segmentItems = nomenclatures.filter(n => n.segment === activeSegment)
+
+  function openCreate() {
+    setEditItem(null)
+    setFormCode(''); setFormName(''); setFormDesc(''); setFormOrder(segmentItems.length + 1); setFormActive(true)
+    setShowForm(true); setError(null)
+  }
+
+  function openEdit(item: MicNomenclature) {
+    setEditItem(item)
+    setFormCode(item.code); setFormName(item.name); setFormDesc(item.description || '')
+    setFormOrder(item.sort_order); setFormActive(item.is_active)
+    setShowForm(true); setError(null)
+  }
+
+  async function handleSave() {
+    if (!formCode.trim() || !formName.trim()) { setError('Código y nombre son requeridos'); return }
+    setSaving(true); setError(null)
+    const result = editItem
+      ? await updateMicNomenclature(editItem.id, { code: formCode, name: formName, description: formDesc || null, is_active: formActive, sort_order: formOrder })
+      : await createMicNomenclature({ segment: activeSegment, code: formCode, name: formName, description: formDesc || null, sort_order: formOrder })
+    setSaving(false)
+    if (result?.error) { setError(result.error); return }
+    setShowForm(false)
+  }
+
+  async function handleDelete(item: MicNomenclature) {
+    if (!confirm(`¿Eliminar [${item.code}] ${item.name}?`)) return
+    await deleteMicNomenclature(item.id)
+  }
+
+  async function handleSeedTipoPlano() {
+    if (!confirm('¿Cargar el catálogo estándar TIPO_PLANO? Esto agregará los 9 valores base (no sobreescribe los existentes).')) return
+    setSeeding(true)
+    await seedMicTipoPlano()
+    setSeeding(false)
+  }
+
+  const segmentDescriptions: Record<string, string> = {
+    TRONCAL:       'Clave del proyecto troncal (ej: TQM = Tren México-Querétaro)',
+    IDENTIFICADOR: 'Subtramo o frente de trabajo (ej: F012 = Frente 12, 0000 = Global)',
+    TIPO_DOC:      'Naturaleza del documento (ej: PLA = Plano, MEM = Memorias, ESP = Especificaciones)',
+    ESPECIALIDAD:  'Disciplina de ingeniería (ej: EEST = Estructuras, AARQ = Arquitectura)',
+    TIPO_PLANO:    'Tipo de vista o presentación del plano (ej: PLT = Planta, COR = Corte)',
+  }
+
+  return (
+    <div>
+      <div className="flex items-start justify-between mb-4 flex-wrap gap-3">
+        <div>
+          <p className="text-sm text-slate-500 max-w-lg">
+            Catálogo de segmentos del Código MIC (Metodología de Información para la Construcción).<br />
+            <span className="font-mono text-[#00C2FF] text-xs">TRONCAL-IDENTIFICADOR-TIPO_DOC-ESPECIALIDAD-TIPO_PLANO-0001</span>
+          </p>
+        </div>
+        {activeSegment === 'TIPO_PLANO' && segmentItems.length === 0 && (
+          <button onClick={handleSeedTipoPlano} disabled={seeding}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-[#00C2FF]/30 text-[#0099CC] text-xs font-semibold hover:bg-[#00C2FF]/5 disabled:opacity-60">
+            {seeding ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <BookOpen className="w-3.5 h-3.5" />}
+            Cargar catálogo estándar
+          </button>
+        )}
+      </div>
+
+      {/* Selector de segmento */}
+      <div className="flex items-center gap-1 mb-5 flex-wrap">
+        {MIC_SEGMENTS.map(seg => (
+          <button key={seg} onClick={() => { setActiveSegment(seg); setShowForm(false) }}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+              activeSegment === seg ? 'bg-[#1A2744] text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+            }`}>
+            {seg}
+          </button>
+        ))}
+      </div>
+
+      {/* Descripción del segmento activo */}
+      <p className="text-xs text-slate-400 mb-4 italic">{segmentDescriptions[activeSegment]}</p>
+
+      {/* Formulario inline */}
+      {showForm && (
+        <div className="mb-4 bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+          <p className="text-xs font-bold text-[#1A2744] uppercase tracking-wide">
+            {editItem ? 'Editar entrada' : `Nueva entrada — ${activeSegment}`}
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wide">Código *</label>
+              <input value={formCode} onChange={e => setFormCode(e.target.value.toUpperCase())}
+                placeholder="Ej: COR"
+                className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wide">Nombre *</label>
+              <input value={formName} onChange={e => setFormName(e.target.value)}
+                placeholder="Ej: Corte"
+                className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wide">Descripción</label>
+              <input value={formDesc} onChange={e => setFormDesc(e.target.value)}
+                placeholder="Descripción opcional"
+                className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50" />
+            </div>
+            <div className="flex items-end gap-3">
+              <div className="flex-1">
+                <label className="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wide">Orden</label>
+                <input type="number" value={formOrder} onChange={e => setFormOrder(parseInt(e.target.value) || 0)}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50" />
+              </div>
+              {editItem && (
+                <label className="flex items-center gap-2 text-xs font-semibold text-slate-600 cursor-pointer pb-2">
+                  <input type="checkbox" checked={formActive} onChange={e => setFormActive(e.target.checked)}
+                    className="w-4 h-4 accent-[#1A2744]" />
+                  Activo
+                </label>
+              )}
+            </div>
+          </div>
+          {error && <p className="text-xs text-red-500">{error}</p>}
+          <div className="flex gap-2">
+            <button onClick={() => setShowForm(false)}
+              className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-100">
+              Cancelar
+            </button>
+            <button onClick={handleSave} disabled={saving || !formCode.trim() || !formName.trim()}
+              className="px-4 py-1.5 rounded-lg bg-[#1A2744] text-white text-xs font-bold hover:bg-[#243660] disabled:opacity-60 flex items-center gap-1.5">
+              {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+              {editItem ? 'Guardar' : 'Agregar'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Tabla */}
+      <div className="bg-white border border-slate-100 rounded-xl overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
+          <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">
+            {activeSegment} — {segmentItems.length} entrada{segmentItems.length !== 1 ? 's' : ''}
+          </span>
+          <button onClick={openCreate}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1A2744] text-white text-xs font-bold hover:bg-[#243660]">
+            <Plus className="w-3.5 h-3.5" />
+            Agregar
+          </button>
+        </div>
+
+        {segmentItems.length === 0 ? (
+          <div className="p-10 text-center">
+            <BookOpen className="w-8 h-8 text-slate-200 mx-auto mb-3" />
+            <p className="text-sm text-slate-400">Sin entradas para este segmento.</p>
+            {activeSegment === 'TIPO_PLANO' && (
+              <button onClick={handleSeedTipoPlano} disabled={seeding}
+                className="mt-3 text-xs text-[#00C2FF] hover:text-[#0099CC] font-medium">
+                Cargar catálogo estándar →
+              </button>
+            )}
+          </div>
+        ) : (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-slate-100 bg-slate-50">
+                <th className="text-left px-4 py-2.5 text-xs font-bold text-slate-400 uppercase tracking-wide w-24">Código</th>
+                <th className="text-left px-4 py-2.5 text-xs font-bold text-slate-400 uppercase tracking-wide">Nombre</th>
+                <th className="text-left px-4 py-2.5 text-xs font-bold text-slate-400 uppercase tracking-wide hidden md:table-cell">Descripción</th>
+                <th className="text-center px-4 py-2.5 text-xs font-bold text-slate-400 uppercase tracking-wide w-20">Estado</th>
+                <th className="w-20" />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {[...segmentItems].sort((a, b) => a.sort_order - b.sort_order).map(item => (
+                <tr key={item.id} className={`hover:bg-slate-50 ${!item.is_active ? 'opacity-50' : ''}`}>
+                  <td className="px-4 py-2.5">
+                    <span className="font-mono font-bold text-[#1A2744] bg-[#00C2FF]/10 text-[#0099CC] px-2 py-0.5 rounded text-xs">{item.code}</span>
+                  </td>
+                  <td className="px-4 py-2.5 font-medium text-slate-700">{item.name}</td>
+                  <td className="px-4 py-2.5 text-slate-400 text-xs hidden md:table-cell">{item.description || '—'}</td>
+                  <td className="px-4 py-2.5 text-center">
+                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${item.is_active ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-400'}`}>
+                      {item.is_active ? 'Activo' : 'Inactivo'}
+                    </span>
+                  </td>
+                  <td className="px-4 py-2.5">
+                    <div className="flex items-center gap-1 justify-end">
+                      <button onClick={() => openEdit(item)} title="Editar"
+                        className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600">
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                      <button onClick={() => handleDelete(item)} title="Eliminar"
+                        className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-500">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function AdminPanel({
   projects, workspace, members, currentUserId, currentUserRole,
   currentUserEmail, currentUserName, pendingInvites, dropboxConnected,
-  storageUsed, storageByModule, companies, biDocs, workspaceId,
+  storageUsed, storageByModule, companies, biDocs, workspaceId, micNomenclatures,
 }: {
   projects: Project[]
   workspace: Workspace
@@ -1376,19 +1599,21 @@ export default function AdminPanel({
   companies: Company[]
   biDocs: BiDoc[]
   workspaceId: string
+  micNomenclatures: MicNomenclature[]
 }) {
   const [tab, setTab] = useState<Tab>('projects')
   const [showModal, setShowModal] = useState(false)
   const [editProject, setEditProject] = useState<Project | null>(null)
 
   const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [
-    { id: 'projects',  label: 'Proyectos',      icon: FolderOpen },
-    { id: 'empresas',  label: 'Empresas',        icon: Factory   },
-    { id: 'team',      label: 'Equipo',          icon: Users      },
-    { id: 'workspace', label: 'Workspace',       icon: Building2  },
-    { id: 'storage',   label: 'Almacenamiento', icon: HardDrive  },
-    { id: 'database',  label: 'Base de Datos',   icon: Database   },
-    { id: 'settings',  label: 'Config.',         icon: Settings   },
+    { id: 'projects',       label: 'Proyectos',      icon: FolderOpen },
+    { id: 'empresas',       label: 'Empresas',        icon: Factory    },
+    { id: 'nomenclaturas',  label: 'Nomenclaturas',   icon: BookOpen   },
+    { id: 'team',           label: 'Equipo',          icon: Users      },
+    { id: 'workspace',      label: 'Workspace',       icon: Building2  },
+    { id: 'storage',        label: 'Almacenamiento',  icon: HardDrive  },
+    { id: 'database',       label: 'Base de Datos',   icon: Database   },
+    { id: 'settings',       label: 'Config.',         icon: Settings   },
   ]
 
   return (
@@ -1479,6 +1704,14 @@ export default function AdminPanel({
           companies={companies}
           workspaceId={workspaceId}
           userRole={currentUserRole}
+        />
+      )}
+
+      {/* Nomenclaturas MIC tab */}
+      {tab === 'nomenclaturas' && (
+        <NomenclaturasPanel
+          nomenclatures={micNomenclatures}
+          workspaceId={workspaceId}
         />
       )}
 

@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdmin } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import { parseDocKey } from './utils'
+import { parseDocKey, parseMicSegments } from './utils'
 
 function getAdminClient() {
   return createAdmin(
@@ -33,12 +33,22 @@ export async function saveDocument(data: {
   storage_key:   string
   file_type:     string
   file_size:     number
+  doc_view:      string | null
+  doc_element:   string | null
+  mic_version:   'V0' | 'V1' | null
 }) {
   const { user } = await getUser()
   const admin = getAdminClient()
 
-  // Detectar nomenclatura AEC
+  // Detectar nomenclatura MIC/AEC desde filename
   const parsed = parseDocKey(data.file_name)
+
+  // Auto-detectar doc_view desde segmento TIPO_PLANO del código MIC si no se proveyó
+  let autoDocView: string | null = data.doc_view || null
+  if (parsed && !autoDocView) {
+    const segments = parseMicSegments(parsed.doc_key)
+    if (segments) autoDocView = segments.tipo_plano
+  }
 
   let previousVersionId: string | null = null
   let newVersionNumber = 1
@@ -96,6 +106,9 @@ export async function saveDocument(data: {
     uploaded_by:      user.id,
     embedding_status: 'pending',
     ref_code:         refCode as string ?? null,
+    doc_view:         autoDocView,
+    doc_element:      data.doc_element || null,
+    mic_version:      data.mic_version || 'V0',
   }).select('id').single()
 
   if (error) return { error: error.message }

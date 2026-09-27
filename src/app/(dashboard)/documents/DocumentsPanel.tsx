@@ -8,7 +8,7 @@ import {
   Upload, Download, Trash2, ChevronDown, ChevronRight, ArrowLeft, Package,
   FolderOpen, CheckCircle2, Clock, XCircle, Eye, AlertTriangle, ShieldCheck, ShieldX, X, Loader2, History, GitBranch, SlidersHorizontal, Info, RefreshCw, Camera, Plus, Layers, Pencil, Milestone,
 } from 'lucide-react'
-import { parseDocKey } from './utils'
+import { parseDocKey, parseMicSegments, TIPO_PLANO_DEFAULT } from './utils'
 import DocumentSlideOver from './DocumentSlideOver'
 
 type Specialty = { id: string; name: string; code: string; category: string }
@@ -59,9 +59,14 @@ type Doc = {
   review_requested_by: string | null
   review_requested_at: string | null
   rejection_note: string | null
+  doc_view:    string | null
+  doc_element: string | null
+  mic_version: string | null
   project?: { name: string } | null
   specialty?: { name: string; code: string; category: string } | null
 }
+
+type MicNomenclature = { id: string; segment: string; code: string; name: string; sort_order: number }
 
 function formatSize(bytes: number | null) {
   if (!bytes) return '—'
@@ -84,13 +89,14 @@ function parseChainage(km: string, m: string): number | null {
   return kmN * 1000 + mN
 }
 
-// ── Workflow AEC: ELAB → REV → APR ───────────────────────────────────────────
+// ── Workflow AEC: ELAB → REV → APR → APC ─────────────────────────────────────
 
 const WORKFLOW_CONFIG = {
-  draft:    { label: 'ELAB', color: 'bg-slate-100 text-slate-600',   title: 'Elaboración' },
-  review:   { label: 'REV',  color: 'bg-amber-100 text-amber-700',   title: 'En Revisión' },
-  approved: { label: 'APR',  color: 'bg-green-100 text-green-700',   title: 'Aprobado'    },
-  rejected: { label: 'OBS',  color: 'bg-red-100   text-red-600',     title: 'Observado'   },
+  draft:    { label: 'ELAB', color: 'bg-slate-100 text-slate-600',   title: 'Elaboración'              },
+  review:   { label: 'REV',  color: 'bg-amber-100 text-amber-700',   title: 'En Revisión'              },
+  approved: { label: 'APR',  color: 'bg-green-100 text-green-700',   title: 'Aprobado'                 },
+  rejected: { label: 'OBS',  color: 'bg-red-100   text-red-600',     title: 'Observado'                },
+  apc:      { label: 'APC',  color: 'bg-blue-100  text-blue-700',    title: 'Aprobado Para Construcción' },
 }
 
 function WorkflowBadge({ doc, userRole }: { doc: Doc; userRole: string }) {
@@ -133,9 +139,21 @@ function WorkflowBadge({ doc, userRole }: { doc: Doc; userRole: string }) {
   }
   if (doc.status === 'approved' && ['owner', 'admin'].includes(userRole)) {
     transitions.push({
+      label: '✦ Promover a APC',
+      color: 'text-blue-700 hover:bg-blue-50',
+      action: async () => { await updateDocumentStatus(doc.id, 'apc') },
+    })
+    transitions.push({
       label: '↺ Revertir a ELAB',
       color: 'text-slate-500 hover:bg-slate-50',
       action: async () => { await updateDocumentStatus(doc.id, 'draft') },
+    })
+  }
+  if (doc.status === 'apc' && ['owner', 'admin'].includes(userRole)) {
+    transitions.push({
+      label: '↺ Revertir a APR',
+      color: 'text-slate-500 hover:bg-slate-50',
+      action: async () => { await updateDocumentStatus(doc.id, 'approved') },
     })
   }
 
@@ -173,7 +191,7 @@ function WorkflowBadge({ doc, userRole }: { doc: Doc; userRole: string }) {
 type Member = { user_id: string; full_name: string | null; initials: string | null }
 
 function UploadModal({
-  projects, specialties, workspaceId, defaultProjectId, existingDocs, companies, members, onClose
+  projects, specialties, workspaceId, defaultProjectId, existingDocs, companies, members, micNomenclatures, onClose
 }: {
   projects: Project[]
   specialties: Specialty[]
@@ -182,6 +200,7 @@ function UploadModal({
   existingDocs: Doc[]
   companies: Company[]
   members: Member[]
+  micNomenclatures: MicNomenclature[]
   onClose: () => void
 }) {
   const [projectId,      setProjectId]      = useState(defaultProjectId || '')
@@ -196,7 +215,15 @@ function UploadModal({
   const [step,           setStep]           = useState('')
   const [uploadPct,      setUploadPct]      = useState(0)
   const [versionWarning, setVersionWarning] = useState<{ prevVersion: number; newVersion: number } | null>(null)
+  const [docView,        setDocView]        = useState('')
+  const [docElement,     setDocElement]     = useState('')
+  const [micVersion,     setMicVersion]     = useState<'V0' | 'V1'>('V0')
   const inputRef = useRef<HTMLInputElement>(null)
+
+  // Catálogo TIPO_PLANO: preferir valores del workspace, si vacío usar defaults
+  const tipoPlanoOptions = micNomenclatures.filter(n => n.segment === 'TIPO_PLANO').length > 0
+    ? micNomenclatures.filter(n => n.segment === 'TIPO_PLANO')
+    : TIPO_PLANO_DEFAULT.map((t, i) => ({ id: t.code, segment: 'TIPO_PLANO', code: t.code, name: t.name, sort_order: i }))
 
   function handleFileChange(f: File | null) {
     setFile(f)
@@ -208,6 +235,9 @@ function UploadModal({
       if (existing && existing.version_number !== null && existing.version_number !== parsed.version_number) {
         setVersionWarning({ prevVersion: existing.version_number, newVersion: parsed.version_number })
       }
+      // Auto-llenar doc_view desde segmento TIPO_PLANO del código MIC
+      const segments = parseMicSegments(parsed.doc_key)
+      if (segments && !docView) setDocView(segments.tipo_plano)
     }
   }
 
@@ -293,6 +323,9 @@ function UploadModal({
       storage_key:   presignData.storageKey,
       file_type:     presignData.fileType,
       file_size:     file.size,
+      doc_view:      docView.trim() || null,
+      doc_element:   docElement.trim() || null,
+      mic_version:   micVersion,
     })
 
     if (result?.error) { setError(result.error); setUploading(false); setStep(''); return }
@@ -347,6 +380,57 @@ function UploadModal({
                 </optgroup>
               ))}
             </select>
+          </div>
+
+          {/* ── Campos MIC ──────────────────────────────────────────────── */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide flex items-center gap-1">
+                Tipo de plano
+                <span className="text-[10px] font-mono bg-slate-100 text-slate-500 px-1 py-0.5 rounded ml-1 normal-case tracking-normal">TIPO_PLANO</span>
+              </label>
+              <select value={docView} onChange={e => setDocView(e.target.value)}
+                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50">
+                <option value="">Sin tipo</option>
+                {tipoPlanoOptions.map(t => (
+                  <option key={t.code} value={t.code}>[{t.code}] {t.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide flex items-center gap-1.5">
+                Versión MIC
+                <div className="relative group">
+                  <Info className="w-3 h-3 text-slate-400 cursor-help" />
+                  <div className="absolute left-0 top-5 z-50 hidden group-hover:block w-56 bg-[#1A2744] text-white text-[11px] rounded-lg p-3 shadow-xl leading-relaxed">
+                    <p className="font-bold mb-1">V0 vs V1 — ¿Cuál es la diferencia?</p>
+                    <p><span className="font-semibold text-[#00C2FF]">V0 Proyecto</span> — Documentos de análisis y diseño. Fase de elaboración.</p>
+                    <p className="mt-1"><span className="font-semibold text-green-400">V1 Construcción</span> — Documentos liberados para ejecución en campo (APC).</p>
+                    <p className="mt-1.5 text-slate-300 text-[10px]">Independiente del flujo ELAB→REV→APR→APC.</p>
+                  </div>
+                </div>
+              </label>
+              <div className="flex rounded-lg border border-slate-200 overflow-hidden">
+                <button type="button" onClick={() => setMicVersion('V0')}
+                  className={`flex-1 py-2.5 text-xs font-bold transition-colors ${micVersion === 'V0' ? 'bg-slate-700 text-white' : 'bg-white text-slate-500 hover:bg-slate-50'}`}>
+                  V0 Proyecto
+                </button>
+                <button type="button" onClick={() => setMicVersion('V1')}
+                  className={`flex-1 py-2.5 text-xs font-bold transition-colors ${micVersion === 'V1' ? 'bg-green-600 text-white' : 'bg-white text-slate-500 hover:bg-slate-50'}`}>
+                  V1 Construc.
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
+              Elemento estructural <span className="text-slate-400 font-normal">(opcional)</span>
+            </label>
+            <input type="text" value={docElement} onChange={e => setDocElement(e.target.value)}
+              placeholder="Ej: Zapata, Pilote, Trabe, Losa, Columna..."
+              className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50" />
+            <p className="text-xs text-slate-400 mt-1">Elemento físico que documenta este plano (no forma parte del código MIC)</p>
           </div>
 
           <div>
@@ -824,6 +908,10 @@ function DocInfoPopover({ doc }: { doc: Doc }) {
                 <Row label="Tamaño" value={formatSize(doc.file_size)} />
                 <Row label="Disciplina"
                   value={doc.specialty ? `[${doc.specialty.code}] ${doc.specialty.name}` : '—'} />
+                {doc.doc_view    && <Row label="Tipo de plano" value={doc.doc_view} />}
+                {doc.doc_element && <Row label="Elemento" value={doc.doc_element} />}
+                {doc.mic_version && <Row label="Versión MIC"
+                  value={doc.mic_version === 'V1' ? 'V1 — Para Construcción' : 'V0 — Proyecto'} />}
               </div>
 
               {doc.notes && (
@@ -1619,6 +1707,14 @@ function ProjectDetailView({
                             ? <span className="font-mono bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded font-bold">v{String(doc.version_number).padStart(4, '0')}</span>
                             : <span>v{doc.version}</span>
                           }
+                          {doc.doc_view && (
+                            <span className="font-mono bg-[#00C2FF]/10 text-[#0099CC] px-1.5 py-0.5 rounded font-bold text-[10px]">{doc.doc_view}</span>
+                          )}
+                          {doc.mic_version && (
+                            <span className={`px-1.5 py-0.5 rounded font-bold text-[10px] ${doc.mic_version === 'V1' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
+                              {doc.mic_version}
+                            </span>
+                          )}
                           <span>·</span>
                           <span>{doc.file_type?.toUpperCase() || '—'}</span>
                           <span>·</span>
@@ -1763,7 +1859,7 @@ function ProjectDetailView({
 // ── Componente principal ───────────────────────────────────────────────────────
 
 export default function DocumentsPanel({
-  documents, projects, specialties, workspaceId, userRole, deleteRequests, currentUserId, companies, members
+  documents, projects, specialties, workspaceId, userRole, deleteRequests, currentUserId, companies, members, micNomenclatures
 }: {
   documents: Doc[]
   projects: Project[]
@@ -1774,6 +1870,7 @@ export default function DocumentsPanel({
   currentUserId: string
   companies: Company[]
   members: Member[]
+  micNomenclatures: MicNomenclature[]
 }) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -1860,6 +1957,7 @@ export default function DocumentsPanel({
           existingDocs={documents}
           companies={companies}
           members={members}
+          micNomenclatures={micNomenclatures}
           onClose={() => setShowUpload(false)}
         />
       )}
