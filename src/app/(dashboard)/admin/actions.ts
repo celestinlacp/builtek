@@ -621,7 +621,9 @@ export async function updateMemberProfile(
   const words    = trimmedName.split(/\s+/).filter(Boolean)
   const initials = words.map(w => w[0].toUpperCase()).join('').slice(0, 4)
 
-  const { error } = await supabase
+  // Usar admin client para bypassear RLS al editar el perfil de otro usuario
+  const admin = getAdminClient()
+  const { error } = await admin
     .from('profiles')
     .update({ full_name: trimmedName, phone: data.phone || null, initials })
     .eq('id', targetUserId)
