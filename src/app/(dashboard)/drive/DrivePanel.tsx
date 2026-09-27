@@ -874,6 +874,7 @@ export default function DrivePanel({ workspaceId, userRole, currentUserId }: {
   const [showNewFolder, setShowNewFolder] = useState(false)
   const [newFolderName, setNewFolderName] = useState('')
   const [creatingFolder, setCreatingFolder] = useState(false)
+  const [folderError,    setFolderError]    = useState<string | null>(null)
   const [viewingFile,   setViewingFile]   = useState<{ id: string; name: string } | null>(null)
   const [sharingFile,   setSharingFile]   = useState<{ id: string; name: string } | null>(null)
   const [replacingFile, setReplacingFile] = useState<{ id: string; name: string } | null>(null)
@@ -910,19 +911,12 @@ export default function DrivePanel({ workspaceId, userRole, currentUserId }: {
   const loadContents = useCallback(async (folderId: string | null) => {
     setLoading(true)
 
+    const foldersQuery = supabase.from('drive_folders').select('*').eq('workspace_id', workspaceId).order('name')
+    const filesQuery   = supabase.from('drive_files').select('*').eq('workspace_id', workspaceId).order('name')
+
     const [foldersRes, filesRes] = await Promise.all([
-      supabase
-        .from('drive_folders')
-        .select('*')
-        .eq('workspace_id', workspaceId)
-        .is(folderId ? 'parent_folder_id' : 'parent_folder_id', folderId)
-        .order('name'),
-      supabase
-        .from('drive_files')
-        .select('*')
-        .eq('workspace_id', workspaceId)
-        .is(folderId ? 'folder_id' : 'folder_id', folderId)
-        .order('name'),
+      folderId ? foldersQuery.eq('parent_folder_id', folderId) : foldersQuery.is('parent_folder_id', null),
+      folderId ? filesQuery.eq('folder_id', folderId)          : filesQuery.is('folder_id', null),
     ])
 
     setFolders(foldersRes.data ?? [])
@@ -947,10 +941,15 @@ export default function DrivePanel({ workspaceId, userRole, currentUserId }: {
   async function handleCreateFolder() {
     if (!newFolderName.trim()) return
     setCreatingFolder(true)
-    await createFolder({ workspace_id: workspaceId, parent_folder_id: currentFolder.id, name: newFolderName })
+    setFolderError(null)
+    const result = await createFolder({ workspace_id: workspaceId, parent_folder_id: currentFolder.id, name: newFolderName })
+    setCreatingFolder(false)
+    if (result?.error) {
+      setFolderError(result.error)
+      return
+    }
     setNewFolderName('')
     setShowNewFolder(false)
-    setCreatingFolder(false)
     loadContents(currentFolder.id)
   }
 
@@ -1063,24 +1062,29 @@ export default function DrivePanel({ workspaceId, userRole, currentUserId }: {
 
         {/* Nueva carpeta inline */}
         {showNewFolder && (
-          <div className="mb-4 flex items-center gap-2 bg-white border border-[#00C2FF]/40 rounded-xl px-4 py-3">
-            <FolderPlus className="w-4 h-4 text-[#00C2FF] flex-shrink-0" />
-            <input
-              ref={newFolderInputRef}
-              value={newFolderName}
-              onChange={e => setNewFolderName(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') handleCreateFolder(); if (e.key === 'Escape') { setShowNewFolder(false); setNewFolderName('') } }}
-              placeholder="Nombre de la carpeta..."
-              className="flex-1 text-sm outline-none text-slate-700 placeholder:text-slate-400"
-            />
-            <button onClick={handleCreateFolder} disabled={!newFolderName.trim() || creatingFolder}
-              className="w-7 h-7 flex items-center justify-center rounded-lg bg-[#00C2FF] text-white disabled:opacity-50">
-              {creatingFolder ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-            </button>
-            <button onClick={() => { setShowNewFolder(false); setNewFolderName('') }}
-              className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-400">
-              <X className="w-3.5 h-3.5" />
-            </button>
+          <div className="mb-4 space-y-1">
+            <div className="flex items-center gap-2 bg-white border border-[#00C2FF]/40 rounded-xl px-4 py-3">
+              <FolderPlus className="w-4 h-4 text-[#00C2FF] flex-shrink-0" />
+              <input
+                ref={newFolderInputRef}
+                value={newFolderName}
+                onChange={e => { setNewFolderName(e.target.value); setFolderError(null) }}
+                onKeyDown={e => { if (e.key === 'Enter') handleCreateFolder(); if (e.key === 'Escape') { setShowNewFolder(false); setNewFolderName(''); setFolderError(null) } }}
+                placeholder="Nombre de la carpeta..."
+                className="flex-1 text-sm outline-none text-slate-700 placeholder:text-slate-400"
+              />
+              <button onClick={handleCreateFolder} disabled={!newFolderName.trim() || creatingFolder}
+                className="w-7 h-7 flex items-center justify-center rounded-lg bg-[#00C2FF] text-white disabled:opacity-50">
+                {creatingFolder ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+              </button>
+              <button onClick={() => { setShowNewFolder(false); setNewFolderName(''); setFolderError(null) }}
+                className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-400">
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            {folderError && (
+              <p className="text-xs text-red-600 px-4">{folderError}</p>
+            )}
           </div>
         )}
 
