@@ -416,37 +416,65 @@ export async function syncIdentificadoresFromProjects() {
   if (!workspaceId) return { error: 'Sin workspace' }
   const admin = getAdminClient()
 
-  const { data: projects } = await admin
+  // Proyectos raíz ordenados alfabéticamente → 0001, 0002, ...
+  const { data: rootProjects } = await admin
     .from('projects')
-    .select('id, name, frente')
+    .select('id, name')
     .eq('workspace_id', workspaceId)
     .eq('status', 'active')
     .is('parent_project_id', null)
+    .order('name', { ascending: true })
 
-  if (!projects?.length) return { success: true, count: 0 }
+  if (!rootProjects?.length) return { success: true, count: 0 }
 
-  const usedCodes = new Map<string, number>()
-  function deriveCode(name: string, frente: string | null): string {
-    const source = frente || name
-    const frenteMatch = source.match(/Frente\s+(\d+)/i)
-    if (frenteMatch) return 'F' + frenteMatch[1].padStart(3, '0')
-    const base = name.replace(/[^a-zA-Z]/g, '').slice(0, 3).toUpperCase() || 'PRJ'
-    const count = (usedCodes.get(base) || 0) + 1
-    usedCodes.set(base, count)
-    return base + String(count).padStart(2, '0')
+  // Subproyectos activos → 0017.01, 0018.01, ...
+  const { data: subProjects } = await admin
+    .from('projects')
+    .select('id, name, parent_project_id')
+    .eq('workspace_id', workspaceId)
+    .eq('status', 'active')
+    .not('parent_project_id', 'is', null)
+    .order('name', { ascending: true })
+
+  const parentIndexMap = new Map<string, number>()
+  rootProjects.forEach((p, i) => parentIndexMap.set(p.id, i + 1))
+  const subCountMap = new Map<string, number>()
+
+  const rows: { workspace_id: string; segment: string; code: string; name: string; sort_order: number }[] = []
+
+  rootProjects.forEach((p, i) => {
+    rows.push({
+      workspace_id: workspaceId,
+      segment:      'IDENTIFICADOR',
+      code:         String(i + 1).padStart(4, '0'),
+      name:         p.name,
+      sort_order:   i + 1,
+    })
+  })
+
+  let subSortOffset = rootProjects.length + 1
+  for (const sub of (subProjects || [])) {
+    const parentIdx = parentIndexMap.get(sub.parent_project_id!)
+    if (!parentIdx) continue
+    const subCount = (subCountMap.get(sub.parent_project_id!) || 0) + 1
+    subCountMap.set(sub.parent_project_id!, subCount)
+    rows.push({
+      workspace_id: workspaceId,
+      segment:      'IDENTIFICADOR',
+      code:         `${String(parentIdx).padStart(4, '0')}.${String(subCount).padStart(2, '0')}`,
+      name:         sub.name,
+      sort_order:   subSortOffset++,
+    })
   }
 
-  const rows = projects.map((p, i) => ({
-    workspace_id: workspaceId,
-    segment:      'IDENTIFICADOR',
-    code:         deriveCode(p.name, p.frente),
-    name:         p.name,
-    sort_order:   20 + i,
-  }))
-
-  const { error } = await admin
+  // Borrar los IDENTIFICADOR existentes y reemplazar con los nuevos
+  await admin
     .from('mic_nomenclatures')
-    .upsert(rows, { onConflict: 'workspace_id,segment,code', ignoreDuplicates: true })
+    .delete()
+    .eq('workspace_id', workspaceId)
+    .eq('segment', 'IDENTIFICADOR')
+
+  const { error } = await admin.from('mic_nomenclatures').insert(rows)
 
   if (error) return { error: error.message }
   revalidatePath('/admin')
@@ -463,16 +491,7 @@ export async function seedAllMicNomenclatures() {
     // ── TRONCAL ──────────────────────────────────────────────────────────────
     { segment: 'TRONCAL', code: 'TQM',  name: 'Tren México-Querétaro',       sort_order: 1 },
 
-    // ── IDENTIFICADOR ─────────────────────────────────────────────────────────
-    { segment: 'IDENTIFICADOR', code: '0000', name: 'Global (todo el proyecto)',       sort_order: 1 },
-    { segment: 'IDENTIFICADOR', code: 'F012', name: 'Frente 12',                       sort_order: 2 },
-    { segment: 'IDENTIFICADOR', code: 'VIA01', name: 'Viaducto de Pasajeros I',        sort_order: 3 },
-    { segment: 'IDENTIFICADOR', code: 'F001', name: 'Frente 1',                        sort_order: 4 },
-    { segment: 'IDENTIFICADOR', code: 'F002', name: 'Frente 2',                        sort_order: 5 },
-    { segment: 'IDENTIFICADOR', code: 'F003', name: 'Frente 3',                        sort_order: 6 },
-    { segment: 'IDENTIFICADOR', code: 'F004', name: 'Frente 4',                        sort_order: 7 },
-    { segment: 'IDENTIFICADOR', code: 'F005', name: 'Frente 5',                        sort_order: 8 },
-    { segment: 'IDENTIFICADOR', code: 'F006', name: 'Frente 6',                        sort_order: 9 },
+    // ── IDENTIFICADOR: generado automáticamente desde syncIdentificadoresFromProjects ──
 
     // ── TIPO_DOC ──────────────────────────────────────────────────────────────
     { segment: 'TIPO_DOC', code: 'PLA', name: 'Plano',                      sort_order: 1  },

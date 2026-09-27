@@ -1826,11 +1826,32 @@ function ProjectDetailView({
                           <RefreshCw className="w-3.5 h-3.5" />
                         </button>
                         {doc.storage_key && (
-                          <a href={`/api/documents/download/${doc.id}`} target="_blank" rel="noopener noreferrer"
-                            title="Descargar"
-                            className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-200 text-slate-400 hover:text-slate-600">
-                            <Download className="w-3.5 h-3.5" />
-                          </a>
+                          doc.doc_key ? (
+                            <div className="relative group/dl">
+                              <button title="Descargar"
+                                className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-200 text-slate-400 hover:text-slate-600 transition-colors">
+                                <Download className="w-3.5 h-3.5" />
+                              </button>
+                              <div className="absolute right-0 top-8 hidden group-hover/dl:flex flex-col bg-white border border-slate-200 rounded-lg shadow-lg z-20 min-w-max overflow-hidden">
+                                <a href={`/api/documents/download/${doc.id}`} target="_blank" rel="noopener noreferrer"
+                                  className="px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 flex items-center gap-2">
+                                  <Download className="w-3 h-3" />
+                                  Nombre original
+                                </a>
+                                <a href={`/api/documents/download/${doc.id}?builtek=1`} target="_blank" rel="noopener noreferrer"
+                                  className="px-3 py-2 text-xs text-[#00C2FF] hover:bg-slate-50 flex items-center gap-2 border-t border-slate-100">
+                                  <Download className="w-3 h-3" />
+                                  ID Builtek
+                                </a>
+                              </div>
+                            </div>
+                          ) : (
+                            <a href={`/api/documents/download/${doc.id}`} target="_blank" rel="noopener noreferrer"
+                              title="Descargar"
+                              className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-200 text-slate-400 hover:text-slate-600">
+                              <Download className="w-3.5 h-3.5" />
+                            </a>
+                          )
                         )}
                         {(isAdmin || !isPendingDelete) && (
                           <button onClick={() => handleDelete(doc)} title={isAdmin ? 'Eliminar' : 'Solicitar eliminación'}
