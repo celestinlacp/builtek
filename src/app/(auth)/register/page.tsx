@@ -10,6 +10,7 @@ function RegisterForm() {
   const next = searchParams.get('next')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [acceptedPrivacy, setAcceptedPrivacy] = useState(false)
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -117,19 +118,34 @@ function RegisterForm() {
           </div>
         )}
 
+        <div className="flex items-start gap-3">
+          <input
+            type="checkbox"
+            id="privacy"
+            checked={acceptedPrivacy}
+            onChange={e => setAcceptedPrivacy(e.target.checked)}
+            className="mt-0.5 h-4 w-4 flex-shrink-0 rounded border-slate-300 text-[#00C2FF] focus:ring-[#00C2FF] cursor-pointer"
+            required
+          />
+          <label htmlFor="privacy" className="text-xs text-slate-500 leading-relaxed cursor-pointer">
+            He leído y acepto el{' '}
+            <Link href="/privacy" target="_blank" className="text-[#00C2FF] underline hover:text-[#0099cc]">
+              Aviso de Privacidad
+            </Link>{' '}
+            y los{' '}
+            <span className="text-slate-600 underline">Términos de Uso</span>{' '}
+            de Builtek. Entiendo que mis datos serán tratados conforme a la LFPDPPP.
+          </label>
+        </div>
+
         <button
           type="submit"
-          disabled={loading}
+          disabled={loading || !acceptedPrivacy}
           className="w-full bg-[#1A2744] text-white py-3 rounded-lg font-semibold text-sm hover:bg-[#243660] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
         >
           {loading ? 'Creando cuenta...' : 'Crear cuenta gratis'}
         </button>
       </form>
-
-      <p className="text-center text-xs text-slate-400 mt-4">
-        Al registrarte aceptas nuestros{' '}
-        <span className="text-slate-500 underline cursor-pointer">Términos de uso</span>
-      </p>
 
       <p className="text-center text-sm text-slate-500 mt-4">
         ¿Ya tienes cuenta?{' '}

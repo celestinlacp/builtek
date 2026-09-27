@@ -13,7 +13,7 @@ const plans = [
     monthly: 0,
     annual: 0,
     billingNote: 'Para siempre',
-    seats: '3 seats activos',
+    seats: '3 usuarios activos',
     storage: '1 GB',
     desc: 'Para explorar Builtek sin compromiso.',
     cta: 'Empezar gratis',
@@ -25,7 +25,6 @@ const plans = [
       { text: 'TaskBoard básico', ok: true },
       { text: 'Drive (1 GB)', ok: true },
       { text: 'Agente AI', ok: false },
-      { text: 'Módulo Oficios', ok: false },
       { text: 'Control documental completo', ok: false },
     ],
   },
@@ -35,7 +34,7 @@ const plans = [
     monthly: 49,
     annual: 39,
     billingNote: 'por empresa / mes',
-    seats: 'Hasta 3 seats activos',
+    seats: 'Hasta 3 usuarios activos',
     storage: '50 GB',
     desc: 'Para equipos pequeños que quieren dejar el Excel.',
     cta: 'Prueba 14 días gratis',
@@ -49,27 +48,27 @@ const plans = [
       { text: 'Drive + links públicos y QR', ok: true },
       { text: 'Roles completos (5 niveles)', ok: true },
       { text: 'Agente AI', ok: false },
-      { text: 'Módulo Oficios', ok: false },
     ],
   },
   {
     id: 'pro',
     name: 'Pro',
-    monthly: 149,
-    annual: 119,
+    monthly: 449,
+    annual: 359,
     billingNote: 'por empresa / mes',
-    seats: 'Hasta 8 seats activos',
-    storage: '1 TB',
+    seats: 'Hasta 8 usuarios activos',
+    storage: '3 TB',
     badge: 'Más popular',
-    desc: 'Para equipos activos en obra con control documental completo y AI.',
+    desc: 'Para equipos activos en obra con AI, control documental completo y análisis avanzado.',
     cta: 'Prueba 14 días gratis',
     ctaHref: '/register',
     ctaVariant: 'primary' as const,
     featured: true,
     features: [
+      { text: 'Proyectos ilimitados', ok: true },
       { text: 'Todo lo de Starter', ok: true },
       { text: 'Agente AI: cuantificación de planos PDF', ok: true, highlight: true },
-      { text: 'Módulo Oficios (Entrada/Salida + PDF)', ok: true },
+      { text: 'Panel BI: base de datos documental', ok: true },
       { text: 'Versiones de documentos', ok: true },
       { text: 'Flujo de aprobaciones', ok: true },
       { text: 'Visor PDF en browser', ok: true },
@@ -79,23 +78,25 @@ const plans = [
   {
     id: 'contractor',
     name: 'Contractor',
-    monthly: 299,
-    annual: 239,
+    monthly: 699,
+    annual: 559,
     billingNote: 'por empresa / mes',
-    seats: 'Hasta 20 seats activos',
-    storage: '2 TB',
-    desc: 'Para constructoras con múltiples frentes y equipos grandes.',
+    seats: 'Hasta 20 usuarios activos',
+    storage: '4 TB',
+    desc: 'Para constructoras con múltiples frentes, equipos grandes y flujos especializados.',
     cta: 'Hablar con ventas',
     ctaHref: 'mailto:hola@builtek.app',
     ctaVariant: 'outline' as const,
     featured: false,
     features: [
+      { text: 'Proyectos ilimitados', ok: true },
       { text: 'Todo lo de Pro', ok: true },
+      { text: 'Módulo Oficios (correspondencia técnica)', ok: true },
+      { text: 'Subproyectos y frentes de obra', ok: true },
       { text: 'Migración asistida desde Dropbox', ok: true },
       { text: 'AI sin límite de extracciones', ok: true },
       { text: 'Soporte prioritario', ok: true },
       { text: 'Visor DWG en browser', ok: true },
-      { text: 'Dashboard de frentes avanzado', ok: true },
     ],
   },
   {
@@ -103,8 +104,8 @@ const plans = [
     name: 'Enterprise',
     monthly: null,
     annual: null,
-    billingNote: '21+ seats · precio a medida',
-    seats: 'Seats ilimitados',
+    billingNote: '21+ usuarios · precio a medida',
+    seats: 'Usuarios ilimitados',
     storage: 'Ilimitado',
     desc: 'Para constructoras con grandes volúmenes de obra y requerimientos específicos.',
     cta: 'Hablar con ventas',
@@ -133,8 +134,8 @@ const addonTiers = [
 
 const faqs = [
   {
-    q: '¿Qué es un seat activo?',
-    a: 'Es cualquier usuario que crea, edita, aprueba o gestiona contenido en Builtek — un ingeniero actualizando tareas, un residente subiendo planos, un director aprobando documentos. Quien trabaja activamente en la plataforma.',
+    q: '¿Qué es un usuario activo?',
+    a: 'Es cualquier persona que crea, edita, aprueba o gestiona contenido en Builtek — un ingeniero actualizando tareas, un residente subiendo planos, un director aprobando documentos. Quien trabaja activamente en la plataforma.',
   },
   {
     q: '¿Los Viewers son realmente gratis?',
@@ -145,7 +146,7 @@ const faqs = [
     a: 'Sí. Puedes subir o bajar de plan desde tu panel de configuración sin penalización. Los cambios aplican al siguiente ciclo. Si subes de plan a mitad del mes, cobramos solo la diferencia proporcional.',
   },
   {
-    q: '¿Qué pasa si necesito más storage?',
+    q: '¿Qué pasa si necesito más almacenamiento?',
     a: 'Puedes agregar bloques de almacenamiento adicional desde $5/mes directamente desde tu configuración. Solo pagas lo que agregas, sobre el storage ya incluido en tu plan. Sin contratos ni compromisos.',
   },
 ]
@@ -208,11 +209,11 @@ function PlanCard({ plan, annual }: { plan: typeof plans[0]; annual: boolean }) 
         </div>
       )}
 
-      {/* Seats + Viewers + Storage */}
+      {/* Usuarios + Viewers + Storage */}
       <div className="flex flex-col gap-1.5 mt-4 mb-5 pb-5 border-b border-white/8">
         <div className="flex items-center gap-2">
           <span className="w-5 h-5 rounded-md bg-[#00C2FF]/10 flex items-center justify-center flex-shrink-0">
-            <span className="text-[#00C2FF] text-[10px] font-bold">S</span>
+            <span className="text-[#00C2FF] text-[10px] font-bold">U</span>
           </span>
           <span className="text-white/55 text-xs">{plan.seats}</span>
         </div>
@@ -311,7 +312,7 @@ export default function PricingSection() {
             </span>
           </h2>
           <p className="text-white/40 text-lg max-w-xl mx-auto font-light leading-relaxed">
-            Sin cobros por usuario. Sin sorpresas. Viewers ilimitados gratis en todos los planes.
+            Sin cobros por usuario. Sin sorpresas. Proyectos ilimitados y Viewers gratis en todos los planes pagados.
           </p>
         </div>
 
@@ -349,7 +350,7 @@ export default function PricingSection() {
           <div>
             <span className="text-emerald-400 font-semibold text-sm">Viewers ilimitados, siempre gratis. </span>
             <span className="text-white/40 text-sm font-light">
-              Subcontratistas, clientes, auditores — todos pueden ver el avance, descargar planos y revisar tareas sin ocupar un seat. Inspirado en el modelo de Procore y Figma.
+              Subcontratistas, clientes, auditores — todos pueden ver el avance, descargar planos y revisar tareas sin contar como usuario activo. Inspirado en el modelo de Procore y Figma.
             </span>
           </div>
         </div>
