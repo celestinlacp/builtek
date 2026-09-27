@@ -18,17 +18,21 @@ export default async function EspecificacionesPage() {
   const wsId     = membership.workspace_id
   const userRole = membership.role as string
 
-  const [specsRes, specialtiesRes, companiesRes, oficiosRes] = await Promise.all([
+  const [specsRes, mesasRes, companiesRes, oficiosRes] = await Promise.all([
+    // Specs sin join a specialties — ahora usamos specialty_code
     supabase
       .from('design_specs')
-      .select('*, specialty:specialties(name, code, category), company:companies(name, short_name), oficio:oficios(no_oficio, asunto)')
+      .select('*, company:companies(name, short_name), oficio:oficios(no_oficio, asunto)')
       .eq('workspace_id', wsId)
       .order('created_at', { ascending: false }),
+    // Mesas = nomenclaturas ESPECIALIDAD del workspace
     supabase
-      .from('specialties')
-      .select('id, name, code, category')
+      .from('mic_nomenclatures')
+      .select('id, code, name, description, sort_order')
+      .eq('workspace_id', wsId)
+      .eq('segment', 'ESPECIALIDAD')
       .eq('is_active', true)
-      .order('category')
+      .order('sort_order')
       .order('name'),
     supabase
       .from('companies')
@@ -45,10 +49,10 @@ export default async function EspecificacionesPage() {
       .limit(200),
   ])
 
-  const specs      = specsRes.data      || []
-  const specialties = specialtiesRes.data || []
-  const companies  = companiesRes.data  || []
-  const oficios    = oficiosRes.data    || []
+  const specs    = specsRes.data    || []
+  const mesas    = mesasRes.data    || []
+  const companies = companiesRes.data || []
+  const oficios  = oficiosRes.data  || []
 
   return (
     <div className="max-w-7xl mx-auto">
@@ -59,14 +63,14 @@ export default async function EspecificacionesPage() {
             Especificaciones de Diseño
           </h1>
           <p className="text-slate-500 text-sm mt-0.5">
-            Documentos técnicos emitidos por mesas de especialistas · organizados por disciplina
+            Documentos técnicos emitidos por mesas de especialistas
           </p>
         </div>
       </div>
 
       <EspecificacionesPanel
         specs={specs as any}
-        specialties={specialties}
+        mesas={mesas}
         companies={companies as any}
         oficios={oficios as any}
         workspaceId={wsId}

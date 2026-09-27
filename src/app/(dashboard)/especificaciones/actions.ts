@@ -12,20 +12,20 @@ async function getUser() {
 }
 
 export async function saveDesignSpec(data: {
-  workspace_id: string
-  specialty_id: string | null
-  title:        string
-  spec_code:    string | null
-  version:      string
-  issued_by:    string | null
-  company_id:   string | null
-  oficio_id:    string | null
-  issued_date:  string | null
-  notes:        string | null
-  storage_key:  string | null
-  file_name:    string | null
-  file_type:    string | null
-  file_size:    number | null
+  workspace_id:   string
+  specialty_code: string | null
+  title:          string
+  spec_code:      string | null
+  version:        string
+  issued_by:      string | null
+  company_id:     string | null
+  oficio_id:      string | null
+  issued_date:    string | null
+  notes:          string | null
+  storage_key:    string | null
+  file_name:      string | null
+  file_type:      string | null
+  file_size:      number | null
 }) {
   const { supabase, user } = await getUser()
   const { error } = await supabase.from('design_specs').insert({
