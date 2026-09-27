@@ -3,7 +3,7 @@ import {
   LayoutDashboard, CheckSquare, FileText, HardDrive,
   Bot, Calendar, ArrowRight, ChevronRight, Zap,
   Shield, Users, TrendingUp, QrCode, Upload,
-  Layers, Menu
+  Layers, Menu, MessageSquare, Sparkles, BookOpen
 } from 'lucide-react'
 import PricingSection from '@/components/PricingSection'
 
@@ -127,6 +127,9 @@ function Navbar() {
         <div className="hidden md:flex items-center gap-8">
           <a href="#modulos"  className="text-white/50 hover:text-white text-sm font-normal transition-colors">Módulos</a>
           <a href="#ia"       className="text-white/50 hover:text-white text-sm font-normal transition-colors">Agente AI</a>
+          <a href="#rag"      className="text-[#00C2FF]/70 hover:text-[#00C2FF] text-sm font-normal transition-colors flex items-center gap-1">
+            <Sparkles className="w-3 h-3" />RAG
+          </a>
           <a href="#drive"    className="text-white/50 hover:text-white text-sm font-normal transition-colors">Drive</a>
           <a href="#precios"  className="text-white/50 hover:text-white text-sm font-normal transition-colors">Precios</a>
         </div>
@@ -510,6 +513,131 @@ function AIFeature() {
   )
 }
 
+// ── RAG Feature ───────────────────────────────────────────────────────────────
+function RAGFeature() {
+  const messages = [
+    {
+      role: 'user',
+      text: '¿Cuántos pilotes de 60cm tiene el Tramo 4?',
+    },
+    {
+      role: 'ai',
+      text: 'Según el plano PE-024 Rev.B, el Tramo 4 tiene 36 pilotes de ∅60cm tipo PF-1, con longitud promedio de 12m. Resistencia especificada: f\'c = 300 kg/cm².',
+      sources: ['PE-024 Rev.B', 'ET-Pilotes-v2'],
+    },
+    {
+      role: 'user',
+      text: '¿Hay documentos con observaciones sin resolver?',
+    },
+    {
+      role: 'ai',
+      text: 'Encontré 3 documentos con observaciones activas:\n• DO-047 — Planos Arq. Rev.C (2 obs. pendientes)\n• ET-003 — Especificaciones hidráulicas (1 obs.)\n• OF-012 — Oficio supervisión 14/09 (requiere respuesta)',
+      sources: ['Base de datos documental'],
+    },
+  ]
+
+  return (
+    <section id="rag" className="bg-[#060e1c] py-24 px-6 relative overflow-hidden">
+      <div className="absolute inset-0 bg-gradient-to-bl from-[#00C2FF]/5 via-transparent to-transparent pointer-events-none" />
+      <div className="absolute top-1/2 right-0 -translate-y-1/2 w-[500px] h-[500px] bg-[#00C2FF]/5 rounded-full blur-[140px] pointer-events-none" />
+
+      <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-16 items-center relative">
+
+        {/* Text */}
+        <div>
+          <div className="inline-flex items-center gap-2 bg-[#00C2FF]/10 border border-[#00C2FF]/20 rounded-full px-4 py-1.5 mb-4">
+            <Sparkles className="w-3.5 h-3.5 text-[#00C2FF]" />
+            <span className="text-[#00C2FF] text-xs font-medium">Agente RAG — Próximamente</span>
+          </div>
+
+          <h2 className="text-3xl md:text-5xl text-white leading-tight mb-6">
+            <span className="font-light">Tu proyecto no</span><br />
+            <span className="font-light">cabe en </span>
+            <span className="font-bold text-white/30 line-through">ChatGPT.</span>
+            <br />
+            <span className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#00C2FF] to-[#0077FF]">
+              En Builtek, sí.
+            </span>
+          </h2>
+
+          <p className="text-white/40 text-lg leading-relaxed mb-6 font-light">
+            Un proyecto real tiene 200, 500, 1,000 documentos. ChatGPT solo puede leer
+            lo que le pegas en cada sesión — y lo olvida al cerrar. El Agente RAG de Builtek
+            conoce <em>toda tu obra</em>, siempre actualizado, y te dice de qué documento
+            viene cada respuesta.
+          </p>
+
+          <div className="space-y-3 mb-8">
+            {[
+              { icon: '✗', label: 'ChatGPT', desc: 'Olvida todo al cerrar sesión. No cita fuentes. Tus planos van a sus servidores.', muted: true },
+              { icon: '✓', label: 'Agente RAG de Builtek', desc: 'Conoce todos tus documentos. Cita el plano y la sección exacta. Tus datos en tu workspace.', muted: false },
+            ].map(item => (
+              <div key={item.label} className={`flex items-start gap-3 rounded-xl p-4 border ${item.muted ? 'border-white/5 bg-white/2 opacity-60' : 'border-[#00C2FF]/20 bg-[#00C2FF]/5'}`}>
+                <span className={`text-sm font-bold flex-shrink-0 mt-0.5 ${item.muted ? 'text-white/25' : 'text-[#00C2FF]'}`}>{item.icon}</span>
+                <div>
+                  <p className={`text-sm font-semibold mb-0.5 ${item.muted ? 'text-white/30' : 'text-white'}`}>{item.label}</p>
+                  <p className={`text-xs leading-relaxed font-light ${item.muted ? 'text-white/25' : 'text-white/50'}`}>{item.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <Link
+            href="/blog/agente-rag"
+            className="inline-flex items-center gap-2 text-[#00C2FF] text-sm font-medium hover:gap-3 transition-all"
+          >
+            <BookOpen className="w-4 h-4" />
+            Entender por qué RAG cambia todo en construcción
+            <ArrowRight className="w-4 h-4" />
+          </Link>
+        </div>
+
+        {/* Mock RAG Chat */}
+        <div className="bg-[#1A2744]/60 border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
+          <div className="flex items-center gap-2 px-4 py-3 border-b border-white/5 bg-white/3">
+            <Sparkles className="w-4 h-4 text-[#00C2FF]" />
+            <span className="text-white/50 text-xs font-medium">Agente RAG — Proyecto: Viaducto Norte</span>
+            <span className="ml-auto text-[9px] bg-[#00C2FF]/15 text-[#00C2FF] px-2 py-0.5 rounded-full font-semibold">847 docs indexados</span>
+          </div>
+
+          <div className="p-4 space-y-4 max-h-[420px] overflow-y-auto">
+            {messages.map((msg, i) => (
+              <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                {msg.role === 'ai' && (
+                  <div className="w-6 h-6 rounded-full bg-[#00C2FF]/20 flex items-center justify-center flex-shrink-0 mt-1 mr-2">
+                    <Sparkles className="w-3 h-3 text-[#00C2FF]" />
+                  </div>
+                )}
+                <div className={`max-w-[85%] ${msg.role === 'user' ? 'bg-[#00C2FF]/15 border border-[#00C2FF]/20' : 'bg-white/5 border border-white/8'} rounded-2xl px-4 py-3`}>
+                  <p className="text-xs text-white/70 leading-relaxed whitespace-pre-line font-light">{msg.text}</p>
+                  {(msg as any).sources && (
+                    <div className="flex flex-wrap gap-1.5 mt-2 pt-2 border-t border-white/8">
+                      <span className="text-[9px] text-white/25 font-light">Fuentes:</span>
+                      {(msg as any).sources.map((s: string) => (
+                        <span key={s} className="text-[9px] bg-[#00C2FF]/10 text-[#00C2FF]/70 px-1.5 py-0.5 rounded font-medium">{s}</span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="px-4 pb-4">
+            <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5">
+              <MessageSquare className="w-3.5 h-3.5 text-white/20 flex-shrink-0" />
+              <span className="text-xs text-white/20 font-light flex-1">Pregúntale a tu proyecto...</span>
+              <div className="w-6 h-6 rounded-lg bg-[#00C2FF]/20 flex items-center justify-center">
+                <ArrowRight className="w-3 h-3 text-[#00C2FF]/60" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
 // ── Drive Feature ─────────────────────────────────────────────────────────────
 function DriveFeature() {
   return (
@@ -665,6 +793,7 @@ function Footer() {
           <a href="#modulos"  className="hover:text-white/50 transition-colors">Módulos</a>
           <a href="#ia"       className="hover:text-white/50 transition-colors">Agente AI</a>
           <a href="#precios" className="hover:text-white/50 transition-colors">Precios</a>
+          <Link href="/blog/agente-rag" className="hover:text-white/50 transition-colors">Blog</Link>
           <Link href="/login" className="hover:text-white/50 transition-colors">Iniciar sesión</Link>
         </div>
 
@@ -683,6 +812,7 @@ export default function LandingPage() {
       <Problem />
       <Modules />
       <AIFeature />
+      <RAGFeature />
       <DriveFeature />
       <PricingSection />
       <CTA />
