@@ -72,6 +72,7 @@ export interface Project {
   parent_project_id: string | null
   chainage_start: number | null
   chainage_end: number | null
+  mic_identifier: string | null
   created_at: string
 }
 

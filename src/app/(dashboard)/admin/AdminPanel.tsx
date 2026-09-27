@@ -564,7 +564,14 @@ function ProjectCard({ project, onEdit }: { project: Project; onEdit: (p: Projec
             <FolderOpen className="w-4 h-4 text-[#1A2744]" />
           </div>
           <div className="min-w-0">
-            <h3 className="font-bold text-[#1A2744] text-sm leading-tight truncate">{project.name}</h3>
+            <div className="flex items-center gap-2">
+              <h3 className="font-bold text-[#1A2744] text-sm leading-tight truncate">{project.name}</h3>
+              {project.mic_identifier && (
+                <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-[#1A2744]/8 text-[#1A2744]/60 flex-shrink-0">
+                  {project.mic_identifier}
+                </span>
+              )}
+            </div>
             {project.description && (
               <p className="text-xs text-slate-400 mt-0.5 line-clamp-2">{project.description}</p>
             )}

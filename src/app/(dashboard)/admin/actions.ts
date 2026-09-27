@@ -28,20 +28,69 @@ async function getWorkspaceId() {
   return { supabase, userId: user.id, workspaceId: data?.workspace_id }
 }
 
+async function nextMicIdentifier(workspaceId: string, parentProjectId: string | null): Promise<string> {
+  const admin = getAdminClient()
+
+  if (!parentProjectId) {
+    // Proyectos raíz: buscar el MAX numérico de mic_identifier raíz
+    const { data } = await admin
+      .from('projects')
+      .select('mic_identifier')
+      .eq('workspace_id', workspaceId)
+      .is('parent_project_id', null)
+      .not('mic_identifier', 'is', null)
+
+    const max = (data || []).reduce((acc, p) => {
+      const n = parseInt(p.mic_identifier ?? '0', 10)
+      return isNaN(n) ? acc : Math.max(acc, n)
+    }, 0)
+    return String(max + 1).padStart(4, '0')
+  } else {
+    // Subproyecto: heredar número del padre + siguiente sub-índice
+    const { data: parent } = await admin
+      .from('projects')
+      .select('mic_identifier')
+      .eq('id', parentProjectId)
+      .single()
+
+    const parentNum = parent?.mic_identifier?.split('.')[0] ?? '0000'
+
+    const { data: siblings } = await admin
+      .from('projects')
+      .select('mic_identifier')
+      .eq('workspace_id', workspaceId)
+      .eq('parent_project_id', parentProjectId)
+      .not('mic_identifier', 'is', null)
+
+    const maxSub = (siblings || []).reduce((acc, p) => {
+      const parts = p.mic_identifier?.split('.')
+      const sub = parts?.[1] ? parseInt(parts[1], 10) : 0
+      return isNaN(sub) ? acc : Math.max(acc, sub)
+    }, 0)
+
+    return `${parentNum}.${String(maxSub + 1).padStart(2, '0')}`
+  }
+}
+
 export async function createProject(formData: FormData) {
   const { workspaceId } = await getWorkspaceId()
   if (!workspaceId) return { error: 'Sin workspace' }
   const admin = getAdminClient()
 
+  const parentProjectId = formData.get('parent_project_id') as string || null
+  const mic_identifier  = await nextMicIdentifier(workspaceId, parentProjectId)
+
   const { error } = await admin.from('projects').insert({
-    workspace_id: workspaceId,
-    name: formData.get('name') as string,
-    description: formData.get('description') as string || null,
-    status: 'active',
-    start_date: formData.get('start_date') as string || null,
-    end_date: formData.get('end_date') as string || null,
-    frente: formData.get('frente') as string || null,
-    project_type: formData.get('project_type') as string || null,
+    workspace_id:     workspaceId,
+    name:             formData.get('name') as string,
+    description:      formData.get('description') as string || null,
+    status:           'active',
+    start_date:       formData.get('start_date') as string || null,
+    end_date:         formData.get('end_date') as string || null,
+    frente:           formData.get('frente') as string || null,
+    project_type:     formData.get('project_type') as string || null,
+    parent_project_id: parentProjectId,
+    mic_identifier,
   })
 
   if (error) return { error: error.message }
@@ -416,58 +465,26 @@ export async function syncIdentificadoresFromProjects() {
   if (!workspaceId) return { error: 'Sin workspace' }
   const admin = getAdminClient()
 
-  // Proyectos raíz ordenados alfabéticamente → 0001, 0002, ...
-  const { data: rootProjects } = await admin
+  // Leer mic_identifier directamente desde el campo del proyecto — nunca recalcular
+  const { data: projects } = await admin
     .from('projects')
-    .select('id, name')
+    .select('id, name, mic_identifier')
     .eq('workspace_id', workspaceId)
     .eq('status', 'active')
-    .is('parent_project_id', null)
-    .order('name', { ascending: true })
+    .not('mic_identifier', 'is', null)
+    .order('mic_identifier', { ascending: true })
 
-  if (!rootProjects?.length) return { success: true, count: 0 }
+  if (!projects?.length) return { success: true, count: 0 }
 
-  // Subproyectos activos → 0017.01, 0018.01, ...
-  const { data: subProjects } = await admin
-    .from('projects')
-    .select('id, name, parent_project_id')
-    .eq('workspace_id', workspaceId)
-    .eq('status', 'active')
-    .not('parent_project_id', 'is', null)
-    .order('name', { ascending: true })
+  const rows = projects.map((p, i) => ({
+    workspace_id: workspaceId,
+    segment:      'IDENTIFICADOR',
+    code:         p.mic_identifier!,
+    name:         p.name,
+    sort_order:   i + 1,
+  }))
 
-  const parentIndexMap = new Map<string, number>()
-  rootProjects.forEach((p, i) => parentIndexMap.set(p.id, i + 1))
-  const subCountMap = new Map<string, number>()
-
-  const rows: { workspace_id: string; segment: string; code: string; name: string; sort_order: number }[] = []
-
-  rootProjects.forEach((p, i) => {
-    rows.push({
-      workspace_id: workspaceId,
-      segment:      'IDENTIFICADOR',
-      code:         String(i + 1).padStart(4, '0'),
-      name:         p.name,
-      sort_order:   i + 1,
-    })
-  })
-
-  let subSortOffset = rootProjects.length + 1
-  for (const sub of (subProjects || [])) {
-    const parentIdx = parentIndexMap.get(sub.parent_project_id!)
-    if (!parentIdx) continue
-    const subCount = (subCountMap.get(sub.parent_project_id!) || 0) + 1
-    subCountMap.set(sub.parent_project_id!, subCount)
-    rows.push({
-      workspace_id: workspaceId,
-      segment:      'IDENTIFICADOR',
-      code:         `${String(parentIdx).padStart(4, '0')}.${String(subCount).padStart(2, '0')}`,
-      name:         sub.name,
-      sort_order:   subSortOffset++,
-    })
-  }
-
-  // Borrar los IDENTIFICADOR existentes y reemplazar con los nuevos
+  // Borrar IDENTIFICADOR existentes y reemplazar con los del campo projects
   await admin
     .from('mic_nomenclatures')
     .delete()
