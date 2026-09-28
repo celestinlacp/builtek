@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { updateTaskStatus, deleteTask } from './actions'
 import { Task, Project } from '@/types'
 import {
@@ -240,7 +240,7 @@ function SpecialtyGroup({
 type ExtendedTask = Task & { project?: { name: string } }
 
 export default function TaskBoard({
-  tasks, projects, members, availableDocs, currentUserId, currentUserRole, workspaceId
+  tasks, projects, members, availableDocs, currentUserId, currentUserRole, workspaceId, defaultTaskId
 }: {
   tasks: ExtendedTask[]
   projects: Project[]
@@ -249,12 +249,21 @@ export default function TaskBoard({
   currentUserId: string
   currentUserRole: string
   workspaceId: string
+  defaultTaskId?: string
 }) {
   const [view, setView] = useState<'board' | 'list'>('board')
   const [filter, setFilter] = useState<string>('all')
   const [showNew, setShowNew] = useState(false)
   const [editTask, setEditTask] = useState<Task | null>(null)
   const [slideTask, setSlideTask] = useState<ExtendedTask | null>(null)
+
+  // Abrir slide-over automáticamente si viene ?task=<id> desde el dashboard
+  useEffect(() => {
+    if (defaultTaskId) {
+      const found = tasks.find(t => t.id === defaultTaskId)
+      if (found) setSlideTask(found)
+    }
+  }, [defaultTaskId, tasks])
 
   const filtered = filter === 'all' ? tasks
     : tasks.filter(t => t.status === filter)

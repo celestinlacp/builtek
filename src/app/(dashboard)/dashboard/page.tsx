@@ -365,7 +365,7 @@ export default async function DashboardPage() {
           </div>
           <div className="space-y-2">
             {myTasks.map((task: any) => (
-              <Link key={task.id} href="/tasks" className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors">
+              <Link key={task.id} href={`/tasks?task=${task.id}`} className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors">
                 <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${PRIORITY_COLOR[task.priority]}`} />
                 <p className="text-sm text-slate-700 flex-1 truncate font-medium">{task.name}</p>
                 {task.due_date && (

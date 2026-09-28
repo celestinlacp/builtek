@@ -4,7 +4,8 @@ import TaskBoard from './TaskBoard'
 import { CheckSquare, Plus } from 'lucide-react'
 import Link from 'next/link'
 
-export default async function TasksPage() {
+export default async function TasksPage({ searchParams }: { searchParams: Promise<{ task?: string }> }) {
+  const { task: defaultTaskId } = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
@@ -106,7 +107,7 @@ export default async function TasksPage() {
           </Link>
         </div>
       ) : (
-        <TaskBoard tasks={tasks} projects={projects} members={members} availableDocs={availableDocs} currentUserId={user.id} currentUserRole={membership.role} workspaceId={wsId} />
+        <TaskBoard tasks={tasks} projects={projects} members={members} availableDocs={availableDocs} currentUserId={user.id} currentUserRole={membership.role} workspaceId={wsId} defaultTaskId={defaultTaskId} />
       )}
     </div>
   )
