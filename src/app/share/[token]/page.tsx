@@ -107,13 +107,12 @@ export default async function SharePage(
   const subprojects: ShareSubproject[] = subprojectsRaw ?? []
   const allProjectIds = [share.project_id, ...subprojects.map(s => s.id)]
 
-  // 4. Documentos vigentes (incluye nulls en is_current y doc_status)
+  // 4. Documentos vigentes — solo filtrar por is_current; doc_status varía por proyecto
   const { data: rawDocs } = await admin
     .from('documents')
     .select('id, name, file_name, display_name, doc_key, file_type, specialty_code, status, version_number, project_id, uploaded_by, created_at')
     .in('project_id', allProjectIds)
     .or('is_current.is.null,is_current.eq.true')
-    .or('doc_status.is.null,doc_status.eq.active,doc_status.eq.draft,doc_status.eq.review,doc_status.eq.approved,doc_status.eq.rejected,doc_status.eq.pending_delete')
     .order('specialty_code', { nullsFirst: false })
     .order('doc_key')
     .order('version_number', { ascending: false })
