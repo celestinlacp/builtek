@@ -451,12 +451,14 @@ export default function TaskSlideOver({
   async function handleOpenOficioSelector() {
     setLoadingOficios(true)
     setShowOficioSelector(true)
-    const { data } = await supabase
+    let q = supabase
       .from('oficios')
       .select('id, no_oficio, asunto, tipo, estado, fecha_documento')
-      .is('task_id', null)
+      .or('task_id.is.null,task_id.eq.' + task.id)
       .order('created_at', { ascending: false })
-      .limit(50)
+      .limit(100)
+    if (workspaceId) q = (q as any).eq('workspace_id', workspaceId)
+    const { data } = await q
     setAvailableOficios((data ?? []) as LinkedOficio[])
     setLoadingOficios(false)
   }
