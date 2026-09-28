@@ -108,12 +108,12 @@ export default async function SharePage(
   const allProjectIds = [share.project_id, ...subprojects.map(s => s.id)]
 
   // 4. Documentos vigentes — solo filtrar por is_current; doc_status varía por proyecto
+  // specialty_code no es columna directa en documents — se obtiene via join con specialties
   const { data: rawDocs } = await admin
     .from('documents')
-    .select('id, name, file_name, display_name, doc_key, file_type, specialty_code, status, version_number, project_id, uploaded_by, created_at')
+    .select('id, name, file_name, display_name, doc_key, file_type, status, version_number, project_id, uploaded_by, created_at, specialty:specialties(code)')
     .in('project_id', allProjectIds)
     .or('is_current.is.null,is_current.eq.true')
-    .order('specialty_code', { nullsFirst: false })
     .order('doc_key')
     .order('version_number', { ascending: false })
 
@@ -129,6 +129,7 @@ export default async function SharePage(
 
   const documents: ShareDoc[] = (rawDocs ?? []).map((d: any) => ({
     ...d,
+    specialty_code: (d.specialty as any)?.code ?? null,
     uploaderName: uploaderNameById[d.uploaded_by] ?? null,
   }))
 
