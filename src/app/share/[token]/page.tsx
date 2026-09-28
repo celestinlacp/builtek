@@ -157,11 +157,19 @@ export default async function SharePage(
 
   if (!project) return notFound()
 
-  // 3. Documentos vigentes del proyecto
+  // 3. Subproyectos del proyecto raíz
+  const { data: subprojects } = await admin
+    .from('projects')
+    .select('id, name')
+    .eq('parent_project_id', share.project_id)
+
+  const allProjectIds = [share.project_id, ...(subprojects ?? []).map(s => s.id)]
+
+  // 4. Documentos vigentes del proyecto + subproyectos
   const { data: rawDocs } = await admin
     .from('documents')
     .select('id, name, file_name, display_name, doc_key, file_type, specialty_code, status, version_number')
-    .eq('project_id', share.project_id)
+    .in('project_id', allProjectIds)
     .eq('is_current', true)
     .neq('doc_status', 'deleted')
     .order('specialty_code', { nullsFirst: false })
@@ -169,11 +177,11 @@ export default async function SharePage(
 
   const documents: DocRow[] = rawDocs ?? []
 
-  // 4. Entregables vía tareas del proyecto
+  // 5. Entregables vía tareas del proyecto + subproyectos
   const { data: tasks } = await admin
     .from('tasks')
     .select('id, name')
-    .eq('project_id', share.project_id)
+    .in('project_id', allProjectIds)
 
   const taskList: TaskRow[] = tasks ?? []
   const taskNameById: Record<string, string> = Object.fromEntries(taskList.map(t => [t.id, t.name]))
@@ -191,7 +199,7 @@ export default async function SharePage(
 
   const entregables: EntregableRow[] = rawEntregables
 
-  // 5. Agrupar documentos por especialidad
+  // 6. Agrupar documentos por especialidad
   const docsBySpecialty: Record<string, DocRow[]> = {}
   for (const doc of documents) {
     const key = doc.specialty_code || 'General'
