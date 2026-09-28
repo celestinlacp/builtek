@@ -22,7 +22,7 @@ async function getWorkspaceData(userId: string) {
     supabase.from('projects').select('id, name, status, frente, cover_image_url').eq('workspace_id', wsId).eq('status', 'active').is('parent_project_id', null).order('name'),
     supabase.from('projects').select('id, parent_project_id').eq('workspace_id', wsId),
     supabase.from('tasks').select('id, name, status, priority, due_date, project_id, assignee_id').order('created_at', { ascending: false }),
-    supabase.from('documents').select('id, name, status, created_at, project_id, uploader:users(full_name)').eq('workspace_id', wsId).neq('doc_status', 'deleted').order('created_at', { ascending: false }).limit(5),
+    supabase.from('documents').select('id, name, status, created_at, project_id, uploaded_by').eq('workspace_id', wsId).neq('doc_status', 'deleted').order('created_at', { ascending: false }).limit(5),
     supabase.from('documents').select('id, project_id, created_at').eq('workspace_id', wsId).eq('file_type', 'img').order('created_at', { ascending: false }),
     supabase.from('documents').select('project_id, created_at').eq('workspace_id', wsId).neq('doc_status', 'deleted').neq('is_current', false),
   ])
@@ -67,11 +67,21 @@ async function getWorkspaceData(userId: string) {
     return bDate.localeCompare(aDate)
   })
 
+  // Fetch uploader names for recent docs
+  const uploaderIds = [...new Set((documents.data ?? []).map((d: any) => d.uploaded_by).filter(Boolean))]
+  const uploaderNameById: Record<string, string> = {}
+  if (uploaderIds.length > 0) {
+    const { data: uploaders } = await supabase.from('users').select('id, full_name').in('id', uploaderIds)
+    for (const u of (uploaders ?? [])) {
+      if (u.id && u.full_name) uploaderNameById[u.id] = u.full_name
+    }
+  }
+
   return {
     workspace: membership.workspaces as unknown as { id: string; name: string },
     projects: sortedProjects,
     tasks: tasks.data || [],
-    documents: documents.data || [],
+    documents: (documents.data ?? []).map((d: any) => ({ ...d, uploaderName: uploaderNameById[d.uploaded_by] ?? null })),
     latestImageByProject,
     docCountByProject,
   }
@@ -427,7 +437,7 @@ export default async function DashboardPage() {
             ) : (
               <div className="space-y-2">
                 {documents.slice(0, 3).map((doc: any) => {
-                  const uploaderName: string | null = doc.uploader?.full_name ?? null
+                  const uploaderName: string | null = doc.uploaderName ?? null
                   const initials = uploaderName
                     ? uploaderName.split(' ').slice(0, 2).map((w: string) => w[0]).join('').toUpperCase()
                     : null
