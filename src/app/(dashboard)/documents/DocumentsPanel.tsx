@@ -6,10 +6,11 @@ import { Project, Company } from '@/types'
 import { saveDocument, updateDocumentStatus, requestDeleteDocument, approveDeleteRequest, rejectDeleteRequest, deleteDocument, submitForReview, approveDocument, rejectDocument, replaceDocument, updateProjectCover, createSubproject, updateProjectClassification } from './actions'
 import {
   Upload, Download, Trash2, ChevronDown, ChevronRight, ArrowLeft, Package,
-  FolderOpen, CheckCircle2, Clock, XCircle, Eye, AlertTriangle, ShieldCheck, ShieldX, X, Loader2, History, GitBranch, SlidersHorizontal, Info, RefreshCw, Camera, Plus, Layers, Pencil, Milestone, LayoutList, AlignJustify,
+  FolderOpen, CheckCircle2, Clock, XCircle, Eye, AlertTriangle, ShieldCheck, ShieldX, X, Loader2, History, GitBranch, SlidersHorizontal, Info, RefreshCw, Camera, Plus, Layers, Pencil, Milestone, LayoutList, AlignJustify, Share2,
 } from 'lucide-react'
 import { parseDocKey, parseMicSegments, TIPO_PLANO_DEFAULT, TIPO_DOC_DEFAULT, detectFileFormat } from './utils'
 import DocumentSlideOver from './DocumentSlideOver'
+import { ShareProjectModal } from '../admin/ShareProjectModal'
 
 type Specialty = { id: string; name: string; code: string; category: string }
 
@@ -324,6 +325,7 @@ function UploadModal({
       project_id:    projectId,
       workspace_id:  workspaceId,
       specialty_id:  null,
+      specialty_code: specialtyCode || null,
       file_name:     file.name,
       display_name:  displayName.trim() || null,
       emission_date: emissionDate || null,
@@ -1101,7 +1103,7 @@ function QuickEditProjectModal({ project, onClose }: {
   )
 }
 
-function ProjectCard({ project, docCount, disciplines, lastUpload, workspaceId, isAdmin, subprojectCount, onSelect, onEdit }: {
+function ProjectCard({ project, docCount, disciplines, lastUpload, workspaceId, isAdmin, subprojectCount, onSelect, onEdit, onShare }: {
   project: Project
   docCount: number
   disciplines: number
@@ -1111,6 +1113,7 @@ function ProjectCard({ project, docCount, disciplines, lastUpload, workspaceId, 
   subprojectCount: number
   onSelect: (id: string) => void
   onEdit: (project: Project) => void
+  onShare: (project: Project) => void
 }) {
   const [coverKey, setCoverKey] = useState<string | null>(project.cover_image_url)
   const hasChainage = project.chainage_start != null || project.chainage_end != null
@@ -1188,6 +1191,16 @@ function ProjectCard({ project, docCount, disciplines, lastUpload, workspaceId, 
             {new Date(lastUpload).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}
           </p>
         )}
+
+        {isAdmin && (
+          <button
+            onClick={e => { e.stopPropagation(); onShare(project) }}
+            title="Compartir archivos del proyecto"
+            className="mt-3 w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-slate-100 hover:border-[#00C2FF]/40 hover:bg-[#00C2FF]/5 text-xs font-semibold text-slate-400 hover:text-[#00C2FF] transition-all opacity-0 group-hover:opacity-100">
+            <Share2 className="w-3.5 h-3.5" />
+            Compartir archivos
+          </button>
+        )}
       </div>
     </div>
   )
@@ -1252,6 +1265,7 @@ function ProjectsView({
   const [filterFrente, setFilterFrente] = useState('all')
   const [filterType,   setFilterType]   = useState('all')
   const [editingProject, setEditingProject] = useState<Project | null>(null)
+  const [shareProject, setShareProject]   = useState<Project | null>(null)
   const isAdmin = ['owner', 'admin', 'manager'].includes(userRole)
 
   // Solo proyectos raíz (sin padre)
@@ -1343,6 +1357,7 @@ function ProjectsView({
               subprojectCount={subprojectCount}
               onSelect={onSelect}
               onEdit={setEditingProject}
+              onShare={setShareProject}
             />
           )
         })}
@@ -1352,6 +1367,13 @@ function ProjectsView({
         <QuickEditProjectModal
           project={editingProject}
           onClose={() => setEditingProject(null)}
+        />
+      )}
+      {shareProject && (
+        <ShareProjectModal
+          projectId={shareProject.id}
+          projectName={shareProject.name}
+          onClose={() => setShareProject(null)}
         />
       )}
     </div>
