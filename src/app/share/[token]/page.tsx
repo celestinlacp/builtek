@@ -1,67 +1,11 @@
 import { createClient as createAdmin } from '@supabase/supabase-js'
 import { notFound } from 'next/navigation'
-import { FileText, Layers, Image, FileSpreadsheet, File, Download, Eye, FolderOpen, Calendar, MapPin } from 'lucide-react'
+import { FolderOpen, Calendar, MapPin } from 'lucide-react'
 import type { Metadata } from 'next'
+import ShareContent from './ShareContent'
+import type { ShareDoc, ShareEntregable, ShareSubproject } from './ShareContent'
 
 export const dynamic = 'force-dynamic'
-
-// ── Tipos ──────────────────────────────────────────────────────────────────────
-
-type DocRow = {
-  id: string
-  name: string | null
-  file_name: string | null
-  display_name: string | null
-  doc_key: string | null
-  file_type: string | null
-  specialty_code: string | null
-  status: string | null
-  version_number: number | null
-}
-
-type EntregableRow = {
-  id: string
-  file_name: string | null
-  file_type: string | null
-  status: string | null
-  created_at: string
-  task_id: string
-}
-
-type TaskRow = { id: string; name: string }
-
-// ── Helpers ────────────────────────────────────────────────────────────────────
-
-function docDisplayName(doc: DocRow) {
-  return doc.doc_key || doc.display_name || doc.name || doc.file_name || 'Sin nombre'
-}
-
-function fileTypeIcon(ft: string | null) {
-  switch (ft) {
-    case 'pdf':  return { Icon: FileText,       bg: 'bg-red-50',    color: 'text-red-500'    }
-    case 'dwg':
-    case 'dxf':  return { Icon: Layers,          bg: 'bg-blue-50',   color: 'text-blue-500'   }
-    case 'img':
-    case 'png':
-    case 'jpg':  return { Icon: Image,           bg: 'bg-purple-50', color: 'text-purple-500' }
-    case 'xlsx':
-    case 'csv':  return { Icon: FileSpreadsheet, bg: 'bg-green-50',  color: 'text-green-500'  }
-    default:     return { Icon: File,            bg: 'bg-slate-50',  color: 'text-slate-400'  }
-  }
-}
-
-const DOC_STATUS: Record<string, { label: string; cls: string }> = {
-  draft:    { label: 'Borrador',    cls: 'bg-slate-100 text-slate-600' },
-  review:   { label: 'En revisión', cls: 'bg-amber-100 text-amber-700' },
-  approved: { label: 'Aprobado',    cls: 'bg-green-100 text-green-700' },
-  rejected: { label: 'Rechazado',   cls: 'bg-red-100 text-red-600'    },
-}
-
-const ENT_STATUS: Record<string, { label: string; cls: string }> = {
-  pending:  { label: 'Pendiente',   cls: 'bg-amber-100 text-amber-700' },
-  approved: { label: 'Aprobado',    cls: 'bg-green-100 text-green-700' },
-  rejected: { label: 'Rechazado',   cls: 'bg-red-100 text-red-600'    },
-}
 
 function formatDate(d: string) {
   return new Date(d).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })
@@ -78,7 +22,6 @@ export async function generateMetadata(
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
-  // Check project_shares first, fall back to drive_shares for legacy links
   const { data: share } = await admin
     .from('project_shares')
     .select('project_id')
@@ -111,7 +54,7 @@ export default async function SharePage(
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
-  // 1. Validar token en project_shares
+  // 1. Validar token
   const { data: share } = await admin
     .from('project_shares')
     .select('project_id, expires_at')
@@ -139,16 +82,14 @@ export default async function SharePage(
               })}
             </strong>.
           </p>
-          <p className="text-xs text-slate-400 mt-3">
-            Solicita un nuevo link al responsable del proyecto.
-          </p>
+          <p className="text-xs text-slate-400 mt-3">Solicita un nuevo link al responsable del proyecto.</p>
           <p className="text-[11px] text-slate-300 mt-6 font-medium">Builtek · Gestión de proyectos AEC</p>
         </div>
       </main>
     )
   }
 
-  // 2. Datos del proyecto
+  // 2. Proyecto raíz
   const { data: project } = await admin
     .from('projects')
     .select('id, name, description, frente, project_type, start_date, end_date, mic_identifier, cover_image_url')
@@ -157,37 +98,49 @@ export default async function SharePage(
 
   if (!project) return notFound()
 
-  // 3. Subproyectos del proyecto raíz
-  const { data: subprojects } = await admin
+  // 3. Subproyectos
+  const { data: subprojectsRaw } = await admin
     .from('projects')
     .select('id, name')
     .eq('parent_project_id', share.project_id)
 
-  const allProjectIds = [share.project_id, ...(subprojects ?? []).map(s => s.id)]
+  const subprojects: ShareSubproject[] = subprojectsRaw ?? []
+  const allProjectIds = [share.project_id, ...subprojects.map(s => s.id)]
 
-  // 4. Documentos vigentes del proyecto + subproyectos
-  // Usamos neq(false) en lugar de eq(true) para incluir docs con is_current=null
+  // 4. Documentos vigentes (incluye nulls en is_current y doc_status)
   const { data: rawDocs } = await admin
     .from('documents')
-    .select('id, name, file_name, display_name, doc_key, file_type, specialty_code, status, version_number')
+    .select('id, name, file_name, display_name, doc_key, file_type, specialty_code, status, version_number, project_id, uploaded_by, created_at')
     .in('project_id', allProjectIds)
     .or('is_current.is.null,is_current.eq.true')
-    .or('doc_status.is.null,doc_status.not.in.(deleted,archived)')
+    .or('doc_status.is.null,doc_status.eq.active,doc_status.eq.draft,doc_status.eq.review,doc_status.eq.approved,doc_status.eq.rejected,doc_status.eq.pending_delete')
     .order('specialty_code', { nullsFirst: false })
     .order('doc_key')
     .order('version_number', { ascending: false })
 
-  const documents: DocRow[] = rawDocs ?? []
+  // 5. Fetch nombres de uploaders
+  const uploaderIds = [...new Set((rawDocs ?? []).map((d: any) => d.uploaded_by).filter(Boolean))]
+  const uploaderNameById: Record<string, string> = {}
+  if (uploaderIds.length > 0) {
+    const { data: uploaders } = await admin.from('users').select('id, full_name').in('id', uploaderIds)
+    for (const u of (uploaders ?? [])) {
+      if (u.id && u.full_name) uploaderNameById[u.id] = u.full_name
+    }
+  }
 
-  // 5. Entregables vía tareas del proyecto + subproyectos
-  const { data: tasks } = await admin
+  const documents: ShareDoc[] = (rawDocs ?? []).map((d: any) => ({
+    ...d,
+    uploaderName: uploaderNameById[d.uploaded_by] ?? null,
+  }))
+
+  // 6. Entregables vía tareas
+  const { data: taskRows } = await admin
     .from('tasks')
     .select('id, name')
     .in('project_id', allProjectIds)
 
-  const taskList: TaskRow[] = tasks ?? []
-  const taskNameById: Record<string, string> = Object.fromEntries(taskList.map(t => [t.id, t.name]))
-  const taskIds = taskList.map(t => t.id)
+  const taskNameById: Record<string, string> = Object.fromEntries((taskRows ?? []).map((t: any) => [t.id, t.name]))
+  const taskIds = (taskRows ?? []).map((t: any) => t.id)
 
   const rawEntregables = taskIds.length > 0
     ? (await admin
@@ -199,15 +152,9 @@ export default async function SharePage(
       ).data ?? []
     : []
 
-  const entregables: EntregableRow[] = rawEntregables
+  const entregables: ShareEntregable[] = rawEntregables
 
-  // 6. Agrupar documentos por especialidad
-  const docsBySpecialty: Record<string, DocRow[]> = {}
-  for (const doc of documents) {
-    const key = doc.specialty_code || 'General'
-    if (!docsBySpecialty[key]) docsBySpecialty[key] = []
-    docsBySpecialty[key].push(doc)
-  }
+  // ── UI ─────────────────────────────────────────────────────────────────────
 
   const hasCover = !!project.cover_image_url
   const expiresFormatted = new Date(share.expires_at).toLocaleString('es-MX', {
@@ -237,15 +184,12 @@ export default async function SharePage(
         </div>
       </header>
 
-      {/* Hero del proyecto */}
+      {/* Hero */}
       <div className="relative overflow-hidden" style={{ minHeight: 200 }}>
         {hasCover ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={`/api/share/${token}/cover`}
-            alt={project.name}
-            className="absolute inset-0 w-full h-full object-cover"
-          />
+          <img src={`/api/share/${token}/cover`} alt={project.name}
+            className="absolute inset-0 w-full h-full object-cover" />
         ) : (
           <div className="absolute inset-0 bg-gradient-to-br from-[#1A2744] via-[#243660] to-[#00C2FF]/40" />
         )}
@@ -289,9 +233,9 @@ export default async function SharePage(
         </div>
       </div>
 
-      {/* Barra de stats */}
+      {/* Stats bar */}
       <div className="bg-white border-b border-slate-100 shadow-sm">
-        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center gap-6 text-xs text-slate-500">
+        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center gap-6 text-xs text-slate-500 flex-wrap">
           <span>
             <strong className="text-[#1A2744] font-bold text-sm">{documents.length}</strong>{' '}
             documento{documents.length !== 1 ? 's' : ''}
@@ -301,6 +245,15 @@ export default async function SharePage(
             <strong className="text-[#1A2744] font-bold text-sm">{entregables.length}</strong>{' '}
             entregable{entregables.length !== 1 ? 's' : ''}
           </span>
+          {subprojects.length > 0 && (
+            <>
+              <span className="text-slate-200">|</span>
+              <span>
+                <strong className="text-[#1A2744] font-bold text-sm">{subprojects.length}</strong>{' '}
+                subproyecto{subprojects.length !== 1 ? 's' : ''}
+              </span>
+            </>
+          )}
           <span className="text-slate-200">|</span>
           <span className="flex items-center gap-1">
             <MapPin className="w-3 h-3" />
@@ -309,160 +262,15 @@ export default async function SharePage(
         </div>
       </div>
 
-      {/* Contenido */}
-      <main className="max-w-6xl mx-auto px-4 py-8 space-y-10">
-
-        {/* ── Documentos ── */}
-        {documents.length > 0 && (
-          <section>
-            <h2 className="text-base font-bold text-[#1A2744] mb-5 flex items-center gap-2">
-              <FileText className="w-4 h-4 text-[#00C2FF]" />
-              Planos y Documentos
-              <span className="text-xs font-normal text-slate-400 ml-1">(versión vigente)</span>
-            </h2>
-
-            <div className="space-y-7">
-              {Object.entries(docsBySpecialty).map(([specialty, docs]) => (
-                <div key={specialty}>
-                  <div className="flex items-center gap-3 mb-3">
-                    <span className="inline-block h-px flex-1 bg-slate-100 max-w-[40px]" />
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                      {specialty}
-                    </p>
-                    <span className="text-[10px] text-slate-300">({docs.length})</span>
-                    <span className="inline-block h-px flex-1 bg-slate-100" />
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {docs.map(doc => {
-                      const { Icon, bg, color } = fileTypeIcon(doc.file_type)
-                      const dStatus  = DOC_STATUS[doc.status ?? '']
-                      const viewUrl  = `/api/share/${token}/file?type=document&id=${doc.id}`
-                      const dlUrl    = `/api/share/${token}/file?type=document&id=${doc.id}&dl=1`
-                      const dispName = docDisplayName(doc)
-                      return (
-                        <div key={doc.id}
-                          className="bg-white rounded-xl border border-slate-100 p-4 flex flex-col gap-3 hover:shadow-sm hover:border-slate-200 transition-all group">
-                          <div className="flex items-start gap-3">
-                            <div className={`w-9 h-9 ${bg} rounded-lg flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform`}>
-                              <Icon className={`w-4 h-4 ${color}`} />
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <p className="text-sm font-semibold text-[#1A2744] leading-snug line-clamp-2">
-                                {dispName}
-                              </p>
-                              <div className="flex items-center gap-2 mt-1 flex-wrap">
-                                {doc.doc_key && doc.doc_key !== dispName && (
-                                  <span className="text-[10px] font-mono text-slate-400 truncate max-w-[150px]">
-                                    {doc.doc_key}
-                                  </span>
-                                )}
-                                {doc.version_number != null && doc.version_number > 0 && (
-                                  <span className="text-[10px] text-slate-400">v{doc.version_number}</span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-50">
-                            {dStatus ? (
-                              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${dStatus.cls}`}>
-                                {dStatus.label}
-                              </span>
-                            ) : <span />}
-                            <div className="flex items-center gap-1.5">
-                              <a href={viewUrl} target="_blank" rel="noopener noreferrer"
-                                className="flex items-center gap-1 text-[11px] font-semibold text-slate-500 hover:text-[#1A2744] px-2.5 py-1.5 rounded-lg hover:bg-slate-50 transition-colors border border-slate-200">
-                                <Eye className="w-3 h-3" />
-                                Ver
-                              </a>
-                              <a href={dlUrl}
-                                className="flex items-center gap-1 text-[11px] font-semibold text-white bg-[#1A2744] hover:bg-[#243660] px-2.5 py-1.5 rounded-lg transition-colors">
-                                <Download className="w-3 h-3" />
-                                Descargar
-                              </a>
-                            </div>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* ── Entregables ── */}
-        {entregables.length > 0 && (
-          <section>
-            <h2 className="text-base font-bold text-[#1A2744] mb-5 flex items-center gap-2">
-              <Layers className="w-4 h-4 text-[#00C2FF]" />
-              Entregables
-            </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {entregables.map(ent => {
-                const { Icon, bg, color } = fileTypeIcon(ent.file_type)
-                const eStatus  = ENT_STATUS[ent.status ?? '']
-                const taskName = taskNameById[ent.task_id]
-                const dlUrl    = `/api/share/${token}/file?type=entregable&id=${ent.id}&dl=1`
-                const viewUrl  = `/api/share/${token}/file?type=entregable&id=${ent.id}`
-                return (
-                  <div key={ent.id}
-                    className="bg-white rounded-xl border border-slate-100 p-4 flex flex-col gap-3 hover:shadow-sm hover:border-slate-200 transition-all group">
-                    <div className="flex items-start gap-3">
-                      <div className={`w-9 h-9 ${bg} rounded-lg flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform`}>
-                        <Icon className={`w-4 h-4 ${color}`} />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-semibold text-[#1A2744] leading-snug line-clamp-2">
-                          {ent.file_name || 'Entregable'}
-                        </p>
-                        {taskName && (
-                          <p className="text-[10px] text-slate-400 mt-0.5 truncate">Tarea: {taskName}</p>
-                        )}
-                        <p className="text-[10px] text-slate-300 mt-0.5">{formatDate(ent.created_at)}</p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-50">
-                      {eStatus ? (
-                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${eStatus.cls}`}>
-                          {eStatus.label}
-                        </span>
-                      ) : <span />}
-                      <div className="flex items-center gap-1.5">
-                        <a href={viewUrl} target="_blank" rel="noopener noreferrer"
-                          className="flex items-center gap-1 text-[11px] font-semibold text-slate-500 hover:text-[#1A2744] px-2.5 py-1.5 rounded-lg hover:bg-slate-50 transition-colors border border-slate-200">
-                          <Eye className="w-3 h-3" />
-                          Ver
-                        </a>
-                        <a href={dlUrl}
-                          className="flex items-center gap-1 text-[11px] font-semibold text-white bg-[#1A2744] hover:bg-[#243660] px-2.5 py-1.5 rounded-lg transition-colors">
-                          <Download className="w-3 h-3" />
-                          Descargar
-                        </a>
-                      </div>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </section>
-        )}
-
-        {/* Estado vacío */}
-        {documents.length === 0 && entregables.length === 0 && (
-          <div className="text-center py-20">
-            <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <FolderOpen className="w-8 h-8 text-slate-300" />
-            </div>
-            <p className="text-slate-400 font-medium">Sin archivos disponibles</p>
-            <p className="text-xs text-slate-300 mt-1">Este proyecto aún no tiene documentos cargados.</p>
-          </div>
-        )}
-
-      </main>
+      {/* Contenido interactivo */}
+      <ShareContent
+        rootProjectId={share.project_id}
+        subprojects={subprojects}
+        documents={documents}
+        entregables={entregables}
+        taskNameById={taskNameById}
+        token={token}
+      />
 
       {/* Footer */}
       <footer className="border-t border-slate-100 bg-white mt-10">
