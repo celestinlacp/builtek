@@ -3,13 +3,14 @@ import { redirect } from 'next/navigation'
 import { CheckSquare, FolderOpen, FileText, Bot, TrendingUp, Clock, AlertCircle, CheckCircle2, User, Zap, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
 import Greeting from './Greeting'
+import TeamView, { type TeamMemberStats } from './TeamView'
 
 async function getWorkspaceData(userId: string) {
   const supabase = await createClient()
 
   const { data: membership } = await supabase
     .from('workspace_members')
-    .select('workspace_id, workspaces(id, name)')
+    .select('workspace_id, role, workspaces(id, name)')
     .eq('user_id', userId)
     .limit(1)
     .single()
@@ -17,14 +18,16 @@ async function getWorkspaceData(userId: string) {
   if (!membership) return null
 
   const wsId = membership.workspace_id
+  const userRole = membership.role as string
 
-  const [projects, allProjectMappings, tasks, documents, imageDocs, allDocs] = await Promise.all([
+  const [projects, allProjectMappings, tasks, documents, imageDocs, allDocs, members] = await Promise.all([
     supabase.from('projects').select('id, name, status, frente, cover_image_url').eq('workspace_id', wsId).eq('status', 'active').is('parent_project_id', null).order('name'),
     supabase.from('projects').select('id, parent_project_id').eq('workspace_id', wsId),
     supabase.from('tasks').select('id, name, status, priority, due_date, project_id, assignee_id').order('created_at', { ascending: false }),
     supabase.from('documents').select('id, name, status, created_at, project_id, uploaded_by').eq('workspace_id', wsId).neq('doc_status', 'deleted').order('created_at', { ascending: false }).limit(5),
     supabase.from('documents').select('id, project_id, created_at').eq('workspace_id', wsId).eq('file_type', 'img').order('created_at', { ascending: false }),
     supabase.from('documents').select('project_id, created_at').eq('workspace_id', wsId).neq('doc_status', 'deleted').neq('is_current', false),
+    supabase.from('workspace_members').select('user_id, profiles(full_name, initials)').eq('workspace_id', wsId),
   ])
 
   // Última foto por proyecto (fallback si no tiene cover_image_url)
@@ -77,6 +80,44 @@ async function getWorkspaceData(userId: string) {
     }
   }
 
+  // Calcular stats por miembro del equipo (todos los roles)
+  const allTasks = tasks.data ?? []
+  const nowStats = new Date()
+  const teamStats: TeamMemberStats[] = (members.data ?? []).map((m: any) => {
+    const profile = m.profiles
+    const uid = m.user_id
+    const userTasks = allTasks.filter((t: any) => t.assignee_id === uid)
+    const done       = userTasks.filter((t: any) => t.status === 'done').length
+    const inProgress = userTasks.filter((t: any) => t.status === 'in_progress').length
+    const pending    = userTasks.filter((t: any) => t.status === 'pending').length
+    const overdue    = userTasks.filter((t: any) =>
+      t.status !== 'done' && t.due_date && new Date(t.due_date) < nowStats
+    ).length
+    const review = userTasks.filter((t: any) => t.status === 'review').length
+    const score  = userTasks.length > 0
+      ? Math.round(((done + review * 0.5) / userTasks.length) * 100)
+      : null
+    return {
+      user_id:     uid,
+      full_name:   profile?.full_name ?? null,
+      initials:    profile?.initials ?? null,
+      total:       userTasks.length,
+      done,
+      in_progress: inProgress,
+      pending,
+      overdue,
+      score,
+      tasks: userTasks.map((t: any) => ({
+        id:         t.id,
+        name:       t.name,
+        status:     t.status,
+        priority:   t.priority,
+        due_date:   t.due_date,
+        project_id: t.project_id,
+      })),
+    }
+  }).sort((a: TeamMemberStats, b: TeamMemberStats) => (b.overdue - a.overdue) || (a.score ?? 0) - (b.score ?? 0))
+
   return {
     workspace: membership.workspaces as unknown as { id: string; name: string },
     projects: sortedProjects,
@@ -84,6 +125,8 @@ async function getWorkspaceData(userId: string) {
     documents: (documents.data ?? []).map((d: any) => ({ ...d, uploaderName: uploaderNameById[d.uploaded_by] ?? null })),
     latestImageByProject,
     docCountByProject,
+    teamStats,
+    userRole,
   }
 }
 
@@ -95,7 +138,7 @@ export default async function DashboardPage() {
   const data = await getWorkspaceData(user.id)
   if (!data) redirect('/onboarding')
 
-  const { workspace, projects, tasks, documents, latestImageByProject, docCountByProject } = data
+  const { workspace, projects, tasks, documents, latestImageByProject, docCountByProject, teamStats, userRole } = data
 
   const tasksDone = tasks.filter(t => t.status === 'done').length
   const tasksInProgress = tasks.filter(t => t.status === 'in_progress').length
@@ -483,6 +526,10 @@ export default async function DashboardPage() {
 
         </div>
       </div>
+
+      {/* Vista del equipo */}
+      <TeamView members={teamStats} />
+
     </div>
   )
 }

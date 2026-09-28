@@ -237,26 +237,28 @@ export default function DeliverablesPanel({
 
       {/* Filtro por proyecto */}
       {projects.length > 0 && (
-        <div className="flex items-center gap-2 mb-5 flex-wrap">
-          <Filter className="w-4 h-4 text-slate-400" />
-          <button onClick={() => setProjectFilter('all')}
-            className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-all ${
-              projectFilter === 'all'
-                ? 'bg-[#1A2744] text-white'
-                : 'bg-white border border-slate-200 text-slate-600 hover:border-slate-300'
-            }`}>
-            Todos
-          </button>
-          {projects.map(p => (
-            <button key={p.id} onClick={() => setProjectFilter(p.id)}
-              className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-all ${
-                projectFilter === p.id
-                  ? 'bg-[#1A2744] text-white'
-                  : 'bg-white border border-slate-200 text-slate-600 hover:border-slate-300'
-              }`}>
-              {p.name}
+        <div className="flex items-center gap-2 mb-5">
+          <Filter className="w-4 h-4 text-slate-400 flex-shrink-0" />
+          <div className="relative">
+            <select
+              value={projectFilter}
+              onChange={e => setProjectFilter(e.target.value)}
+              className="text-sm pl-3 pr-8 py-2 rounded-lg border border-slate-200 bg-white text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/40 focus:border-[#00C2FF] appearance-none cursor-pointer min-w-[200px] max-w-[340px]"
+            >
+              <option value="all">Todos los proyectos</option>
+              {projects.map(p => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+            <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs">▾</span>
+          </div>
+          {projectFilter !== 'all' && (
+            <button onClick={() => setProjectFilter('all')}
+              className="text-xs text-slate-400 hover:text-slate-600 flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-slate-100 transition-colors">
+              <X className="w-3 h-3" />
+              Limpiar
             </button>
-          ))}
+          )}
         </div>
       )}
 

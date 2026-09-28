@@ -9,6 +9,7 @@ const MOCK_USER = 'Celestin'
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   let workspace = MOCK_WORKSPACE
   let fullName = MOCK_USER
+  let userRole = 'member'
 
   if (process.env.BYPASS_AUTH !== 'true') {
     const supabase = await createClient()
@@ -27,11 +28,12 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
     workspace = membership.workspaces as unknown as { id: string; name: string; features: Record<string, boolean> }
     fullName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Usuario'
+    userRole = membership.role as string
   }
 
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden">
-      <Sidebar workspaceName={workspace.name} features={workspace.features} />
+      <Sidebar workspaceName={workspace.name} features={workspace.features} role={userRole} />
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <Topbar userName={fullName} workspaceId={workspace.id} />
         <main className="flex-1 overflow-y-auto p-6">

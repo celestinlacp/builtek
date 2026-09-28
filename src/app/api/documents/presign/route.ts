@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
   const fileId    = randomUUID()
   const extension = fileName.split('.').pop()?.toLowerCase() ?? 'bin'
   const storageKey = buildStorageKey({ workspaceId, projectId, specialtyCode, fileId, extension })
-  const fileType   = detectFileType(contentType)
+  const fileType   = detectFileType(contentType, extension)
 
   const uploadUrl = await getPresignedUploadUrl({ storageKey, contentType, fileSizeBytes: fileSize })
 

@@ -272,7 +272,9 @@ export default function DocumentSlideOver({
                   value={new Date(doc.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })} />
                 <MetaRow icon={Weight}   label="Tamaño"        value={formatSize(doc.file_size)} />
                 <MetaRow icon={Tag}      label="Disciplina"
-                  value={doc.specialty ? `[${doc.specialty.code}] ${doc.specialty.name}` : '—'} />
+                  value={doc.specialty
+                    ? `[${doc.specialty.code}] ${doc.specialty.name}`
+                    : doc.doc_key?.split('-')[3] || '—'} />
                 {doc.project && (
                   <MetaRow icon={FileText} label="Proyecto" value={doc.project.name} />
                 )}

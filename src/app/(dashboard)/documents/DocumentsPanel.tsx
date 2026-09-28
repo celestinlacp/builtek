@@ -283,6 +283,8 @@ function UploadModal({
     if (!file || !projectId) { setError('Selecciona proyecto y archivo'); return }
     if (!identificador) { setError('Selecciona el identificador'); return }
     if (!specialtyCode) { setError('Selecciona la disciplina / especialidad'); return }
+    if (!docType) { setError('Selecciona el tipo de documento'); return }
+    if (!docView) { setError('Selecciona el tipo de plano'); return }
     if (!authorSel) { setError('Selecciona el autor o empresa'); return }
     setUploading(true); setError(null); setUploadPct(0)
 
@@ -1828,6 +1830,11 @@ function ProjectDetailView({
                           </button>
                         ) : (
                           <p className="text-sm font-medium text-slate-700 truncate">{docName}</p>
+                        )}
+                        {doc.file_name && doc.file_name !== docName && (
+                          <p className="text-[11px] text-slate-400 truncate font-mono leading-tight mb-0.5" title={doc.file_name}>
+                            {doc.file_name}
+                          </p>
                         )}
                         <p className="text-xs text-slate-400 flex items-center gap-1.5 flex-wrap">
                           {doc.version_number !== null

@@ -2,7 +2,8 @@
 
 import { useState } from 'react'
 import { Project, Workspace, WorkspaceMember, UserRole, Company } from '@/types'
-import { createProject, updateProject, deleteProject, updateWorkspace, updateMemberRole, removeMember, inviteMember, cancelInvite, createCompany, updateCompany, deleteCompany, updateMemberProfile, updateDocKey } from './actions'
+import { createProject, updateProject, deleteProject, updateWorkspace, updateMemberRole, removeMember, inviteMember, cancelInvite, createCompany, updateCompany, deleteCompany, updateMemberProfile, updateDocKey, updateDocSegments } from './actions'
+import { deleteDocumentVersion } from '../documents/actions'
 import {
   Plus, Pencil, Trash2, X, FolderOpen, Users, Settings,
   Calendar, CheckCircle2, PauseCircle, Archive, Shield, Crown, UserCog, Eye, Wrench,
@@ -11,7 +12,7 @@ import {
 } from 'lucide-react'
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { toggleFeature, createMicNomenclature, updateMicNomenclature, deleteMicNomenclature, seedAllMicNomenclatures, syncIdentificadoresFromProjects } from './actions'
+import { toggleFeature, createMicNomenclature, updateMicNomenclature, deleteMicNomenclature, seedAllMicNomenclatures, syncIdentificadoresFromProjects, backfillMicIdentifiers } from './actions'
 import { ShareProjectModal } from './ShareProjectModal'
 
 const ROLE_CONFIG: Record<UserRole, { label: string; color: string; icon: React.ElementType }> = {
@@ -585,15 +586,23 @@ function ProjectModal({
           </div>
 
           {isEdit && (
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">Estado</label>
-              <select name="status" defaultValue={project?.status}
-                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50 focus:border-[#00C2FF]">
-                <option value="active">Activo</option>
-                <option value="paused">Pausado</option>
-                <option value="completed">Completado</option>
-                <option value="archived">Archivado</option>
-              </select>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">Estado</label>
+                <select name="status" defaultValue={project?.status}
+                  className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50 focus:border-[#00C2FF]">
+                  <option value="active">Activo</option>
+                  <option value="paused">Pausado</option>
+                  <option value="completed">Completado</option>
+                  <option value="archived">Archivado</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">Identificador MIC</label>
+                <input name="mic_identifier" defaultValue={project?.mic_identifier || ''}
+                  placeholder="Ej: 0001 o 0001.02"
+                  className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50 focus:border-[#00C2FF]" />
+              </div>
             </div>
           )}
 
@@ -935,7 +944,7 @@ function StoragePanel({
   )
 }
 
-type Tab = 'projects' | 'team' | 'settings' | 'workspace' | 'storage' | 'empresas' | 'database' | 'nomenclaturas'
+type Tab = 'projects' | 'team' | 'settings' | 'workspace' | 'storage' | 'empresas' | 'database' | 'nomenclaturas' | 'builtek-id'
 
 type MicNomenclature = { id: string; segment: string; code: string; name: string; description: string | null; is_active: boolean; sort_order: number }
 
@@ -1274,6 +1283,234 @@ function EmpresasPanel({ companies, workspaceId, userRole }: {
   )
 }
 
+// ── Panel Builtek ID ──────────────────────────────────────────────────────────
+
+function BuilditekIDPanel({ docs, projects, nomenclatures, isOwner }: {
+  docs: BiDoc[]
+  projects: Project[]
+  nomenclatures: MicNomenclature[]
+  isOwner: boolean
+}) {
+  const [search,       setSearch]       = useState('')
+  const [filterProj,   setFilterProj]   = useState('all')
+  const [editingId,    setEditingId]    = useState<string | null>(null)
+  const [saving,       setSaving]       = useState(false)
+  const [deletingId,   setDeletingId]   = useState<string | null>(null)
+  const [editSegs,     setEditSegs]     = useState({ troncal: '', identificador: '', tipo_doc: '', especialidad: '', tipo_plano: '', version: 1 })
+
+  const troncalOpts       = nomenclatures.filter(n => n.segment === 'TRONCAL'       && n.is_active)
+  const identificadorOpts = nomenclatures.filter(n => n.segment === 'IDENTIFICADOR' && n.is_active)
+  const tipoDocOpts       = nomenclatures.filter(n => n.segment === 'TIPO_DOC'      && n.is_active)
+  const especialidadOpts  = nomenclatures.filter(n => n.segment === 'ESPECIALIDAD'  && n.is_active)
+  const tipoPlanoOpts     = nomenclatures.filter(n => n.segment === 'TIPO_PLANO'    && n.is_active)
+  const rootProjects      = projects.filter(p => !p.parent_project_id)
+
+  const filtered = docs
+    .filter(d => d.is_current !== false)
+    .filter(d => {
+      if (filterProj !== 'all' && d.project_id !== filterProj) return false
+      if (search) {
+        const q = search.toLowerCase()
+        return (
+          d.name?.toLowerCase().includes(q) ||
+          d.file_name?.toLowerCase().includes(q) ||
+          d.doc_key?.toLowerCase().includes(q) ||
+          d.ref_code?.toLowerCase().includes(q) ||
+          d.project?.name?.toLowerCase().includes(q)
+        )
+      }
+      return true
+    })
+
+  function parseSegs(doc: BiDoc) {
+    const parts = doc.doc_key?.split('-') ?? []
+    return {
+      troncal:       parts[0] ?? '',
+      identificador: parts[1] ?? '',
+      tipo_doc:      parts[2] ?? '',
+      especialidad:  parts[3] ?? '',
+      tipo_plano:    parts[4] ?? '',
+      version:       doc.version_number ?? 1,
+    }
+  }
+
+  function openEdit(doc: BiDoc) {
+    setEditingId(doc.id)
+    setEditSegs(parseSegs(doc))
+  }
+
+  async function handleSave(docId: string) {
+    setSaving(true)
+    await updateDocSegments(docId, editSegs)
+    setSaving(false)
+    setEditingId(null)
+  }
+
+  async function handleDeleteVersion(docId: string) {
+    if (!confirm('¿Eliminar esta versión? La versión anterior quedará como activa.')) return
+    setDeletingId(docId)
+    await deleteDocumentVersion(docId)
+    setDeletingId(null)
+  }
+
+  const SelCell = ({ value, onChange, options }: { value: string; onChange: (v: string) => void; options: MicNomenclature[] }) => (
+    <select value={value} onChange={e => onChange(e.target.value)}
+      className="font-mono text-[10px] border border-[#00C2FF] rounded px-1 py-0.5 bg-white focus:outline-none w-full">
+      <option value="">—</option>
+      {options.map(o => <option key={o.id} value={o.code}>{o.code} — {o.name}</option>)}
+    </select>
+  )
+
+  return (
+    <div className="space-y-4">
+      {/* Filtros */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar por nombre, ID..."
+            className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/40" />
+        </div>
+        <select value={filterProj} onChange={e => setFilterProj(e.target.value)}
+          className="px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none bg-white">
+          <option value="all">Todos los proyectos</option>
+          {rootProjects.map(p => {
+            const subs = projects.filter(s => s.parent_project_id === p.id)
+            return (
+              <optgroup key={p.id} label={p.name}>
+                <option value={p.id}>{p.name}</option>
+                {subs.map(s => <option key={s.id} value={s.id}>↳ {s.name}</option>)}
+              </optgroup>
+            )
+          })}
+        </select>
+        <span className="text-xs text-slate-400 whitespace-nowrap">{filtered.length} registros</span>
+      </div>
+
+      {/* Tabla */}
+      <div className="bg-white border border-slate-100 rounded-xl overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="border-b border-slate-100 bg-slate-50">
+              <th className="text-left px-3 py-2.5 font-bold text-slate-400 uppercase tracking-wide whitespace-nowrap">ID Builtek</th>
+              <th className="text-left px-3 py-2.5 font-bold text-slate-400 uppercase tracking-wide">Nombre</th>
+              <th className="text-left px-3 py-2.5 font-bold text-slate-400 uppercase tracking-wide">Proyecto</th>
+              <th className="text-center px-3 py-2.5 font-bold text-[#00C2FF] uppercase tracking-wide">TRONCAL</th>
+              <th className="text-center px-3 py-2.5 font-bold text-[#00C2FF] uppercase tracking-wide">IDENTIFICADOR</th>
+              <th className="text-center px-3 py-2.5 font-bold text-[#00C2FF] uppercase tracking-wide">TIPO_DOC</th>
+              <th className="text-center px-3 py-2.5 font-bold text-[#00C2FF] uppercase tracking-wide">ESPECIALIDAD</th>
+              <th className="text-center px-3 py-2.5 font-bold text-[#00C2FF] uppercase tracking-wide">TIPO_PLANO</th>
+              <th className="text-center px-3 py-2.5 font-bold text-[#00C2FF] uppercase tracking-wide">VERSIÓN</th>
+              <th className="w-12" />
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-50">
+            {filtered.length === 0 ? (
+              <tr><td colSpan={10} className="px-3 py-8 text-center text-slate-400">Sin resultados</td></tr>
+            ) : filtered.map(doc => {
+              const segs      = parseSegs(doc)
+              const fullId    = doc.doc_key
+                ? `${doc.doc_key}-${String(doc.version_number ?? 1).padStart(4, '0')}`
+                : doc.ref_code || '—'
+              const isEditing = editingId === doc.id
+              const docName   = doc.display_name || doc.file_name || doc.name
+
+              return (
+                <tr key={doc.id} className={`hover:bg-slate-50/50 transition-colors ${isEditing ? 'bg-blue-50/30' : ''}`}>
+                  {/* ID completo */}
+                  <td className="px-3 py-2.5 whitespace-nowrap">
+                    <span className="font-mono text-[10px] bg-[#1A2744]/5 text-[#1A2744] px-1.5 py-0.5 rounded font-semibold">
+                      {isEditing
+                        ? `${editSegs.troncal || '?'}-${editSegs.identificador || '?'}-${editSegs.tipo_doc || '?'}-${editSegs.especialidad || '?'}-${editSegs.tipo_plano || '?'}-${String(editSegs.version).padStart(4, '0')}`
+                        : fullId}
+                    </span>
+                  </td>
+                  {/* Nombre */}
+                  <td className="px-3 py-2.5 max-w-[160px]">
+                    <p className="font-medium text-[#1A2744] truncate" title={docName}>{docName}</p>
+                    <p className="text-[10px] text-slate-400 uppercase">{doc.file_type || ''}</p>
+                  </td>
+                  {/* Proyecto */}
+                  <td className="px-3 py-2.5 text-slate-500 max-w-[120px] truncate whitespace-nowrap">
+                    {doc.project?.name || '—'}
+                  </td>
+                  {/* Segmentos */}
+                  {isEditing ? (
+                    <>
+                      <td className="px-2 py-1.5 w-28">
+                        <SelCell value={editSegs.troncal} onChange={v => setEditSegs(s => ({ ...s, troncal: v }))} options={troncalOpts} />
+                      </td>
+                      <td className="px-2 py-1.5 w-36">
+                        <SelCell value={editSegs.identificador} onChange={v => setEditSegs(s => ({ ...s, identificador: v }))} options={identificadorOpts} />
+                      </td>
+                      <td className="px-2 py-1.5 w-28">
+                        <SelCell value={editSegs.tipo_doc} onChange={v => setEditSegs(s => ({ ...s, tipo_doc: v }))} options={tipoDocOpts} />
+                      </td>
+                      <td className="px-2 py-1.5 w-32">
+                        <SelCell value={editSegs.especialidad} onChange={v => setEditSegs(s => ({ ...s, especialidad: v }))} options={especialidadOpts} />
+                      </td>
+                      <td className="px-2 py-1.5 w-28">
+                        <SelCell value={editSegs.tipo_plano} onChange={v => setEditSegs(s => ({ ...s, tipo_plano: v }))} options={tipoPlanoOpts} />
+                      </td>
+                      <td className="px-2 py-1.5 w-20">
+                        <input type="number" min={1} value={editSegs.version} onChange={e => setEditSegs(s => ({ ...s, version: parseInt(e.target.value) || 1 }))}
+                          className="font-mono text-[10px] border border-[#00C2FF] rounded px-1.5 py-0.5 w-full focus:outline-none" />
+                      </td>
+                    </>
+                  ) : (
+                    <>
+                      {[segs.troncal, segs.identificador, segs.tipo_doc, segs.especialidad, segs.tipo_plano].map((seg, i) => (
+                        <td key={i} className="px-3 py-2.5 text-center">
+                          {seg
+                            ? <span className="font-mono text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-semibold">{seg}</span>
+                            : <span className="text-slate-300">—</span>}
+                        </td>
+                      ))}
+                      <td className="px-3 py-2.5 text-center">
+                        <span className="font-mono text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-semibold">
+                          {String(segs.version).padStart(4, '0')}
+                        </span>
+                      </td>
+                    </>
+                  )}
+                  {/* Acciones */}
+                  <td className="px-2 py-2.5">
+                    {isEditing ? (
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => handleSave(doc.id)} disabled={saving}
+                          className="w-6 h-6 flex items-center justify-center rounded bg-green-100 hover:bg-green-200 text-green-700">
+                          <Check className="w-3 h-3" />
+                        </button>
+                        <button onClick={() => setEditingId(null)}
+                          className="w-6 h-6 flex items-center justify-center rounded bg-slate-100 hover:bg-slate-200 text-slate-500">
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => openEdit(doc)} title="Editar segmentos"
+                          className="w-6 h-6 flex items-center justify-center rounded hover:bg-slate-100 text-slate-400 hover:text-slate-600">
+                          <Pencil className="w-3 h-3" />
+                        </button>
+                        {isOwner && (
+                          <button onClick={() => handleDeleteVersion(doc.id)} disabled={deletingId === doc.id}
+                            title="Eliminar esta versión"
+                            className="w-6 h-6 flex items-center justify-center rounded hover:bg-red-50 text-slate-300 hover:text-red-500 disabled:opacity-50">
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
 // ── Panel Base de Datos (BI) ───────────────────────────────────────────────────
 
 function DatabasePanel({ docs, projects }: { docs: BiDoc[]; projects: Project[] }) {
@@ -1532,6 +1769,7 @@ function NomenclaturasPanel({ nomenclatures, workspaceId }: { nomenclatures: Mic
   const [saving,        setSaving]        = useState(false)
   const [seeding,       setSeeding]       = useState(false)
   const [syncing,       setSyncing]       = useState(false)
+  const [backfilling,   setBackfilling]   = useState(false)
   const [error,         setError]         = useState<string | null>(null)
 
   // Auto-seed si la tabla está vacía
@@ -1583,6 +1821,16 @@ function NomenclaturasPanel({ nomenclatures, workspaceId }: { nomenclatures: Mic
     setSyncing(true)
     await syncIdentificadoresFromProjects()
     setSyncing(false)
+    router.refresh()
+  }
+
+  async function handleBackfill() {
+    if (!confirm('¿Asignar identificadores automáticos a todos los proyectos que no tienen uno? Esta acción no se puede deshacer.')) return
+    setBackfilling(true)
+    const res = await backfillMicIdentifiers()
+    setBackfilling(false)
+    if (res?.error) { alert(res.error); return }
+    alert(`${(res as any).assigned} proyecto(s) actualizados.`)
     router.refresh()
   }
 
@@ -1690,14 +1938,22 @@ function NomenclaturasPanel({ nomenclatures, workspaceId }: { nomenclatures: Mic
             {activeSegment} — {segmentItems.length} entrada{segmentItems.length !== 1 ? 's' : ''}
           </span>
           <div className="flex items-center gap-2">
-            {/* Botón sincronizar proyectos — solo IDENTIFICADOR */}
+            {/* Botones IDENTIFICADOR */}
             {activeSegment === 'IDENTIFICADOR' && (
-              <button onClick={handleSyncProjects} disabled={syncing}
-                title="Crea automáticamente un identificador por cada proyecto activo del workspace"
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-violet-200 text-violet-600 text-xs font-semibold hover:bg-violet-50 disabled:opacity-60">
-                {syncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Layers className="w-3.5 h-3.5" />}
-                Desde proyectos
-              </button>
+              <>
+                <button onClick={handleBackfill} disabled={backfilling}
+                  title="Asigna un identificador MIC a todos los proyectos que aún no tienen uno"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-amber-200 text-amber-700 text-xs font-semibold hover:bg-amber-50 disabled:opacity-60">
+                  {backfilling ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
+                  Asignar pendientes
+                </button>
+                <button onClick={handleSyncProjects} disabled={syncing}
+                  title="Sincroniza la tabla de identificadores con los proyectos"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-violet-200 text-violet-600 text-xs font-semibold hover:bg-violet-50 disabled:opacity-60">
+                  {syncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Layers className="w-3.5 h-3.5" />}
+                  Desde proyectos
+                </button>
+              </>
             )}
             {/* No mostrar botón Agregar para TRONCAL (es fijo: TQM) */}
             {activeSegment !== 'TRONCAL' && (
@@ -1821,6 +2077,7 @@ export default function AdminPanel({
     { id: 'workspace',      label: 'Workspace',       icon: Building2  },
     { id: 'storage',        label: 'Almacenamiento',  icon: HardDrive  },
     { id: 'database',       label: 'Base de Datos',   icon: Database   },
+    { id: 'builtek-id',     label: 'Builtek ID',      icon: Layers     },
     { id: 'settings',       label: 'Config.',         icon: Settings   },
   ]
 
@@ -1949,6 +2206,11 @@ export default function AdminPanel({
       {/* Base de Datos tab */}
       {tab === 'database' && (
         <DatabasePanel docs={biDocs} projects={projects} />
+      )}
+
+      {/* Builtek ID tab */}
+      {tab === 'builtek-id' && (
+        <BuilditekIDPanel docs={biDocs} projects={projects} nomenclatures={micNomenclatures} isOwner={currentUserRole === 'owner'} />
       )}
 
       {/* Settings tab */}

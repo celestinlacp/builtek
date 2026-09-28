@@ -105,6 +105,8 @@ export async function updateProject(projectId: string, formData: FormData) {
   await getWorkspaceId()
   const admin = getAdminClient()
 
+  const micIdentifier = (formData.get('mic_identifier') as string)?.trim() || null
+
   const { error } = await admin.from('projects').update({
     name: formData.get('name') as string,
     description: formData.get('description') as string || null,
@@ -113,6 +115,7 @@ export async function updateProject(projectId: string, formData: FormData) {
     end_date: formData.get('end_date') as string || null,
     frente: formData.get('frente') as string || null,
     project_type: formData.get('project_type') as string || null,
+    mic_identifier: micIdentifier,
   }).eq('id', projectId)
 
   if (error) return { error: error.message }
@@ -463,6 +466,37 @@ export async function seedMicTipoPlano() {
   return seedAllMicNomenclatures()
 }
 
+// Asigna mic_identifier a todos los proyectos que no lo tienen aún
+export async function backfillMicIdentifiers() {
+  const { workspaceId } = await getWorkspaceId()
+  if (!workspaceId) return { error: 'Sin workspace' }
+  const admin = getAdminClient()
+
+  // Obtener todos los proyectos del workspace ordenados por created_at
+  const { data: projects } = await admin
+    .from('projects')
+    .select('id, parent_project_id, mic_identifier, created_at')
+    .eq('workspace_id', workspaceId)
+    .order('created_at', { ascending: true })
+
+  if (!projects) return { error: 'No se pudieron obtener proyectos' }
+
+  const missing = projects.filter(p => !p.mic_identifier)
+  if (missing.length === 0) return { success: true, assigned: 0 }
+
+  let assigned = 0
+  for (const p of missing) {
+    const newId = await nextMicIdentifier(workspaceId, p.parent_project_id)
+    await admin.from('projects').update({ mic_identifier: newId }).eq('id', p.id)
+    assigned++
+  }
+
+  await syncIdentificadoresFromProjects()
+  revalidatePath('/admin')
+  revalidatePath('/documents')
+  return { success: true, assigned }
+}
+
 export async function syncIdentificadoresFromProjects() {
   const { workspaceId } = await getWorkspaceId()
   if (!workspaceId) return { error: 'Sin workspace' }
@@ -655,6 +689,25 @@ export async function updateDocKey(docId: string, fullCode: string) {
   const { error } = await admin
     .from('documents')
     .update({ doc_key: docKey, version_number: versionNum })
+    .eq('id', docId)
+  if (error) return { error: error.message }
+  revalidatePath('/admin')
+  return { success: true }
+}
+
+export async function updateDocSegments(docId: string, segments: {
+  troncal:      string
+  identificador: string
+  tipo_doc:     string
+  especialidad: string
+  tipo_plano:   string
+  version:      number
+}) {
+  const admin  = getAdminClient()
+  const docKey = `${segments.troncal}-${segments.identificador}-${segments.tipo_doc}-${segments.especialidad}-${segments.tipo_plano}`
+  const { error } = await admin
+    .from('documents')
+    .update({ doc_key: docKey, version_number: segments.version })
     .eq('id', docId)
   if (error) return { error: error.message }
   revalidatePath('/admin')

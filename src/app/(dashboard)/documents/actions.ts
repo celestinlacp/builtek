@@ -105,12 +105,14 @@ export async function saveDocument(data: {
     if (troncal) {
       constructedDocKey = `${troncal}-${data.identificador}-${data.doc_type}-${data.specialty_code}-${data.doc_view}`
 
-      // Encontrar la siguiente versión para este doc_key
+      // Encontrar la siguiente versión para este doc_key Y mismo file_type
+      // (DWG y PDF del mismo plano son documentos independientes, no versiones entre sí)
       const { data: existing } = await admin
         .from('documents')
         .select('id, version_number')
         .eq('workspace_id', data.workspace_id)
         .eq('doc_key', constructedDocKey)
+        .eq('file_type', data.file_type)
         .eq('is_current', true)
         .maybeSingle()
 
@@ -132,14 +134,19 @@ export async function saveDocument(data: {
     p_file_ext:   fileExt,
   })
 
+  // Nombre automático: si se construyó doc_key desde dropdowns y no hay display_name, usar el ID Builtek
+  const builtekId = constructedDocKey
+    ? `${constructedDocKey}-${String(newVersionNumber).padStart(4, '0')}`
+    : null
+
   // Insertar nueva versión
   const { data: inserted, error } = await admin.from('documents').insert({
     project_id:       data.project_id,
     workspace_id:     data.workspace_id,
     specialty_id:     data.specialty_id,
-    name:             data.display_name || data.file_name,
+    name:             data.display_name || builtekId || data.file_name,
     file_name:        data.file_name,
-    display_name:     data.display_name,
+    display_name:     data.display_name || builtekId || null,
     emission_date:    data.emission_date,
     author:           data.author,
     company_id:       data.company_id,

@@ -253,6 +253,7 @@ export default function TaskBoard({
 }) {
   const [view, setView] = useState<'board' | 'list'>('board')
   const [filter, setFilter] = useState<string>('all')
+  const [userFilter, setUserFilter] = useState<string>('all')
   const [showNew, setShowNew] = useState(false)
   const [editTask, setEditTask] = useState<Task | null>(null)
   const [slideTask, setSlideTask] = useState<ExtendedTask | null>(null)
@@ -265,8 +266,9 @@ export default function TaskBoard({
     }
   }, [defaultTaskId, tasks])
 
-  const filtered = filter === 'all' ? tasks
-    : tasks.filter(t => t.status === filter)
+  const filtered = tasks
+    .filter(t => filter === 'all' || t.status === filter)
+    .filter(t => userFilter === 'all' || t.assignee_id === userFilter)
 
   // Agrupar por especialidad
   const groups: Record<string, ExtendedTask[]> = {}
@@ -319,6 +321,24 @@ export default function TaskBoard({
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Filtro por usuario — visible para admin/owner/manager */}
+          {['owner', 'admin', 'manager'].includes(currentUserRole) && members.length > 0 && (
+            <div className="relative">
+              <select
+                value={userFilter}
+                onChange={e => setUserFilter(e.target.value)}
+                className="text-xs pl-3 pr-7 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 font-medium focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/40 focus:border-[#00C2FF] appearance-none cursor-pointer"
+              >
+                <option value="all">Todos los usuarios</option>
+                {members.filter(m => tasks.some(t => t.assignee_id === m.user_id)).map(m => (
+                  <option key={m.user_id} value={m.user_id}>
+                    {m.full_name || m.initials || m.user_id.slice(0, 8)}
+                  </option>
+                ))}
+              </select>
+              <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 text-[10px]">▾</span>
+            </div>
+          )}
           {/* View toggle */}
           <div className="flex bg-slate-100 rounded-lg p-0.5">
             {(['board', 'list'] as const).map(v => (

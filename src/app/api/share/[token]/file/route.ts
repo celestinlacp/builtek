@@ -64,8 +64,19 @@ export async function GET(
       .eq('id', id)
       .single()
 
-    if (!doc?.storage_key || doc.project_id !== share.project_id) {
+    if (!doc?.storage_key) {
       return NextResponse.json({ error: 'Archivo no encontrado' }, { status: 404 })
+    }
+
+    // Verificar que el doc pertenece al proyecto raíz o a alguno de sus subproyectos
+    const { data: subprojects } = await admin
+      .from('projects')
+      .select('id')
+      .eq('parent_project_id', share.project_id)
+
+    const validIds = new Set([share.project_id, ...(subprojects ?? []).map(s => s.id)])
+    if (!validIds.has(doc.project_id)) {
+      return NextResponse.json({ error: 'Sin acceso' }, { status: 403 })
     }
 
     storageKey = doc.storage_key

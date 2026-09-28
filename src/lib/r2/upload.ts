@@ -29,8 +29,15 @@ const MIME_TO_TYPE: Record<string, string> = {
   'application/x-rar-compressed': 'rar',
 }
 
-export function detectFileType(mimeType: string): string {
-  return MIME_TO_TYPE[mimeType] ?? 'other'
+const EXT_TO_TYPE: Record<string, string> = {
+  pdf: 'pdf', dwg: 'dwg', dxf: 'dxf',
+  doc: 'doc', docx: 'docx', xls: 'xls', xlsx: 'xlsx', ppt: 'ppt', pptx: 'pptx',
+  jpg: 'img', jpeg: 'img', png: 'img', tif: 'img', tiff: 'img', bmp: 'img',
+  zip: 'zip', rar: 'rar',
+}
+
+export function detectFileType(mimeType: string, extension?: string): string {
+  return MIME_TO_TYPE[mimeType] ?? (extension ? EXT_TO_TYPE[extension.toLowerCase()] : null) ?? 'other'
 }
 
 /**
