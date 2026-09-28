@@ -166,14 +166,16 @@ export default async function SharePage(
   const allProjectIds = [share.project_id, ...(subprojects ?? []).map(s => s.id)]
 
   // 4. Documentos vigentes del proyecto + subproyectos
+  // Usamos neq(false) en lugar de eq(true) para incluir docs con is_current=null
   const { data: rawDocs } = await admin
     .from('documents')
     .select('id, name, file_name, display_name, doc_key, file_type, specialty_code, status, version_number')
     .in('project_id', allProjectIds)
-    .eq('is_current', true)
-    .neq('doc_status', 'deleted')
+    .neq('is_current', false)
+    .not('doc_status', 'in', '("deleted","archived")')
     .order('specialty_code', { nullsFirst: false })
     .order('doc_key')
+    .order('version_number', { ascending: false })
 
   const documents: DocRow[] = rawDocs ?? []
 
