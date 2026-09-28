@@ -938,7 +938,9 @@ function DocInfoPopover({ doc }: { doc: Doc }) {
                 <Row label="Tipo" value={doc.file_type?.toUpperCase() || '—'} />
                 <Row label="Tamaño" value={formatSize(doc.file_size)} />
                 <Row label="Disciplina"
-                  value={doc.specialty ? `[${doc.specialty.code}] ${doc.specialty.name}` : '—'} />
+                  value={doc.specialty
+                    ? `[${doc.specialty.code}] ${doc.specialty.name}`
+                    : doc.doc_key?.split('-')[3] || '—'} />
                 {doc.doc_view    && <Row label="Tipo de plano" value={doc.doc_view} />}
                 {doc.doc_element && <Row label="Elemento" value={doc.doc_element} />}
                 {doc.mic_version && <Row label="Versión MIC"
@@ -1132,14 +1134,22 @@ function ProjectCard({ project, docCount, disciplines, lastUpload, workspaceId, 
         {isAdmin && (
           <ProjectCoverUploader project={project} workspaceId={workspaceId} onUploaded={key => setCoverKey(key)} />
         )}
-        {/* Botón editar — top-left */}
+        {/* Botones editar + compartir — top-left, visibles al hover */}
         {isAdmin && (
-          <button
-            onClick={e => { e.stopPropagation(); onEdit(project) }}
-            title="Editar proyecto"
-            className="absolute top-2 left-2 w-7 h-7 flex items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors z-10 opacity-0 group-hover:opacity-100">
-            <Pencil className="w-3.5 h-3.5" />
-          </button>
+          <div className="absolute top-2 left-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+            <button
+              onClick={e => { e.stopPropagation(); onEdit(project) }}
+              title="Editar proyecto"
+              className="w-7 h-7 flex items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors">
+              <Pencil className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={e => { e.stopPropagation(); onShare(project) }}
+              title="Compartir archivos del proyecto"
+              className="w-7 h-7 flex items-center justify-center rounded-full bg-black/50 text-white hover:bg-[#00C2FF] transition-colors">
+              <Share2 className="w-3.5 h-3.5" />
+            </button>
+          </div>
         )}
       </div>
 
@@ -1192,15 +1202,6 @@ function ProjectCard({ project, docCount, disciplines, lastUpload, workspaceId, 
           </p>
         )}
 
-        {isAdmin && (
-          <button
-            onClick={e => { e.stopPropagation(); onShare(project) }}
-            title="Compartir archivos del proyecto"
-            className="mt-3 w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-slate-100 hover:border-[#00C2FF]/40 hover:bg-[#00C2FF]/5 text-xs font-semibold text-slate-400 hover:text-[#00C2FF] transition-all opacity-0 group-hover:opacity-100">
-            <Share2 className="w-3.5 h-3.5" />
-            Compartir archivos
-          </button>
-        )}
       </div>
     </div>
   )
@@ -1446,23 +1447,36 @@ function ProjectDetailView({
     return acc
   }, {})
 
+  // Helper: obtener código de especialidad desde specialty o doc_key
+  function getSpecCode(d: Doc): string | null {
+    return d.specialty?.code || d.doc_key?.split('-')[3] || null
+  }
+
   // Especialidades usadas en este proyecto (solo docs vigentes)
-  const usedSpecialties = [...new Map(
-    currentDocs.filter(d => d.specialty).map(d => [d.specialty!.code, d.specialty!])
-  ).values()].sort((a, b) => a.code.localeCompare(b.code))
+  const specMap = new Map<string, { code: string; name: string; category: string }>()
+  currentDocs.forEach(d => {
+    if (d.specialty) {
+      specMap.set(d.specialty.code, d.specialty)
+    } else {
+      const code = d.doc_key?.split('-')[3]
+      if (code && !specMap.has(code)) specMap.set(code, { code, name: code, category: '' })
+    }
+  })
+  const usedSpecialties = [...specMap.values()].sort((a, b) => a.code.localeCompare(b.code))
 
   let filtered = currentDocs
   if (filterStatus !== 'all')    filtered = filtered.filter(d => d.status === filterStatus)
   if (filterSpecialty !== 'all') filtered = filtered.filter(d =>
-    filterSpecialty === 'none' ? !d.specialty : d.specialty?.code === filterSpecialty
+    filterSpecialty === 'none' ? !getSpecCode(d) : getSpecCode(d) === filterSpecialty
   )
 
   // Agrupar por disciplina (solo versiones vigentes)
   const grouped: Record<string, Doc[]> = {}
   filtered.filter(d => d.is_current !== false).forEach(doc => {
+    const specCode = getSpecCode(doc)
     const key = doc.specialty
       ? `[${doc.specialty.code}] ${doc.specialty.name}`
-      : 'Sin disciplina'
+      : specCode ? `[${specCode}] ${specCode}` : 'Sin disciplina'
     if (!grouped[key]) grouped[key] = []
     grouped[key].push(doc)
   })
