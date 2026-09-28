@@ -35,10 +35,12 @@ async function getUser() {
 }
 
 export async function saveDocument(data: {
-  project_id:    string
-  workspace_id:  string
-  specialty_id:  string | null
-  file_name:     string
+  project_id:     string
+  workspace_id:   string
+  specialty_id:   string | null
+  specialty_code: string | null
+  identificador:  string | null
+  file_name:      string
   display_name:  string | null
   emission_date: string | null
   author:        string
@@ -67,6 +69,7 @@ export async function saveDocument(data: {
 
   let previousVersionId: string | null = null
   let newVersionNumber = 1
+  let constructedDocKey: string | null = null
 
   if (parsed) {
     const { data: existing } = await admin
@@ -87,6 +90,39 @@ export async function saveDocument(data: {
     }
 
     newVersionNumber = parsed.version_number
+  } else if (data.doc_type && data.specialty_code && data.doc_view && data.identificador) {
+    // Construir doc_key desde selecciones del formulario cuando el filename no sigue nomenclatura MIC
+    const { data: troncalRow } = await admin
+      .from('mic_nomenclatures')
+      .select('code')
+      .eq('workspace_id', data.workspace_id)
+      .eq('segment', 'TRONCAL')
+      .limit(1)
+      .maybeSingle()
+
+    const troncal = troncalRow?.code
+
+    if (troncal) {
+      constructedDocKey = `${troncal}-${data.identificador}-${data.doc_type}-${data.specialty_code}-${data.doc_view}`
+
+      // Encontrar la siguiente versión para este doc_key
+      const { data: existing } = await admin
+        .from('documents')
+        .select('id, version_number')
+        .eq('workspace_id', data.workspace_id)
+        .eq('doc_key', constructedDocKey)
+        .eq('is_current', true)
+        .maybeSingle()
+
+      if (existing) {
+        previousVersionId = existing.id
+        newVersionNumber  = (existing.version_number ?? 0) + 1
+        await admin.from('documents').update({
+          is_current: false,
+          doc_status: 'archived',
+        }).eq('id', existing.id)
+      }
+    }
   }
 
   // Generar ref_code con formato {EXT}-P{PROJ_NUM}-{SEQ}
@@ -113,8 +149,8 @@ export async function saveDocument(data: {
     file_type:        data.file_type,
     file_size:        data.file_size,
     version:          newVersionNumber,
-    doc_key:          parsed?.doc_key          ?? null,
-    version_number:   parsed?.version_number   ?? null,
+    doc_key:          parsed?.doc_key ?? constructedDocKey ?? null,
+    version_number:   parsed?.version_number   ?? (constructedDocKey ? newVersionNumber : null),
     is_current:       true,
     status:           'draft',
     doc_status:       'active',
@@ -142,6 +178,53 @@ export async function saveDocument(data: {
     archivedPrevious:    !!previousVersionId,
     versionNumber:       parsed?.version_number ?? null,
   }
+}
+
+// Elimina la versión actual y restaura la anterior como is_current = true (solo owner)
+export async function deleteDocumentVersion(docId: string) {
+  await getUser()
+  const admin = getAdminClient()
+
+  // Obtener doc actual
+  const { data: doc } = await admin
+    .from('documents')
+    .select('storage_key, doc_key, workspace_id, version_number, is_current')
+    .eq('id', docId)
+    .single()
+
+  if (!doc) return { error: 'Documento no encontrado' }
+  if (!doc.is_current) return { error: 'Solo se puede eliminar la versión actual' }
+
+  // Borrar de R2
+  await deleteFromR2(doc.storage_key)
+
+  // Borrar el registro
+  const { error } = await admin.from('documents').delete().eq('id', docId)
+  if (error) return { error: error.message }
+
+  // Si tiene doc_key, restaurar la versión anterior como is_current
+  if (doc.doc_key) {
+    const { data: prev } = await admin
+      .from('documents')
+      .select('id')
+      .eq('workspace_id', doc.workspace_id)
+      .eq('doc_key', doc.doc_key)
+      .eq('is_current', false)
+      .order('version_number', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (prev) {
+      await admin.from('documents').update({
+        is_current: true,
+        doc_status: 'active',
+      }).eq('id', prev.id)
+    }
+  }
+
+  revalidatePath('/documents')
+  revalidatePath('/admin')
+  return { success: true }
 }
 
 export async function getDocumentVersions(docKey: string, workspaceId: string) {

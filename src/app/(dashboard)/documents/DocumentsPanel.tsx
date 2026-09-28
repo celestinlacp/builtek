@@ -222,6 +222,7 @@ function UploadModal({
   const [docType,        setDocType]        = useState('')
   const [micVersion,     setMicVersion]     = useState<'V0' | 'V1'>('V0')
   const [fileFormat,     setFileFormat]     = useState<string | null>(null)
+  const [identificador,  setIdentificador]  = useState(projects.find(p => p.id === defaultProjectId)?.mic_identifier || '')
   const inputRef = useRef<HTMLInputElement>(null)
 
   // Catálogo TIPO_PLANO: preferir valores del workspace, si vacío usar defaults
@@ -261,7 +262,8 @@ function UploadModal({
   }
 
   // Catálogo ESPECIALIDAD desde mic_nomenclatures (fuente de verdad del workspace)
-  const especialidadOptions = micNomenclatures.filter(n => n.segment === 'ESPECIALIDAD')
+  const especialidadOptions  = micNomenclatures.filter(n => n.segment === 'ESPECIALIDAD')
+  const identificadorOptions = micNomenclatures.filter(n => n.segment === 'IDENTIFICADOR')
 
   // Decodificar selección de autor
   let authorText   = ''
@@ -279,6 +281,7 @@ function UploadModal({
 
   async function handleUpload() {
     if (!file || !projectId) { setError('Selecciona proyecto y archivo'); return }
+    if (!identificador) { setError('Selecciona el identificador'); return }
     if (!specialtyCode) { setError('Selecciona la disciplina / especialidad'); return }
     if (!authorSel) { setError('Selecciona el autor o empresa'); return }
     setUploading(true); setError(null); setUploadPct(0)
@@ -322,11 +325,12 @@ function UploadModal({
     setStep('Guardando metadatos...')
     setUploadPct(100)
     const result = await saveDocument({
-      project_id:    projectId,
-      workspace_id:  workspaceId,
-      specialty_id:  null,
+      project_id:     projectId,
+      workspace_id:   workspaceId,
+      specialty_id:   null,
       specialty_code: specialtyCode || null,
-      file_name:     file.name,
+      identificador:  identificador || null,
+      file_name:      file.name,
       display_name:  displayName.trim() || null,
       emission_date: emissionDate || null,
       author:        authorText,
@@ -361,7 +365,11 @@ function UploadModal({
             <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
               Proyecto <span className="text-red-400">*</span>
             </label>
-            <select value={projectId} onChange={e => setProjectId(e.target.value)}
+            <select value={projectId} onChange={e => {
+                setProjectId(e.target.value)
+                const proj = projects.find(p => p.id === e.target.value)
+                if (proj?.mic_identifier) setIdentificador(proj.mic_identifier)
+              }}
               className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50">
               <option value="">Seleccionar proyecto...</option>
               {projects.filter(p => !p.parent_project_id).map(p => {
@@ -375,6 +383,19 @@ function UploadModal({
                   </React.Fragment>
                 )
               })}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
+              Identificador <span className="text-red-400">*</span>
+            </label>
+            <select value={identificador} onChange={e => setIdentificador(e.target.value)}
+              className={`w-full px-3 py-2.5 rounded-lg border text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50 ${!identificador ? 'border-slate-300' : 'border-[#00C2FF]'}`}>
+              <option value="">Seleccionar identificador...</option>
+              {identificadorOptions.map(o => (
+                <option key={o.code} value={o.code}>{o.code} — {o.name}</option>
+              ))}
             </select>
           </div>
 
