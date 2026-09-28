@@ -18,12 +18,13 @@ async function getWorkspaceData(userId: string) {
 
   const wsId = membership.workspace_id
 
-  const [projects, tasks, documents, imageDocs, allDocs] = await Promise.all([
+  const [projects, allProjectMappings, tasks, documents, imageDocs, allDocs] = await Promise.all([
     supabase.from('projects').select('id, name, status, frente, cover_image_url').eq('workspace_id', wsId).eq('status', 'active').is('parent_project_id', null).order('name'),
+    supabase.from('projects').select('id, parent_project_id').eq('workspace_id', wsId),
     supabase.from('tasks').select('id, name, status, priority, due_date, project_id, assignee_id').order('created_at', { ascending: false }),
-    supabase.from('documents').select('id, name, status, created_at').eq('workspace_id', wsId).neq('doc_status', 'deleted').order('created_at', { ascending: false }).limit(5),
+    supabase.from('documents').select('id, name, status, created_at, project_id, uploader:users(full_name)').eq('workspace_id', wsId).neq('doc_status', 'deleted').order('created_at', { ascending: false }).limit(5),
     supabase.from('documents').select('id, project_id, created_at').eq('workspace_id', wsId).eq('file_type', 'img').order('created_at', { ascending: false }),
-    supabase.from('documents').select('project_id').eq('workspace_id', wsId).neq('doc_status', 'deleted').eq('is_current', true),
+    supabase.from('documents').select('project_id, created_at').eq('workspace_id', wsId).neq('doc_status', 'deleted').neq('is_current', false),
   ])
 
   // Última foto por proyecto (fallback si no tiene cover_image_url)
@@ -34,15 +35,41 @@ async function getWorkspaceData(userId: string) {
     }
   }
 
+  // Build parent project mapping (child_id -> parent_id, one level)
+  const parentMap: Record<string, string> = {}
+  for (const p of (allProjectMappings.data ?? [])) {
+    if (p.parent_project_id) parentMap[p.id] = p.parent_project_id
+  }
+  function getRootId(id: string, depth = 0): string {
+    if (depth > 5 || !parentMap[id]) return id
+    return getRootId(parentMap[id], depth + 1)
+  }
+
+  // Latest activity per root project (for sort)
+  const latestActivityByRootProject: Record<string, string> = {}
+  for (const d of (allDocs.data ?? [])) {
+    if (!d.project_id || !d.created_at) continue
+    const root = getRootId(d.project_id)
+    const cur = latestActivityByRootProject[root]
+    if (!cur || d.created_at > cur) latestActivityByRootProject[root] = d.created_at
+  }
+
   // Conteo de documentos vigentes por proyecto
   const docCountByProject: Record<string, number> = {}
   for (const d of (allDocs.data ?? [])) {
     if (d.project_id) docCountByProject[d.project_id] = (docCountByProject[d.project_id] ?? 0) + 1
   }
 
+  // Sort root projects by most recent document activity
+  const sortedProjects = [...(projects.data ?? [])].sort((a, b) => {
+    const aDate = latestActivityByRootProject[a.id] ?? ''
+    const bDate = latestActivityByRootProject[b.id] ?? ''
+    return bDate.localeCompare(aDate)
+  })
+
   return {
     workspace: membership.workspaces as unknown as { id: string; name: string },
-    projects: projects.data || [],
+    projects: sortedProjects,
     tasks: tasks.data || [],
     documents: documents.data || [],
     latestImageByProject,
@@ -328,7 +355,7 @@ export default async function DashboardPage() {
           </div>
           <div className="space-y-2">
             {myTasks.map((task: any) => (
-              <div key={task.id} className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors">
+              <Link key={task.id} href="/tasks" className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors">
                 <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${PRIORITY_COLOR[task.priority]}`} />
                 <p className="text-sm text-slate-700 flex-1 truncate font-medium">{task.name}</p>
                 {task.due_date && (
@@ -339,7 +366,7 @@ export default async function DashboardPage() {
                 <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${STATUS_COLOR[task.status]}`}>
                   {STATUS_LABEL[task.status]}
                 </span>
-              </div>
+              </Link>
             ))}
           </div>
         </div>
@@ -367,7 +394,7 @@ export default async function DashboardPage() {
           ) : (
             <div className="space-y-2">
               {recentTasks.map(task => (
-                <div key={task.id} className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors group">
+                <Link key={task.id} href="/tasks" className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors group">
                   <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${PRIORITY_COLOR[task.priority]}`} />
                   <p className="text-sm text-slate-700 flex-1 truncate font-medium">{task.name}</p>
                   {task.due_date && (
@@ -378,7 +405,7 @@ export default async function DashboardPage() {
                   <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${STATUS_COLOR[task.status]}`}>
                     {STATUS_LABEL[task.status]}
                   </span>
-                </div>
+                </Link>
               ))}
             </div>
           )}
@@ -399,17 +426,29 @@ export default async function DashboardPage() {
               <p className="text-xs text-slate-400 text-center py-4">Sin documentos aún</p>
             ) : (
               <div className="space-y-2">
-                {documents.slice(0, 3).map(doc => (
-                  <div key={doc.id} className="flex items-center gap-2 text-sm">
-                    <FileText className="w-3.5 h-3.5 text-slate-300 flex-shrink-0" />
-                    <span className="text-slate-600 truncate text-xs">{doc.name}</span>
-                    <span className={`ml-auto text-[10px] px-1.5 py-0.5 rounded font-medium flex-shrink-0 ${
-                      doc.status === 'approved' ? 'bg-green-100 text-green-700' :
-                      doc.status === 'review' ? 'bg-amber-100 text-amber-700' :
-                      'bg-slate-100 text-slate-500'
-                    }`}>{doc.status}</span>
-                  </div>
-                ))}
+                {documents.slice(0, 3).map((doc: any) => {
+                  const uploaderName: string | null = doc.uploader?.full_name ?? null
+                  const initials = uploaderName
+                    ? uploaderName.split(' ').slice(0, 2).map((w: string) => w[0]).join('').toUpperCase()
+                    : null
+                  return (
+                    <Link key={doc.id} href={`/documents${doc.project_id ? `?project=${doc.project_id}` : ''}`}
+                      className="flex items-center gap-2 text-sm hover:bg-slate-50 rounded-lg px-1 py-1 -mx-1 transition-colors">
+                      <FileText className="w-3.5 h-3.5 text-slate-300 flex-shrink-0" />
+                      <span className="text-slate-600 truncate text-xs flex-1">{doc.name}</span>
+                      {initials && (
+                        <span className="w-5 h-5 rounded-full bg-[#1A2744] text-white text-[9px] font-bold flex items-center justify-center flex-shrink-0">
+                          {initials}
+                        </span>
+                      )}
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium flex-shrink-0 ${
+                        doc.status === 'approved' ? 'bg-green-100 text-green-700' :
+                        doc.status === 'review' ? 'bg-amber-100 text-amber-700' :
+                        'bg-slate-100 text-slate-500'
+                      }`}>{doc.status}</span>
+                    </Link>
+                  )
+                })}
               </div>
             )}
           </div>
