@@ -19,9 +19,14 @@ export default function EditTaskModal({
     e.preventDefault()
     setLoading(true)
     setError(null)
-    const result = await updateTask(task.id, new FormData(e.currentTarget))
-    if (result?.error) { setError(result.error); setLoading(false) }
-    else onClose()
+    try {
+      const result = await updateTask(task.id, new FormData(e.currentTarget))
+      if (result?.error) { setError(result.error); setLoading(false) }
+      else onClose()
+    } catch (err: any) {
+      setError(err?.message || 'No se pudo guardar. Intenta de nuevo.')
+      setLoading(false)
+    }
   }
 
   return (
