@@ -220,6 +220,7 @@ function UploadModal({
   const [uploadPct,      setUploadPct]      = useState(0)
   const [versionWarning, setVersionWarning] = useState<{ prevVersion: number; newVersion: number } | null>(null)
   const [docView,        setDocView]        = useState('')
+  const [docViewNum,     setDocViewNum]     = useState('')
   const [docElement,     setDocElement]     = useState('')
   const [docType,        setDocType]        = useState('')
   const [micVersion,     setMicVersion]     = useState<'V0' | 'V1'>('V0')
@@ -257,15 +258,25 @@ function UploadModal({
       // Auto-llenar segmentos desde el código MIC del filename — solo si existen en catálogo
       const segments = parseMicSegments(parsed.doc_key)
       if (segments) {
-        const validTipoDoc   = tipoDocOptions.find(t => t.code === segments.tipo_doc)
-        const validTipoPlano = tipoPlanoOptions.find(t => t.code === segments.tipo_plano)
-        if (validTipoDoc   && !docType)  setDocType(segments.tipo_doc)
-        if (validTipoPlano && !docView)  setDocView(segments.tipo_plano)
-        else if (!validTipoPlano && segments.tipo_doc !== 'PLA') setDocView('NA')
+        const validTipoDoc = tipoDocOptions.find(t => t.code === segments.tipo_doc)
+        if (validTipoDoc && !docType) setDocType(segments.tipo_doc)
+        // Extraer base + número del tipo_plano (ej: 'PLT1' → base='PLT', num='1')
+        const tpMatch = segments.tipo_plano.match(/^([A-Z]+)(\d*)$/)
+        const tpBase  = tpMatch ? tpMatch[1] : segments.tipo_plano
+        const tpNum   = tpMatch ? tpMatch[2] : ''
+        const validTipoPlano = tipoPlanoOptions.find(t => t.code === tpBase)
+        if (validTipoPlano && !docView) {
+          setDocView(tpBase)
+          if (tpNum) setDocViewNum(tpNum)
+        } else if (!validTipoPlano && segments.tipo_doc !== 'PLA') {
+          setDocView('NA')
+          setDocViewNum('')
+        }
       } else {
         // Filename malformado (segmentos insuficientes) — limpiar selecciones previas
         setDocType('')
         setDocView('')
+        setDocViewNum('')
       }
     }
   }
@@ -350,7 +361,7 @@ function UploadModal({
       storage_key:   presignData.storageKey,
       file_type:     presignData.fileType,
       file_size:     file.size,
-      doc_view:      docView.trim() || null,
+      doc_view:      docView ? (docView + docViewNum).trim() : null,
       doc_element:   docElement.trim() || null,
       doc_type:      docType.trim() || null,
       mic_version:   micVersion,
@@ -431,8 +442,8 @@ function UploadModal({
             <select value={docType} onChange={e => {
                 const val = e.target.value
                 setDocType(val)
-                if (val !== 'PLA') setDocView('NA')
-                else setDocView('')
+                if (val !== 'PLA') { setDocView('NA'); setDocViewNum('') }
+                else { setDocView(''); setDocViewNum('') }
               }}
               disabled={isEngineer}
               className={`w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50 ${isEngineer ? 'bg-slate-50 text-slate-400 cursor-not-allowed' : ''}`}>
@@ -453,14 +464,24 @@ function UploadModal({
                   NA
                 </div>
               ) : (
-                <select value={docView} onChange={e => setDocView(e.target.value)}
-                  disabled={isEngineer}
-                  className={`w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50 ${isEngineer ? 'bg-slate-50 text-slate-400 cursor-not-allowed' : ''}`}>
-                  <option value="">Sin tipo</option>
-                  {tipoPlanoOptions.map(t => (
-                    <option key={t.code} value={t.code}>[{t.code}] {t.name}</option>
-                  ))}
-                </select>
+                <div className="flex gap-2">
+                  <select value={docView} onChange={e => { setDocView(e.target.value); setDocViewNum('') }}
+                    disabled={isEngineer}
+                    className={`flex-1 px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50 ${isEngineer ? 'bg-slate-50 text-slate-400 cursor-not-allowed' : ''}`}>
+                    <option value="">Sin tipo</option>
+                    {tipoPlanoOptions.map(t => (
+                      <option key={t.code} value={t.code}>[{t.code}] {t.name}</option>
+                    ))}
+                  </select>
+                  {docView && (
+                    <input
+                      type="number" min="1" max="99" value={docViewNum}
+                      onChange={e => setDocViewNum(e.target.value.replace(/\D/g, ''))}
+                      placeholder="#"
+                      className="w-16 px-2 py-2.5 rounded-lg border border-slate-200 text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50"
+                    />
+                  )}
+                </div>
               )}
             </div>
             <div>
