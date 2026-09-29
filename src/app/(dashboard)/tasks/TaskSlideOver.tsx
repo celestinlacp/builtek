@@ -9,7 +9,7 @@ import {
   FileText, HardDrive, ChevronDown, Calendar,
   AlertCircle, Clock, CheckCircle2, XCircle,
   Eye, Download, Plus, Loader2, User, Timer,
-  Upload, Package, ThumbsUp, ThumbsDown, Mail, Pencil, Check,
+  Upload, Package, ThumbsUp, ThumbsDown, Mail, Pencil, Check, ImageIcon,
 } from 'lucide-react'
 
 // ── Tipos ────────────────────────────────────────────────────────────────────
@@ -19,6 +19,7 @@ type Comment = {
   content: string
   created_at: string
   user_id: string
+  image_url?: string | null
   profiles?: { full_name: string | null; avatar_url: string | null } | null
 }
 
@@ -245,9 +246,13 @@ export default function TaskSlideOver({
     task.assignees?.map(a => a.user_id) ?? (task.assignee_id ? [task.assignee_id] : [])
   )
   const [savingAssignees,   setSavingAssignees]   = useState(false)
-  const nameInputRef = useRef<HTMLInputElement>(null)
+  const [commentImage,      setCommentImage]      = useState<File | null>(null)
+  const [commentImagePreview, setCommentImagePreview] = useState<string | null>(null)
+  const [uploadingImage,    setUploadingImage]    = useState(false)
+  const nameInputRef   = useRef<HTMLInputElement>(null)
   const commentsEndRef = useRef<HTMLDivElement>(null)
   const inputRef       = useRef<HTMLTextAreaElement>(null)
+  const imageInputRef  = useRef<HTMLInputElement>(null)
 
   const canEdit = !['viewer'].includes(currentUserRole || '')
 
@@ -383,7 +388,7 @@ export default function TaskSlideOver({
     const [commentsRes, taskDocsRes] = await Promise.all([
       supabase
         .from('comments')
-        .select('id, content, created_at, user_id')
+        .select('id, content, created_at, user_id, image_url')
         .eq('task_id', task.id)
         .order('created_at', { ascending: true }),
       supabase
@@ -447,22 +452,57 @@ export default function TaskSlideOver({
   }, [onClose])
 
   async function handleSend() {
-    if (!newComment.trim()) return
+    if (!newComment.trim() && !commentImage) return
     setSending(true)
     setCommentError(null)
+    let storageKey: string | null = null
     try {
-      const result = await addComment(task.id, newComment)
+      // Upload image first if present
+      if (commentImage && workspaceId) {
+        setUploadingImage(true)
+        const presignRes = await fetch('/api/comments/presign', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            workspaceId, taskId: task.id,
+            fileName: commentImage.name,
+            contentType: commentImage.type || 'image/jpeg',
+            fileSize: commentImage.size,
+          }),
+        })
+        if (!presignRes.ok) throw new Error('No se pudo preparar la imagen')
+        const { uploadUrl, storageKey: key } = await presignRes.json()
+        const r2Res = await fetch(uploadUrl, { method: 'PUT', body: commentImage, headers: { 'Content-Type': commentImage.type || 'image/jpeg' } })
+        if (!r2Res.ok) throw new Error('Error al subir la imagen')
+        storageKey = key
+        setUploadingImage(false)
+      }
+
+      const result = await addComment(task.id, newComment, storageKey ?? undefined)
       if (result?.error) {
         setCommentError(result.error)
       } else {
         setNewComment('')
+        setCommentImage(null)
+        setCommentImagePreview(null)
+        if (imageInputRef.current) imageInputRef.current.value = ''
         await loadData()
       }
-    } catch {
-      setCommentError('No se pudo enviar el comentario. Intenta de nuevo.')
+    } catch (err: any) {
+      setCommentError(err.message || 'No se pudo enviar el comentario. Intenta de nuevo.')
     } finally {
       setSending(false)
+      setUploadingImage(false)
     }
+  }
+
+  function handleImageSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setCommentImage(file)
+    const reader = new FileReader()
+    reader.onload = ev => setCommentImagePreview(ev.target?.result as string)
+    reader.readAsDataURL(file)
   }
 
   async function handleDeleteComment(commentId: string) {
@@ -991,7 +1031,18 @@ export default function TaskSlideOver({
                           <span className="text-[10px] text-slate-400">{formatDateTime(comment.created_at)}</span>
                         </div>
                         <div className="bg-slate-50 rounded-xl rounded-tl-sm px-3 py-2.5">
-                          <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{comment.content}</p>
+                          {comment.content && (
+                            <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{comment.content}</p>
+                          )}
+                          {comment.image_url && (
+                            <a href={`/api/comments/image/${comment.id}`} target="_blank" rel="noopener noreferrer">
+                              <img
+                                src={`/api/comments/image/${comment.id}`}
+                                alt="imagen adjunta"
+                                className={`rounded-lg max-w-[220px] max-h-[200px] object-cover cursor-pointer hover:opacity-90 transition-opacity ${comment.content ? 'mt-2' : ''}`}
+                              />
+                            </a>
+                          )}
                         </div>
                       </div>
                       {isOwn && (
@@ -1011,6 +1062,19 @@ export default function TaskSlideOver({
 
         {/* Input comentario */}
         <div className="px-6 py-4 border-t border-slate-100 flex-shrink-0 bg-white">
+          {/* Image preview */}
+          {commentImagePreview && (
+            <div className="flex items-center gap-2 mb-2 ml-9">
+              <div className="relative inline-block">
+                <img src={commentImagePreview} alt="preview" className="h-16 rounded-lg object-cover border border-slate-200" />
+                <button
+                  onClick={() => { setCommentImage(null); setCommentImagePreview(null); if (imageInputRef.current) imageInputRef.current.value = '' }}
+                  className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center text-white hover:bg-red-600">
+                  <X className="w-2.5 h-2.5" />
+                </button>
+              </div>
+            </div>
+          )}
           <div className="flex gap-3 items-end">
             <Avatar name="Tú" size="sm" />
             <div className="flex-1 flex items-end gap-2 bg-slate-50 rounded-xl px-3 py-2.5 border border-slate-200 focus-within:border-[#00C2FF]/50 focus-within:ring-2 focus-within:ring-[#00C2FF]/20 transition-all">
@@ -1028,11 +1092,25 @@ export default function TaskSlideOver({
                 rows={1}
                 className="flex-1 bg-transparent text-sm text-slate-700 placeholder:text-slate-400 outline-none resize-none max-h-28 leading-relaxed"
               />
+              <input
+                ref={imageInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleImageSelect}
+              />
+              <button
+                onClick={() => imageInputRef.current?.click()}
+                disabled={sending || uploadingImage}
+                title="Adjuntar imagen"
+                className={`w-7 h-7 flex items-center justify-center rounded-lg transition-colors flex-shrink-0 ${commentImage ? 'text-[#00C2FF]' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-200'}`}>
+                <ImageIcon className="w-4 h-4" />
+              </button>
               <button
                 onClick={handleSend}
-                disabled={sending || !newComment.trim()}
+                disabled={sending || uploadingImage || (!newComment.trim() && !commentImage)}
                 className="w-7 h-7 flex items-center justify-center rounded-lg bg-[#1A2744] text-white disabled:opacity-40 hover:bg-[#243660] transition-colors flex-shrink-0">
-                {sending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                {(sending || uploadingImage) ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
               </button>
             </div>
           </div>
