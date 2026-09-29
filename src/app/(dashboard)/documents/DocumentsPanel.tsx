@@ -194,7 +194,7 @@ function WorkflowBadge({ doc, userRole }: { doc: Doc; userRole: string }) {
 type Member = { user_id: string; full_name: string | null; initials: string | null }
 
 function UploadModal({
-  projects, workspaceId, defaultProjectId, existingDocs, companies, members, micNomenclatures, onClose
+  projects, workspaceId, defaultProjectId, existingDocs, companies, members, micNomenclatures, userRole, onClose
 }: {
   projects: Project[]
   workspaceId: string
@@ -203,8 +203,10 @@ function UploadModal({
   companies: Company[]
   members: Member[]
   micNomenclatures: MicNomenclature[]
+  userRole: string
   onClose: () => void
 }) {
+  const isEngineer = userRole === 'engineer'
   const [projectId,      setProjectId]      = useState(defaultProjectId || '')
   const [specialtyCode,  setSpecialtyCode]  = useState('')
   const [displayName,    setDisplayName]    = useState('')
@@ -252,11 +254,18 @@ function UploadModal({
       if (existing && existing.version_number !== null && existing.version_number !== parsed.version_number) {
         setVersionWarning({ prevVersion: existing.version_number, newVersion: parsed.version_number })
       }
-      // Auto-llenar segmentos desde el código MIC del filename
+      // Auto-llenar segmentos desde el código MIC del filename — solo si existen en catálogo
       const segments = parseMicSegments(parsed.doc_key)
       if (segments) {
-        if (!docView)  setDocView(segments.tipo_plano)
-        if (!docType)  setDocType(segments.tipo_doc)
+        const validTipoDoc   = tipoDocOptions.find(t => t.code === segments.tipo_doc)
+        const validTipoPlano = tipoPlanoOptions.find(t => t.code === segments.tipo_plano)
+        if (validTipoDoc   && !docType)  setDocType(segments.tipo_doc)
+        if (validTipoPlano && !docView)  setDocView(segments.tipo_plano)
+        else if (!validTipoPlano && segments.tipo_doc !== 'PLA') setDocView('NA')
+      } else {
+        // Filename malformado (segmentos insuficientes) — limpiar selecciones previas
+        setDocType('')
+        setDocView('')
       }
     }
   }
@@ -284,7 +293,7 @@ function UploadModal({
     if (!identificador) { setError('Selecciona el identificador'); return }
     if (!specialtyCode) { setError('Selecciona la disciplina / especialidad'); return }
     if (!docType) { setError('Selecciona el tipo de documento'); return }
-    if (!docView) { setError('Selecciona el tipo de plano'); return }
+    if (docType === 'PLA' && !docView) { setError('Selecciona el tipo de plano'); return }
     if (!authorSel) { setError('Selecciona el autor o empresa'); return }
     setUploading(true); setError(null); setUploadPct(0)
 
@@ -393,7 +402,8 @@ function UploadModal({
               Identificador <span className="text-red-400">*</span>
             </label>
             <select value={identificador} onChange={e => setIdentificador(e.target.value)}
-              className={`w-full px-3 py-2.5 rounded-lg border text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50 ${!identificador ? 'border-slate-300' : 'border-[#00C2FF]'}`}>
+              disabled={isEngineer}
+              className={`w-full px-3 py-2.5 rounded-lg border text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50 ${!identificador ? 'border-slate-300' : 'border-[#00C2FF]'} ${isEngineer ? 'bg-slate-50 text-slate-400 cursor-not-allowed' : ''}`}>
               <option value="">Seleccionar identificador...</option>
               {identificadorOptions.map(o => (
                 <option key={o.code} value={o.code}>{o.code} — {o.name}</option>
@@ -418,8 +428,14 @@ function UploadModal({
             <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
               Tipo de documento
             </label>
-            <select value={docType} onChange={e => setDocType(e.target.value)}
-              className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50">
+            <select value={docType} onChange={e => {
+                const val = e.target.value
+                setDocType(val)
+                if (val !== 'PLA') setDocView('NA')
+                else setDocView('')
+              }}
+              disabled={isEngineer}
+              className={`w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50 ${isEngineer ? 'bg-slate-50 text-slate-400 cursor-not-allowed' : ''}`}>
               <option value="">Sin tipo</option>
               {tipoDocOptions.map(t => (
                 <option key={t.code} value={t.code}>[{t.code}] {t.name}</option>
@@ -432,13 +448,20 @@ function UploadModal({
               <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
                 Tipo de plano
               </label>
-              <select value={docView} onChange={e => setDocView(e.target.value)}
-                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50">
-                <option value="">Sin tipo</option>
-                {tipoPlanoOptions.map(t => (
-                  <option key={t.code} value={t.code}>[{t.code}] {t.name}</option>
-                ))}
-              </select>
+              {docType !== 'PLA' ? (
+                <div className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-sm text-slate-400 font-mono">
+                  NA
+                </div>
+              ) : (
+                <select value={docView} onChange={e => setDocView(e.target.value)}
+                  disabled={isEngineer}
+                  className={`w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50 ${isEngineer ? 'bg-slate-50 text-slate-400 cursor-not-allowed' : ''}`}>
+                  <option value="">Sin tipo</option>
+                  {tipoPlanoOptions.map(t => (
+                    <option key={t.code} value={t.code}>[{t.code}] {t.name}</option>
+                  ))}
+                </select>
+              )}
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide flex items-center gap-1.5">
@@ -2126,6 +2149,7 @@ export default function DocumentsPanel({
           companies={companies}
           members={members}
           micNomenclatures={micNomenclatures}
+          userRole={userRole}
           onClose={() => setShowUpload(false)}
         />
       )}

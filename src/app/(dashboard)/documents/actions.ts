@@ -61,10 +61,20 @@ export async function saveDocument(data: {
   const parsed = parseDocKey(data.file_name)
 
   // Auto-detectar doc_view desde segmento TIPO_PLANO del código MIC si no se proveyó
+  // Solo aceptar si el código existe en mic_nomenclatures del workspace
   let autoDocView: string | null = data.doc_view || null
   if (parsed && !autoDocView) {
     const segments = parseMicSegments(parsed.doc_key)
-    if (segments) autoDocView = segments.tipo_plano
+    if (segments) {
+      const { data: validRow } = await admin
+        .from('mic_nomenclatures')
+        .select('code')
+        .eq('workspace_id', data.workspace_id)
+        .eq('segment', 'TIPO_PLANO')
+        .eq('code', segments.tipo_plano)
+        .maybeSingle()
+      autoDocView = validRow ? segments.tipo_plano : null
+    }
   }
 
   let previousVersionId: string | null = null
