@@ -31,7 +31,7 @@ type TaskDoc = {
   drive_files?: { id: string; name: string; file_type: string } | null
 }
 
-type Member = { user_id: string; full_name: string | null }
+type Member = { user_id: string; full_name: string | null; initials: string | null }
 
 type Entregable = {
   id: string
