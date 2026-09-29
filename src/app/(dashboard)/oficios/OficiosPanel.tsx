@@ -607,11 +607,6 @@ function OficioRow({
           />
         </td>
       )}
-      {/* No. oficio */}
-      <td className="px-4 py-3 text-xs font-mono text-slate-500 whitespace-nowrap">
-        {oficio.no_oficio || <span className="text-slate-300">—</span>}
-      </td>
-
       {/* Asunto */}
       <td className="px-4 py-3">
         <div className="flex items-start gap-2 min-w-0">
@@ -675,6 +670,11 @@ function OficioRow({
       {/* Asignado */}
       <td className="px-4 py-3">
         <AssigneeBadge assignee={oficio.assignee} />
+      </td>
+
+      {/* No. oficio */}
+      <td className="px-4 py-3 text-xs font-mono text-slate-500 whitespace-nowrap">
+        {oficio.no_oficio || <span className="text-slate-300">—</span>}
       </td>
 
       {/* Acciones */}
@@ -996,13 +996,13 @@ export default function OficiosPanel({
                       />
                     </th>
                   )}
-                  <th className="px-4 py-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">No. oficio</th>
                   <th className="px-4 py-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Asunto</th>
                   <th className="px-4 py-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">Fecha doc.</th>
                   <th className="px-4 py-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">Recepción</th>
                   <th className="px-4 py-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Proyecto / Especialidad</th>
                   <th className="px-4 py-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Estado</th>
                   <th className="px-4 py-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Asignado</th>
+                  <th className="px-4 py-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">No. oficio</th>
                   <th className="px-4 py-3 w-24"></th>
                 </tr>
               </thead>
