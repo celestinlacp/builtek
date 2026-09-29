@@ -20,7 +20,7 @@ type Oficio = {
   fecha_recepcion: string | null
   proyecto_id: string | null
   especialidad: string | null
-  estado: 'pendiente' | 'en_atencion' | 'respondido' | 'archivado'
+  estado: 'pendiente' | 'en_atencion' | 'respondido' | 'archivado' | 'vigente'
   remitente: string | null
   destinatario: string | null
   assignee_id: string | null
@@ -115,6 +115,7 @@ const ESTADO_CONFIG = {
   pendiente:   { label: 'Pendiente',   color: 'bg-amber-100 text-amber-700',   dot: 'bg-amber-400' },
   en_atencion: { label: 'En atención', color: 'bg-blue-100 text-blue-700',     dot: 'bg-blue-500' },
   respondido:  { label: 'Respondido',  color: 'bg-green-100 text-green-700',   dot: 'bg-green-500' },
+  vigente:     { label: 'Vigente',     color: 'bg-emerald-100 text-emerald-700', dot: 'bg-emerald-500' },
   archivado:   { label: 'Archivado',   color: 'bg-slate-100 text-slate-500',   dot: 'bg-slate-400' },
 }
 
@@ -759,7 +760,7 @@ export default function OficiosPanel({
   const [selected,       setSelected]       = useState<Set<string>>(new Set())
   const [bulkDeleting,   setBulkDeleting]   = useState(false)
 
-  const canEdit   = ['owner', 'admin', 'manager'].includes(currentUserRole)
+  const canEdit   = true
   const canDelete = ['owner', 'admin'].includes(currentUserRole)
 
   const filtered = useMemo(() => {
