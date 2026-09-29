@@ -281,6 +281,9 @@ export default function DocumentSlideOver({
                 {doc.doc_key && (
                   <MetaRow icon={GitBranch} label="Clave AEC" value={doc.doc_key} />
                 )}
+                {doc.file_name && (
+                  <MetaRow icon={FileText} label="Archivo original" value={doc.file_name} />
+                )}
               </div>
 
               {/* Cadena de aprobación */}
