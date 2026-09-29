@@ -59,7 +59,7 @@ export default async function OficiosPage() {
         proyecto_id, especialidad, estado,
         remitente, destinatario, assignee_id,
         storage_key, file_name, file_type, file_size,
-        notas, created_by, created_at, updated_at, responde_a_id,
+        notas, created_by, created_at, updated_at,
         proyecto:projects(id, name),
         assignee:profiles!oficios_assignee_id_fkey(id, full_name, initials)
       `)
