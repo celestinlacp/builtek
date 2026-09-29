@@ -612,7 +612,7 @@ function OficioRow({
       <td className="px-4 py-3">
         <div className="flex items-start gap-2 min-w-0">
           <div className="min-w-0">
-            <p className="text-sm font-medium text-[#1A2744] truncate max-w-[260px]">{oficio.asunto}</p>
+            <p title={oficio.asunto} className="text-sm font-medium text-[#1A2744] truncate max-w-[260px] cursor-default">{oficio.asunto}</p>
             {(oficio.remitente || oficio.destinatario) && (
               <p className="text-xs text-slate-400 truncate max-w-[260px]">
                 {oficio.tipo === 'entrada' ? oficio.remitente : oficio.destinatario}

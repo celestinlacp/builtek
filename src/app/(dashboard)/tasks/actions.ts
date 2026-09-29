@@ -377,7 +377,16 @@ export async function deleteEntregable(entregableId: string) {
 export async function linkOficioToTask(oficioId: string, taskId: string) {
   await getWorkspaceId()
   const admin = getAdminClient()
-  const { error } = await admin.from('oficios').update({ task_id: taskId }).eq('id', oficioId)
+
+  // Obtener el assignee_id de la tarea para asignarlo al oficio
+  const { data: task } = await admin.from('tasks').select('assignee_id').eq('id', taskId).single()
+
+  const { error } = await admin.from('oficios').update({
+    task_id:     taskId,
+    estado:      'en_atencion',
+    assignee_id: task?.assignee_id ?? null,
+  }).eq('id', oficioId)
+
   if (error) return { error: error.message }
   revalidatePath('/tasks')
   revalidatePath('/oficios')
