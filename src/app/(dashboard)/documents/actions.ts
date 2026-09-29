@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdmin } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import { parseDocKey, parseMicSegments } from './utils'
+import { parseDocKey } from './utils'
 import { DeleteObjectCommand } from '@aws-sdk/client-s3'
 import { getR2Client, R2_BUCKET, r2IsConfigured } from '@/lib/r2/client'
 
@@ -57,51 +57,17 @@ export async function saveDocument(data: {
   const { user } = await getUser()
   const admin = getAdminClient()
 
-  // Detectar nomenclatura MIC/AEC desde filename
+  // Detectar número de versión desde filename (solo como hint, no determina doc_key)
   const parsed = parseDocKey(data.file_name)
 
-  // Auto-detectar doc_view desde segmento TIPO_PLANO del código MIC si no se proveyó
-  // Solo aceptar si el código existe en mic_nomenclatures del workspace
-  let autoDocView: string | null = data.doc_view || null
-  if (parsed && !autoDocView) {
-    const segments = parseMicSegments(parsed.doc_key)
-    if (segments) {
-      const { data: validRow } = await admin
-        .from('mic_nomenclatures')
-        .select('code')
-        .eq('workspace_id', data.workspace_id)
-        .eq('segment', 'TIPO_PLANO')
-        .eq('code', segments.tipo_plano)
-        .maybeSingle()
-      autoDocView = validRow ? segments.tipo_plano : null
-    }
-  }
+  const autoDocView: string | null = data.doc_view || null
 
   let previousVersionId: string | null = null
   let newVersionNumber = 1
   let constructedDocKey: string | null = null
 
-  if (parsed) {
-    const { data: existing } = await admin
-      .from('documents')
-      .select('id, version_number')
-      .eq('workspace_id', data.workspace_id)
-      .eq('doc_key', parsed.doc_key)
-      .eq('is_current', true)
-      .maybeSingle()
-
-    if (existing) {
-      previousVersionId = existing.id
-      newVersionNumber  = (existing.version_number ?? 0) + 1
-      await admin.from('documents').update({
-        is_current: false,
-        doc_status: 'archived',
-      }).eq('id', existing.id)
-    }
-
-    newVersionNumber = parsed.version_number
-  } else if (data.doc_type && data.specialty_code && data.doc_view && data.identificador) {
-    // Construir doc_key desde selecciones del formulario cuando el filename no sigue nomenclatura MIC
+  if (data.doc_type && data.specialty_code && data.doc_view && data.identificador) {
+    // Construir doc_key SIEMPRE desde selecciones del formulario — el filename nunca overrides esto
     const { data: troncalRow } = await admin
       .from('mic_nomenclatures')
       .select('code')
@@ -115,8 +81,7 @@ export async function saveDocument(data: {
     if (troncal) {
       constructedDocKey = `${troncal}-${data.identificador}-${data.doc_type}-${data.specialty_code}-${data.doc_view}`
 
-      // Encontrar la siguiente versión para este doc_key Y mismo file_type
-      // (DWG y PDF del mismo plano son documentos independientes, no versiones entre sí)
+      // Buscar versión existente del mismo plano y mismo tipo de archivo
       const { data: existing } = await admin
         .from('documents')
         .select('id, version_number')
@@ -133,8 +98,30 @@ export async function saveDocument(data: {
           is_current: false,
           doc_status: 'archived',
         }).eq('id', existing.id)
+      } else if (parsed) {
+        // Usar el número de versión del filename como hint (ej. 0001 → 1)
+        newVersionNumber = parsed.version_number
       }
     }
+  } else if (parsed) {
+    // Fallback: usar doc_key del filename solo cuando el formulario está incompleto
+    const { data: existing } = await admin
+      .from('documents')
+      .select('id, version_number')
+      .eq('workspace_id', data.workspace_id)
+      .eq('doc_key', parsed.doc_key)
+      .eq('is_current', true)
+      .maybeSingle()
+
+    if (existing) {
+      previousVersionId = existing.id
+      newVersionNumber  = (existing.version_number ?? 0) + 1
+      await admin.from('documents').update({
+        is_current: false,
+        doc_status: 'archived',
+      }).eq('id', existing.id)
+    }
+    newVersionNumber = parsed.version_number
   }
 
   // Generar ref_code con formato {EXT}-P{PROJ_NUM}-{SEQ}
@@ -166,8 +153,8 @@ export async function saveDocument(data: {
     file_type:        data.file_type,
     file_size:        data.file_size,
     version:          newVersionNumber,
-    doc_key:          parsed?.doc_key ?? constructedDocKey ?? null,
-    version_number:   parsed?.version_number   ?? (constructedDocKey ? newVersionNumber : null),
+    doc_key:          constructedDocKey ?? parsed?.doc_key ?? null,
+    version_number:   constructedDocKey ? newVersionNumber : (parsed?.version_number ?? null),
     is_current:       true,
     status:           'draft',
     doc_status:       'active',
@@ -191,9 +178,9 @@ export async function saveDocument(data: {
 
   revalidatePath('/documents')
   return {
-    success:             true,
-    archivedPrevious:    !!previousVersionId,
-    versionNumber:       parsed?.version_number ?? null,
+    success:          true,
+    archivedPrevious: !!previousVersionId,
+    versionNumber:    newVersionNumber,
   }
 }
 

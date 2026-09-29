@@ -8,7 +8,7 @@ import {
   Upload, Download, Trash2, ChevronDown, ChevronRight, ArrowLeft, Package,
   FolderOpen, CheckCircle2, Clock, XCircle, Eye, AlertTriangle, ShieldCheck, ShieldX, X, Loader2, History, GitBranch, SlidersHorizontal, Info, RefreshCw, Camera, Plus, Layers, Pencil, Milestone, LayoutList, AlignJustify, Share2,
 } from 'lucide-react'
-import { parseDocKey, parseMicSegments, TIPO_PLANO_DEFAULT, TIPO_DOC_DEFAULT, detectFileFormat } from './utils'
+import { parseDocKey, TIPO_PLANO_DEFAULT, TIPO_DOC_DEFAULT, detectFileFormat } from './utils'
 import DocumentSlideOver from './DocumentSlideOver'
 import { ShareProjectModal } from '../admin/ShareProjectModal'
 
@@ -248,34 +248,12 @@ function UploadModal({
     if (!f) { setFileFormat(null); return }
     // Auto-detectar formato de archivo
     setFileFormat(detectFileFormat(f.name))
+    // Solo usar el filename para detectar si es una versión nueva de un documento existente
     const parsed = parseDocKey(f.name)
     if (parsed) {
       const existing = existingDocs.find(d => d.doc_key === parsed.doc_key && d.is_current)
       if (existing && existing.version_number !== null && existing.version_number !== parsed.version_number) {
         setVersionWarning({ prevVersion: existing.version_number, newVersion: parsed.version_number })
-      }
-      // Auto-llenar segmentos desde el código MIC del filename — solo si existen en catálogo
-      const segments = parseMicSegments(parsed.doc_key)
-      if (segments) {
-        const validTipoDoc = tipoDocOptions.find(t => t.code === segments.tipo_doc)
-        if (validTipoDoc && !docType) setDocType(segments.tipo_doc)
-        // Extraer base + número del tipo_plano (ej: 'PLT1' → base='PLT', num='1')
-        const tpMatch = segments.tipo_plano.match(/^([A-Z]+)(\d*)$/)
-        const tpBase  = tpMatch ? tpMatch[1] : segments.tipo_plano
-        const tpNum   = tpMatch ? tpMatch[2] : ''
-        const validTipoPlano = tipoPlanoOptions.find(t => t.code === tpBase)
-        if (validTipoPlano && !docView) {
-          setDocView(tpBase)
-          if (tpNum) setDocViewNum(tpNum)
-        } else if (!validTipoPlano && segments.tipo_doc !== 'PLA') {
-          setDocView('NA')
-          setDocViewNum('')
-        }
-      } else {
-        // Filename malformado (segmentos insuficientes) — limpiar selecciones previas
-        setDocType('')
-        setDocView('')
-        setDocViewNum('')
       }
     }
   }
