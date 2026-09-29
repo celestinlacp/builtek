@@ -206,7 +206,6 @@ function UploadModal({
   userRole: string
   onClose: () => void
 }) {
-  const isEngineer = userRole === 'engineer'
   const [projectId,      setProjectId]      = useState(defaultProjectId || '')
   const [specialtyCode,  setSpecialtyCode]  = useState('')
   const [displayName,    setDisplayName]    = useState('')
@@ -413,8 +412,7 @@ function UploadModal({
               Identificador <span className="text-red-400">*</span>
             </label>
             <select value={identificador} onChange={e => setIdentificador(e.target.value)}
-              disabled={isEngineer}
-              className={`w-full px-3 py-2.5 rounded-lg border text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50 ${!identificador ? 'border-slate-300' : 'border-[#00C2FF]'} ${isEngineer ? 'bg-slate-50 text-slate-400 cursor-not-allowed' : ''}`}>
+              className={`w-full px-3 py-2.5 rounded-lg border text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50 ${!identificador ? 'border-slate-300' : 'border-[#00C2FF]'}`}>
               <option value="">Seleccionar identificador...</option>
               {identificadorOptions.map(o => (
                 <option key={o.code} value={o.code}>{o.code} — {o.name}</option>
@@ -445,8 +443,7 @@ function UploadModal({
                 if (val !== 'PLA') { setDocView('NA'); setDocViewNum('') }
                 else { setDocView(''); setDocViewNum('') }
               }}
-              disabled={isEngineer}
-              className={`w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50 ${isEngineer ? 'bg-slate-50 text-slate-400 cursor-not-allowed' : ''}`}>
+              className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50">
               <option value="">Sin tipo</option>
               {tipoDocOptions.map(t => (
                 <option key={t.code} value={t.code}>[{t.code}] {t.name}</option>
@@ -466,8 +463,7 @@ function UploadModal({
               ) : (
                 <div className="flex gap-2">
                   <select value={docView} onChange={e => { setDocView(e.target.value); setDocViewNum('') }}
-                    disabled={isEngineer}
-                    className={`flex-1 px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50 ${isEngineer ? 'bg-slate-50 text-slate-400 cursor-not-allowed' : ''}`}>
+                    className="flex-1 px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50">
                     <option value="">Sin tipo</option>
                     {tipoPlanoOptions.map(t => (
                       <option key={t.code} value={t.code}>[{t.code}] {t.name}</option>
