@@ -1,11 +1,156 @@
 'use client'
 
-import { Bell, Search, CheckCheck, UserCircle, Settings, LogOut, MessageSquare } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { Bell, Search, CheckCheck, UserCircle, Settings, LogOut, MessageSquare, CheckSquare, FileText, FolderOpen, Loader2 } from 'lucide-react'
+import React, { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { logout } from '@/app/(auth)/actions'
+
+// ── Global Search ──────────────────────────────────────────────────────────────
+
+type SearchResult = {
+  id: string
+  type: 'task' | 'document' | 'project'
+  name: string
+  subtitle?: string | null
+  href: string
+}
+
+const TYPE_LABEL: Record<SearchResult['type'], string> = {
+  task: 'Tarea',
+  document: 'Documento',
+  project: 'Proyecto',
+}
+
+const TYPE_ICON: Record<SearchResult['type'], React.ReactNode> = {
+  task: <CheckSquare className="w-3.5 h-3.5 text-[#00C2FF]" />,
+  document: <FileText className="w-3.5 h-3.5 text-slate-400" />,
+  project: <FolderOpen className="w-3.5 h-3.5 text-amber-400" />,
+}
+
+function GlobalSearch({ workspaceId }: { workspaceId: string }) {
+  const router = useRouter()
+  const pathname = usePathname()
+  const [query, setQuery] = useState('')
+  const [results, setResults] = useState<SearchResult[]>([])
+  const [loading, setLoading] = useState(false)
+  const [open, setOpen] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const projectIdsRef = useRef<string[]>([])
+
+  // Cache project IDs for the workspace on mount
+  useEffect(() => {
+    if (!workspaceId || workspaceId === 'dev') return
+    const supabase = createClient()
+    supabase.from('projects').select('id').eq('workspace_id', workspaceId).then(({ data }) => {
+      projectIdsRef.current = (data ?? []).map((p: { id: string }) => p.id)
+    })
+  }, [workspaceId])
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    function handle(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handle)
+    return () => document.removeEventListener('mousedown', handle)
+  }, [])
+
+  // Debounced search
+  useEffect(() => {
+    if (!query.trim() || query.length < 2) {
+      setResults([])
+      setOpen(false)
+      return
+    }
+    const timer = setTimeout(async () => {
+      setLoading(true)
+      const supabase = createClient()
+      const q = `%${query}%`
+      const ids = projectIdsRef.current
+
+      const [projRes, taskRes, docRes] = await Promise.all([
+        supabase.from('projects').select('id, name, status').eq('workspace_id', workspaceId).ilike('name', q).limit(4),
+        ids.length > 0
+          ? supabase.from('tasks').select('id, name, status, project_id').in('project_id', ids).ilike('name', q).limit(5)
+          : Promise.resolve({ data: [] as any[] }),
+        ids.length > 0
+          ? supabase.from('documents').select('id, name, status, project_id').in('project_id', ids).ilike('name', q).limit(5)
+          : Promise.resolve({ data: [] as any[] }),
+      ])
+
+      const raw: SearchResult[] = [
+        ...(projRes.data ?? []).map((p: any) => ({ id: p.id, type: 'project' as const, name: p.name, subtitle: p.status, href: '/tasks' })),
+        ...(taskRes.data ?? []).map((t: any) => ({ id: t.id, type: 'task' as const, name: t.name, subtitle: t.status, href: `/tasks?task=${t.id}` })),
+        ...(docRes.data ?? []).map((d: any) => ({ id: d.id, type: 'document' as const, name: d.name, subtitle: d.status, href: '/documents' })),
+      ]
+
+      // Prioritize results matching the current page
+      const pageType: SearchResult['type'] | null = pathname.includes('/tasks') ? 'task'
+        : pathname.includes('/documents') ? 'document'
+        : pathname.includes('/projects') ? 'project'
+        : null
+
+      const sorted = pageType
+        ? [...raw.filter(r => r.type === pageType), ...raw.filter(r => r.type !== pageType)]
+        : raw
+
+      setResults(sorted)
+      setOpen(sorted.length > 0)
+      setLoading(false)
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [query, workspaceId, pathname])
+
+  function handleSelect(href: string) {
+    router.push(href)
+    setOpen(false)
+    setQuery('')
+  }
+
+  return (
+    <div ref={containerRef} className="flex-1 max-w-md relative">
+      <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 z-10 pointer-events-none" />
+      {loading && (
+        <Loader2 className="w-3.5 h-3.5 text-slate-300 absolute right-3 top-1/2 -translate-y-1/2 z-10 animate-spin" />
+      )}
+      <input
+        type="text"
+        value={query}
+        onChange={e => setQuery(e.target.value)}
+        onFocus={() => results.length > 0 && setOpen(true)}
+        placeholder="Buscar tareas, documentos, proyectos..."
+        className="w-full pl-9 pr-4 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50 focus:border-[#00C2FF] transition-all"
+      />
+      {open && (
+        <div className="absolute top-full mt-1.5 left-0 right-0 bg-white border border-slate-200 rounded-xl shadow-lg z-50 overflow-hidden">
+          {results.length === 0 ? (
+            <p className="text-xs text-slate-400 text-center py-4">Sin resultados</p>
+          ) : (
+            <ul className="divide-y divide-slate-50 max-h-72 overflow-y-auto">
+              {results.map(r => (
+                <li key={`${r.type}-${r.id}`}>
+                  <button
+                    onClick={() => handleSelect(r.href)}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 transition-colors text-left"
+                  >
+                    <span className="shrink-0">{TYPE_ICON[r.type]}</span>
+                    <span className="text-sm text-[#1A2744] truncate flex-1">{r.name}</span>
+                    {r.subtitle && (
+                      <span className="text-[10px] text-slate-400 shrink-0 font-mono">{r.subtitle}</span>
+                    )}
+                    <span className="text-[10px] text-slate-300 shrink-0">{TYPE_LABEL[r.type]}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
 
 type Notification = {
   id: string
@@ -117,14 +262,7 @@ export default function Topbar({
   return (
     <header className="h-16 bg-white border-b border-slate-100 flex items-center px-6 gap-4 sticky top-0 z-10">
       {/* Search */}
-      <div className="flex-1 max-w-md relative">
-        <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-        <input
-          type="text"
-          placeholder="Buscar tareas, documentos, proyectos..."
-          className="w-full pl-9 pr-4 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50 focus:border-[#00C2FF] transition-all"
-        />
-      </div>
+      <GlobalSearch workspaceId={workspaceId} />
 
       <div className="flex items-center gap-3 ml-auto">
         {/* Bell */}
