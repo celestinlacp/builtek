@@ -271,12 +271,21 @@ export default function TaskSlideOver({
     setEntError(null)
     try {
       // 1. Obtener presigned URL
+      // DWG y otros CAD no tienen MIME registrado en Windows — inferir por extensión
+      const EXT_MIME: Record<string, string> = {
+        dwg: 'application/dwg', dxf: 'application/dxf',
+        pdf: 'application/pdf', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        zip: 'application/zip',
+      }
+      const ext = file.name.split('.').pop()?.toLowerCase() ?? ''
+      const contentType = file.type || EXT_MIME[ext] || 'application/octet-stream'
       const presignRes = await fetch('/api/entregables/presign', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           workspaceId, taskId: task.id,
-          fileName: file.name, contentType: file.type, fileSize: file.size,
+          fileName: file.name, contentType, fileSize: file.size,
         }),
       })
       if (!presignRes.ok) throw new Error('No se pudo preparar la subida')

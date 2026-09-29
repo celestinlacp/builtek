@@ -13,10 +13,19 @@ export async function POST(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
 
-  const { workspaceId, taskId, fileName, contentType, fileSize } = await req.json()
-  if (!workspaceId || !taskId || !fileName || !contentType || !fileSize) {
+  const { workspaceId, taskId, fileName, contentType: rawContentType, fileSize } = await req.json()
+  if (!workspaceId || !taskId || !fileName || !fileSize) {
     return NextResponse.json({ error: 'Faltan parámetros' }, { status: 400 })
   }
+  // DWG / archivos CAD llegan con contentType vacío en Windows — inferir por extensión
+  const EXT_MIME: Record<string, string> = {
+    dwg: 'application/dwg', dxf: 'application/dxf',
+    pdf: 'application/pdf', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    zip: 'application/zip',
+  }
+  const ext = fileName.split('.').pop()?.toLowerCase() ?? ''
+  const contentType: string = rawContentType || EXT_MIME[ext] || 'application/octet-stream'
 
   const { data: member } = await supabase
     .from('workspace_members')
