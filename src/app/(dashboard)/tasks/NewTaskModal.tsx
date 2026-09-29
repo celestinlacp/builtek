@@ -17,6 +17,13 @@ export default function NewTaskModal({
 }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [selectedAssignees, setSelectedAssignees] = useState<string[]>([])
+
+  function toggleAssignee(uid: string) {
+    setSelectedAssignees(prev =>
+      prev.includes(uid) ? prev.filter(id => id !== uid) : prev.length < 2 ? [...prev, uid] : prev
+    )
+  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -84,14 +91,33 @@ export default function NewTaskModal({
 
           {members.length > 0 && (
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">Asignar a</label>
-              <select name="assignee_id"
-                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50 focus:border-[#00C2FF]">
-                <option value="">Sin asignar</option>
-                {members.map(m => (
-                  <option key={m.user_id} value={m.user_id}>{m.full_name || m.user_id}</option>
-                ))}
-              </select>
+              <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide flex items-center gap-1.5">
+                Asignar a
+                <span className="text-slate-400 font-normal normal-case tracking-normal">máx. 2</span>
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {members.map(m => {
+                  const sel = selectedAssignees.includes(m.user_id)
+                  const initials = m.full_name?.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || '?'
+                  return (
+                    <button key={m.user_id} type="button" onClick={() => toggleAssignee(m.user_id)}
+                      disabled={!sel && selectedAssignees.length >= 2}
+                      className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-all ${
+                        sel
+                          ? 'bg-[#1A2744] text-white border-[#1A2744]'
+                          : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
+                      } disabled:opacity-40 disabled:cursor-not-allowed`}>
+                      <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0 ${sel ? 'bg-white/20 text-white' : 'bg-[#1A2744] text-white'}`}>
+                        {initials}
+                      </span>
+                      {m.full_name || m.user_id.slice(0, 8)}
+                    </button>
+                  )
+                })}
+              </div>
+              {selectedAssignees.map(uid => (
+                <input key={uid} type="hidden" name="assignee_ids" value={uid} />
+              ))}
             </div>
           )}
 

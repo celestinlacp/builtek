@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { addComment, deleteComment, linkDocument, unlinkDocument, reprogramTask, uploadEntregable, approveEntregable, rejectEntregable, linkOficioToTask, unlinkOficioFromTask, updateTaskName } from './actions'
+import { addComment, deleteComment, linkDocument, unlinkDocument, reprogramTask, uploadEntregable, approveEntregable, rejectEntregable, linkOficioToTask, unlinkOficioFromTask, updateTaskName, updateTaskAssignees } from './actions'
 import { Task, Project } from '@/types'
 import {
   X, MessageSquare, Send, Trash2, Paperclip,
@@ -237,9 +237,14 @@ export default function TaskSlideOver({
   const [availableOficios,   setAvailableOficios]   = useState<LinkedOficio[]>([])
   const [loadingOficios,     setLoadingOficios]     = useState(false)
   const [unlinkingOficio,    setUnlinkingOficio]    = useState<string | null>(null)
-  const [editingName,  setEditingName]  = useState(false)
-  const [localName,    setLocalName]    = useState(task.name)
-  const [savingName,   setSavingName]   = useState(false)
+  const [editingName,       setEditingName]       = useState(false)
+  const [localName,         setLocalName]         = useState(task.name)
+  const [savingName,        setSavingName]        = useState(false)
+  const [editingAssignees,  setEditingAssignees]  = useState(false)
+  const [localAssignees,    setLocalAssignees]    = useState<string[]>(
+    task.assignees?.map(a => a.user_id) ?? (task.assignee_id ? [task.assignee_id] : [])
+  )
+  const [savingAssignees,   setSavingAssignees]   = useState(false)
   const nameInputRef = useRef<HTMLInputElement>(null)
   const commentsEndRef = useRef<HTMLDivElement>(null)
   const inputRef       = useRef<HTMLTextAreaElement>(null)
@@ -255,11 +260,28 @@ export default function TaskSlideOver({
     setEditingName(false)
   }
 
+  function toggleLocalAssignee(uid: string) {
+    setLocalAssignees(prev =>
+      prev.includes(uid) ? prev.filter(id => id !== uid) : prev.length < 2 ? [...prev, uid] : prev
+    )
+  }
+
+  async function handleSaveAssignees() {
+    setSavingAssignees(true)
+    await updateTaskAssignees(task.id, localAssignees)
+    setSavingAssignees(false)
+    setEditingAssignees(false)
+  }
+
   const status   = STATUS_CONFIG[task.status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.pending
   const priority = PRIORITY_CONFIG[task.priority as keyof typeof PRIORITY_CONFIG] || PRIORITY_CONFIG.medium
   const StatusIcon = status.icon
 
-  const assignee = members?.find(m => m.user_id === task.assignee_id)
+  const taskAssignees = task.assignees && task.assignees.length > 0
+    ? task.assignees
+    : task.assignee_id
+      ? [{ user_id: task.assignee_id, full_name: members?.find(m => m.user_id === task.assignee_id)?.full_name ?? null, initials: null }]
+      : []
   const countdown = task.due_date && task.status !== 'done' ? getCountdown(task.due_date) : null
   const isOverdue = task.due_date && task.status !== 'done' && new Date(task.due_date + 'T00:00:00') < new Date()
   const canReprogram = isOverdue && currentUserRole && CAN_REPROGRAM_ROLES.includes(currentUserRole)
@@ -541,11 +563,69 @@ export default function TaskSlideOver({
               {task.project?.name && (
                 <p className="text-xs text-slate-400">{task.project.name}</p>
               )}
-              {assignee?.full_name && (
-                <p className="text-xs text-slate-500 flex items-center gap-1">
-                  <User className="w-3 h-3 text-slate-400" />
-                  {assignee.full_name}
-                </p>
+              {/* Asignados — pills + botón editar */}
+              {!editingAssignees ? (
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {taskAssignees.length === 0 ? (
+                    canEdit && (
+                      <button onClick={() => setEditingAssignees(true)}
+                        className="text-xs text-slate-400 hover:text-[#00C2FF] flex items-center gap-1 transition-colors">
+                        <User className="w-3 h-3" /> Sin asignar
+                      </button>
+                    )
+                  ) : (
+                    <>
+                      {taskAssignees.map(a => (
+                        <span key={a.user_id} className="flex items-center gap-1 bg-slate-100 rounded-full px-2 py-0.5 text-xs text-slate-600">
+                          <span className="w-4 h-4 rounded-full bg-[#1A2744] text-white text-[8px] font-bold flex items-center justify-center flex-shrink-0">
+                            {(a.initials || a.full_name?.split(' ').map(w => w[0]).join('')?.toUpperCase() || '?').slice(0, 2)}
+                          </span>
+                          {a.full_name}
+                        </span>
+                      ))}
+                      {canEdit && (
+                        <button onClick={() => setEditingAssignees(true)}
+                          className="w-5 h-5 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors">
+                          <Pencil className="w-3 h-3" />
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
+              ) : (
+                <div className="flex flex-col gap-2 w-full">
+                  <div className="flex flex-wrap gap-1.5">
+                    {members?.map(m => {
+                      const sel = localAssignees.includes(m.user_id)
+                      const initials = m.initials || m.full_name?.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || '?'
+                      return (
+                        <button key={m.user_id} type="button"
+                          onClick={() => toggleLocalAssignee(m.user_id)}
+                          disabled={!sel && localAssignees.length >= 2}
+                          className={`flex items-center gap-1 px-2 py-1 rounded-lg border text-[11px] font-medium transition-all ${
+                            sel ? 'bg-[#1A2744] text-white border-[#1A2744]' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
+                          } disabled:opacity-40 disabled:cursor-not-allowed`}>
+                          <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-bold ${sel ? 'bg-white/20' : 'bg-[#1A2744] text-white'}`}>
+                            {initials}
+                          </span>
+                          {m.full_name}
+                        </button>
+                      )
+                    })}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button onClick={handleSaveAssignees} disabled={savingAssignees}
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#1A2744] text-white text-[11px] font-semibold disabled:opacity-60">
+                      {savingAssignees ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+                      Guardar
+                    </button>
+                    <button onClick={() => { setEditingAssignees(false); setLocalAssignees(task.assignees?.map(a => a.user_id) ?? (task.assignee_id ? [task.assignee_id] : [])) }}
+                      className="text-[11px] text-slate-500 hover:text-slate-700">
+                      Cancelar
+                    </button>
+                    <span className="text-[10px] text-slate-400 ml-auto">máx. 2</span>
+                  </div>
+                </div>
               )}
               {countdown && (
                 <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full ${countdown.color}`}>

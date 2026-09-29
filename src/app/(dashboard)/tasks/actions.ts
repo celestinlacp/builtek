@@ -32,10 +32,11 @@ export async function createTask(formData: FormData) {
   const { workspaceId } = await getWorkspaceId()
   const admin = getAdminClient()
 
-  const projectId  = formData.get('project_id')  as string
-  const assigneeId = formData.get('assignee_id') as string || null
-  const dueDate    = formData.get('due_date')    as string || null
-  const taskName   = formData.get('name')        as string
+  const projectId   = formData.get('project_id')  as string
+  const assigneeIds = (formData.getAll('assignee_ids') as string[]).filter(Boolean).slice(0, 2)
+  const dueDate     = formData.get('due_date')    as string || null
+  const taskName    = formData.get('name')        as string
+  const primaryAssigneeId = assigneeIds[0] ?? null
 
   if (!projectId) return { error: 'Selecciona un proyecto' }
 
@@ -44,7 +45,7 @@ export async function createTask(formData: FormData) {
     name:        taskName,
     description: formData.get('description') as string || null,
     specialty:   formData.get('specialty')   as string || null,
-    assignee_id: assigneeId,
+    assignee_id: primaryAssigneeId,
     priority:    formData.get('priority')    as string || 'medium',
     due_date:    dueDate,
     status:      'pending',
@@ -52,10 +53,17 @@ export async function createTask(formData: FormData) {
 
   if (error) return { error: error.message }
 
-  // Trigger 1 — notificar al asignado por WhatsApp
-  if (assigneeId && task?.id) {
+  // Insertar en task_assignees
+  if (assigneeIds.length > 0 && task?.id) {
+    await admin.from('task_assignees').insert(
+      assigneeIds.map(uid => ({ task_id: task.id, user_id: uid }))
+    )
+  }
+
+  // Trigger 1 — notificar al asignado principal por WhatsApp
+  if (primaryAssigneeId && task?.id) {
     const [assigneeProfile, projectRes] = await Promise.all([
-      admin.from('profiles').select('full_name, phone').eq('id', assigneeId).single(),
+      admin.from('profiles').select('full_name, phone').eq('id', primaryAssigneeId).single(),
       admin.from('projects').select('name').eq('id', projectId).single(),
     ])
 
@@ -383,6 +391,20 @@ export async function unlinkOficioFromTask(oficioId: string) {
   if (error) return { error: error.message }
   revalidatePath('/tasks')
   revalidatePath('/oficios')
+  return { success: true }
+}
+
+export async function updateTaskAssignees(taskId: string, userIds: string[]) {
+  await getWorkspaceId()
+  const admin = getAdminClient()
+  const capped = userIds.slice(0, 2)
+  await admin.from('task_assignees').delete().eq('task_id', taskId)
+  if (capped.length > 0) {
+    await admin.from('task_assignees').insert(capped.map(uid => ({ task_id: taskId, user_id: uid })))
+  }
+  // Mantener assignee_id sincronizado con el primer asignado
+  await admin.from('tasks').update({ assignee_id: capped[0] ?? null }).eq('id', taskId)
+  revalidatePath('/tasks')
   return { success: true }
 }
 

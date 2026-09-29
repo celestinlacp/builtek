@@ -147,16 +147,28 @@ function TaskRow({ task, members, currentUserRole, onEdit, onOpen }: { task: Tas
         </div>
       )}
 
-      {/* Assignee */}
-      {task.assignee_id && (() => {
+      {/* Assignees — hasta 2 avatares apilados */}
+      {(task.assignees && task.assignees.length > 0) ? (
+        <div className="hidden sm:flex items-center flex-shrink-0" style={{ gap: task.assignees.length > 1 ? '-4px' : '0' }}>
+          {task.assignees.slice(0, 2).map((a, i) => {
+            const initials = a.initials || a.full_name?.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || '?'
+            return (
+              <div key={a.user_id} title={a.full_name || ''} style={{ marginLeft: i > 0 ? '-6px' : '0', zIndex: 2 - i }}
+                className="w-7 h-7 rounded-full bg-[#1A2744] text-white text-[9px] font-bold flex items-center justify-center ring-2 ring-white flex-shrink-0">
+                {initials}
+              </div>
+            )
+          })}
+        </div>
+      ) : task.assignee_id ? (() => {
         const m = members.find(m => m.user_id === task.assignee_id)
-        const initials = m?.initials || m?.full_name?.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 4) || '?'
+        const initials = m?.initials || m?.full_name?.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || '?'
         return (
           <div title={m?.full_name || ''} className="hidden sm:flex w-7 h-7 rounded-full bg-[#1A2744] text-white text-[9px] font-bold items-center justify-center flex-shrink-0">
             {initials}
           </div>
         )
-      })()}
+      })() : null}
 
       {/* Status */}
       <StatusBadge status={task.status} taskId={task.id} />
@@ -237,7 +249,10 @@ function SpecialtyGroup({
   )
 }
 
-type ExtendedTask = Task & { project?: { name: string } }
+type ExtendedTask = Task & {
+  project?: { name: string }
+  assignees?: { user_id: string; full_name: string | null; initials: string | null }[]
+}
 
 export default function TaskBoard({
   tasks, projects, members, availableDocs, currentUserId, currentUserRole, workspaceId, defaultTaskId
@@ -268,7 +283,7 @@ export default function TaskBoard({
 
   const filtered = tasks
     .filter(t => filter === 'all' || t.status === filter)
-    .filter(t => userFilter === 'all' || t.assignee_id === userFilter)
+    .filter(t => userFilter === 'all' || t.assignees?.some((a: any) => a.user_id === userFilter) || t.assignee_id === userFilter)
 
   // Agrupar por especialidad
   const groups: Record<string, ExtendedTask[]> = {}
@@ -330,7 +345,7 @@ export default function TaskBoard({
                 className="text-xs pl-3 pr-7 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 font-medium focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/40 focus:border-[#00C2FF] appearance-none cursor-pointer"
               >
                 <option value="all">Todos los usuarios</option>
-                {members.filter(m => tasks.some(t => t.assignee_id === m.user_id)).map(m => (
+                {members.filter(m => tasks.some(t => t.assignees?.some((a: any) => a.user_id === m.user_id) || t.assignee_id === m.user_id)).map(m => (
                   <option key={m.user_id} value={m.user_id}>
                     {m.full_name || m.initials || m.user_id.slice(0, 8)}
                   </option>

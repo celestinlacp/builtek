@@ -94,6 +94,7 @@ export interface Task {
     full_name: string
     avatar_url: string | null
   }
+  assignees?: { user_id: string; full_name: string | null; initials: string | null }[]
 }
 
 export interface Document {

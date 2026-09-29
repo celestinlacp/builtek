@@ -48,7 +48,6 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
   ])
 
   const projects = projectsRes.data || []
-  const tasks = (tasksRes.data || []) as any[]
 
   const rawMemberIds = (membersRes.data || []).map((m: any) => m.user_id)
   const profilesRes = rawMemberIds.length > 0
@@ -56,6 +55,26 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
     : { data: [] }
   const profileMap = Object.fromEntries((profilesRes.data || []).map((p: any) => [p.id, { full_name: p.full_name, initials: p.initials }]))
   const members = rawMemberIds.map((uid: string) => ({ user_id: uid, full_name: profileMap[uid]?.full_name || null, initials: profileMap[uid]?.initials || null }))
+
+  // Cargar asignados múltiples y enriquecer cada tarea
+  const rawTasks = (tasksRes.data || []) as any[]
+  const taskIds = rawTasks.map(t => t.id)
+  const taskAssigneesRes = taskIds.length > 0
+    ? await supabase.from('task_assignees').select('task_id, user_id').in('task_id', taskIds)
+    : { data: [] }
+  const assigneesByTask: Record<string, string[]> = {}
+  for (const row of (taskAssigneesRes.data || [])) {
+    if (!assigneesByTask[row.task_id]) assigneesByTask[row.task_id] = []
+    assigneesByTask[row.task_id].push(row.user_id)
+  }
+  const tasks = rawTasks.map(t => ({
+    ...t,
+    assignees: (assigneesByTask[t.id] || []).map((uid: string) => ({
+      user_id:    uid,
+      full_name:  profileMap[uid]?.full_name  ?? null,
+      initials:   profileMap[uid]?.initials   ?? null,
+    })),
+  }))
 
   const availableDocs = [
     ...(docsRes.data || []).map((d: any) => ({ ...d, source: 'document' as const })),
