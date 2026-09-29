@@ -136,44 +136,58 @@ export async function addComment(taskId: string, content: string) {
   })
   if (error) return { error: error.message }
 
-  // Detect @mentions and notify in workspace chat
-  const mentionMatches = trimmed.match(/@([\wáéíóúÁÉÍÓÚüÜñÑ]+(?:\s[\wáéíóúÁÉÍÓÚüÜñÑ]+)?)/g)
-  if (mentionMatches?.length && workspaceId) {
+  // Notify workspace on every comment + extra notification for @mentions
+  if (workspaceId) {
+    const mentionMatches = trimmed.match(/@([\wáéíóúÁÉÍÓÚüÜñÑ]+(?:\s[\wáéíóúÁÉÍÓÚüÜñÑ]+)?)/g)
+    const hasMentions = !!mentionMatches?.length
+
     const [taskRes, authorRes, membersRes] = await Promise.all([
       admin.from('tasks').select('name').eq('id', taskId).single(),
       admin.from('profiles').select('full_name').eq('id', userId).single(),
-      admin.from('workspace_members').select('user_id').eq('workspace_id', workspaceId),
+      hasMentions
+        ? admin.from('workspace_members').select('user_id').eq('workspace_id', workspaceId)
+        : Promise.resolve({ data: [] }),
     ])
 
-    const taskName   = taskRes.data?.name    ?? 'una tarea'
+    const taskName   = taskRes.data?.name       ?? 'una tarea'
     const authorName = authorRes.data?.full_name ?? 'Alguien'
+    const snippet    = trimmed.length > 120 ? trimmed.slice(0, 120) + '…' : trimmed
 
-    const memberIds = (membersRes.data ?? []).map((m: any) => m.user_id)
-    const { data: memberProfiles } = await admin
-      .from('profiles').select('id, full_name').in('id', memberIds)
+    // General comment notification (visible to the whole workspace)
+    await admin.from('workspace_messages').insert({
+      workspace_id: workspaceId,
+      sender_id:    null,
+      type:         'system',
+      content:      `💬 ${authorName} comentó en "${taskName}": "${snippet}"`,
+      metadata:     { action: 'comment', entity_type: 'task', entity_id: taskId, task_name: taskName },
+    })
 
-    const profilesMap: Record<string, string> = Object.fromEntries(
-      (memberProfiles ?? []).map((p: any) => [p.id, p.full_name as string])
-    )
-
-    const snippet = trimmed.length > 120 ? trimmed.slice(0, 120) + '…' : trimmed
-
-    for (const match of mentionMatches) {
-      const query = match.slice(1).toLowerCase().trim()
-      const found = Object.entries(profilesMap).find(([, name]) =>
-        name.toLowerCase().startsWith(query) || name.toLowerCase().includes(query)
+    // @mention notifications
+    if (hasMentions) {
+      const memberIds = ((membersRes as any).data ?? []).map((m: any) => m.user_id)
+      const { data: memberProfiles } = await admin
+        .from('profiles').select('id, full_name').in('id', memberIds)
+      const profilesMap: Record<string, string> = Object.fromEntries(
+        (memberProfiles ?? []).map((p: any) => [p.id, p.full_name as string])
       )
-      if (!found) continue
-      const [mentionedId] = found
-      if (mentionedId === userId) continue // no notificar a uno mismo
 
-      await admin.from('workspace_messages').insert({
-        workspace_id: workspaceId,
-        sender_id:    null,
-        type:         'system',
-        content:      `💬 ${authorName} te mencionó en la tarea "${taskName}": "${snippet}"`,
-        metadata:     { action: 'mention', mention_to: mentionedId, task_id: taskId, from_user: userId },
-      })
+      for (const match of mentionMatches!) {
+        const query = match.slice(1).toLowerCase().trim()
+        const found = Object.entries(profilesMap).find(([, name]) =>
+          name.toLowerCase().startsWith(query) || name.toLowerCase().includes(query)
+        )
+        if (!found) continue
+        const [mentionedId] = found
+        if (mentionedId === userId) continue
+
+        await admin.from('workspace_messages').insert({
+          workspace_id: workspaceId,
+          sender_id:    null,
+          type:         'system',
+          content:      `💬 ${authorName} te mencionó en "${taskName}": "${snippet}"`,
+          metadata:     { action: 'mention', mention_to: mentionedId, entity_type: 'task', entity_id: taskId, task_name: taskName, from_user: userId },
+        })
+      }
     }
   }
 

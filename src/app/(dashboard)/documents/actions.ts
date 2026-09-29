@@ -375,13 +375,33 @@ export async function rejectDocument(docId: string, note: string) {
 export async function addDocumentComment(documentId: string, workspaceId: string, content: string) {
   const { user } = await getUser()
   const admin = getAdminClient()
+  const trimmed = content.trim()
+
   const { error } = await admin.from('document_comments').insert({
     document_id:  documentId,
     workspace_id: workspaceId,
     user_id:      user.id,
-    content:      content.trim(),
+    content:      trimmed,
   })
   if (error) return { error: error.message }
+
+  // Notify workspace about the new comment
+  const [docRes, authorRes] = await Promise.all([
+    admin.from('documents').select('name, display_name, doc_key').eq('id', documentId).single(),
+    admin.from('profiles').select('full_name').eq('id', user.id).single(),
+  ])
+  const docName    = docRes.data?.display_name || docRes.data?.doc_key || docRes.data?.name || 'un documento'
+  const authorName = authorRes.data?.full_name ?? 'Alguien'
+  const snippet    = trimmed.length > 120 ? trimmed.slice(0, 120) + '…' : trimmed
+
+  await admin.from('workspace_messages').insert({
+    workspace_id: workspaceId,
+    sender_id:    null,
+    type:         'system',
+    content:      `📄 ${authorName} comentó en "${docName}": "${snippet}"`,
+    metadata:     { action: 'comment', entity_type: 'document', entity_id: documentId, doc_name: docName },
+  })
+
   return { success: true }
 }
 

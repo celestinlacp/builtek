@@ -1,9 +1,10 @@
 'use client'
 
-import { Bell, Search, CheckCheck, UserCircle, Settings, LogOut } from 'lucide-react'
+import { Bell, Search, CheckCheck, UserCircle, Settings, LogOut, MessageSquare } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { logout } from '@/app/(auth)/actions'
 
 type Notification = {
@@ -32,6 +33,8 @@ export default function Topbar({
   userName: string
   workspaceId: string
 }) {
+  const router = useRouter()
+
   const initials = userName
     .split(' ')
     .map(n => n[0])
@@ -61,7 +64,7 @@ export default function Topbar({
         .eq('workspace_id', workspaceId)
         .eq('type', 'system')
         .order('created_at', { ascending: false })
-        .limit(15)
+        .limit(3)
 
       const items = (data ?? []) as Notification[]
       setNotifs(items)
@@ -79,7 +82,7 @@ export default function Topbar({
         table: 'workspace_messages', filter: `workspace_id=eq.${workspaceId}`,
       }, (payload) => {
         if (payload.new?.type !== 'system') return
-        setNotifs(prev => [payload.new as Notification, ...prev.slice(0, 14)])
+        setNotifs(prev => [payload.new as Notification, ...prev.slice(0, 2)])
         setUnread(prev => prev + 1)
       })
       .subscribe()
@@ -142,22 +145,48 @@ export default function Topbar({
             <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl border border-slate-200 shadow-lg overflow-hidden z-50">
               <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
                 <span className="text-sm font-bold text-[#1A2744]">Notificaciones</span>
-                {notifs.length > 0 && (
-                  <span className="text-[10px] text-slate-400 flex items-center gap-1">
-                    <CheckCheck className="w-3 h-3" /> Sistema Builtek
-                  </span>
-                )}
+                <span className="text-[10px] text-slate-400 flex items-center gap-1">
+                  <CheckCheck className="w-3 h-3" /> Recientes
+                </span>
               </div>
-              <div className="max-h-80 overflow-y-auto">
-                {notifs.length === 0 ? (
-                  <p className="text-xs text-slate-400 text-center py-8">Sin notificaciones</p>
-                ) : notifs.map(n => (
-                  <div key={n.id} className="px-4 py-3 border-b border-slate-50 hover:bg-slate-50 transition-colors">
+
+              {notifs.length === 0 ? (
+                <p className="text-xs text-slate-400 text-center py-8">Sin notificaciones</p>
+              ) : notifs.map(n => {
+                const entityType = n.metadata?.entity_type
+                const entityId   = n.metadata?.entity_id
+                const href = entityType === 'task'
+                  ? `/tasks?task=${entityId}`
+                  : entityType === 'document'
+                  ? '/documents'
+                  : null
+
+                return href ? (
+                  <Link
+                    key={n.id}
+                    href={href}
+                    onClick={() => setBellOpen(false)}
+                    className="block px-4 py-3 border-b border-slate-50 hover:bg-slate-50 transition-colors"
+                  >
+                    <p className="text-xs text-slate-700 leading-relaxed">{n.content}</p>
+                    <p className="text-[10px] text-[#00C2FF] mt-1">Abrir · {timeAgo(n.created_at)}</p>
+                  </Link>
+                ) : (
+                  <div key={n.id} className="px-4 py-3 border-b border-slate-50">
                     <p className="text-xs text-slate-700 leading-relaxed">{n.content}</p>
                     <p className="text-[10px] text-slate-400 mt-1">{timeAgo(n.created_at)}</p>
                   </div>
-                ))}
-              </div>
+                )
+              })}
+
+              <Link
+                href="/chat"
+                onClick={() => setBellOpen(false)}
+                className="flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold text-[#00C2FF] hover:bg-slate-50 transition-colors border-t border-slate-100"
+              >
+                <MessageSquare className="w-3.5 h-3.5" />
+                Ver todas las notificaciones →
+              </Link>
             </div>
           )}
         </div>

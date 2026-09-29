@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState, useTransition } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { sendMessage } from './actions'
-import { Send, Zap, AtSign } from 'lucide-react'
+import { Send, Zap, AtSign, ExternalLink } from 'lucide-react'
+import Link from 'next/link'
 
 type Message = {
   id: string
@@ -164,26 +165,36 @@ export default function ChatPanel({
           if (msg.type === 'system') {
             lastSender = ''
             const isMentionToMe = msg.metadata?.action === 'mention' && msg.metadata?.mention_to === currentUserId
-            return (
+            const entityType = msg.metadata?.entity_type
+            const entityId   = msg.metadata?.entity_id
+            const href = entityType === 'task'
+              ? `/tasks?task=${entityId}`
+              : entityType === 'document'
+              ? '/documents'
+              : null
+
+            const inner = (
               <div key={msg.id}>
                 {showDay && <DayDivider label={formatDay(msg.created_at)} />}
                 <div className="flex items-start gap-2 py-1.5 my-1">
                   {isMentionToMe ? (
                     // Highlighted mention directed at current user
-                    <div className="flex-1 flex items-start gap-2 bg-[#00C2FF]/10 border border-[#00C2FF]/30 rounded-xl px-3 py-2.5">
+                    <div className="flex-1 flex items-start gap-2 bg-[#00C2FF]/10 border border-[#00C2FF]/30 rounded-xl px-3 py-2.5 hover:bg-[#00C2FF]/15 transition-colors">
                       <AtSign className="w-3.5 h-3.5 text-[#00C2FF] mt-0.5 flex-shrink-0" />
                       <div className="flex-1 min-w-0">
                         <p className="text-xs text-[#1A2744] font-medium leading-relaxed">{msg.content}</p>
                         <p className="text-[9px] text-slate-400 mt-0.5">{formatTime(msg.created_at)}</p>
                       </div>
+                      {href && <ExternalLink className="w-3 h-3 text-[#00C2FF]/60 flex-shrink-0 mt-0.5" />}
                     </div>
                   ) : (
-                    // Generic system notification (approval/rejection/etc)
+                    // Generic system notification (comment/approval/rejection/etc)
                     <div className="flex-1 flex items-center gap-2">
                       <div className="flex-1 h-px bg-slate-100" />
-                      <div className="flex items-center gap-1.5 bg-amber-50 border border-amber-200 rounded-full px-3 py-1 max-w-[90%]">
+                      <div className="flex items-center gap-1.5 bg-amber-50 border border-amber-200 rounded-full px-3 py-1 max-w-[90%] hover:bg-amber-100 transition-colors">
                         <Zap className="w-3 h-3 text-amber-500 flex-shrink-0" />
                         <span className="text-[11px] text-amber-700 font-medium leading-relaxed">{msg.content}</span>
+                        {href && <ExternalLink className="w-3 h-3 text-amber-400 flex-shrink-0 ml-0.5" />}
                       </div>
                       <div className="flex-1 h-px bg-slate-100" />
                     </div>
@@ -191,6 +202,10 @@ export default function ChatPanel({
                 </div>
               </div>
             )
+
+            return href
+              ? <Link key={msg.id} href={href} className="block">{inner}</Link>
+              : inner
           }
 
           // ── User message ──
