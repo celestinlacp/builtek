@@ -7,7 +7,7 @@ import {
   FileText, Filter, ChevronDown, Check, ArrowDownToLine,
   ArrowUpFromLine, Search, Sparkles, Download, Link
 } from 'lucide-react'
-import { createOficio, updateOficio, deleteOficio, deleteOficios, updateOficioStatus } from './actions'
+import { createOficio, updateOficio, deleteOficio, deleteOficios, updateOficioStatus, responderOficio } from './actions'
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
@@ -21,6 +21,7 @@ type Oficio = {
   proyecto_id: string | null
   especialidad: string | null
   estado: 'pendiente' | 'en_atencion' | 'respondido' | 'archivado' | 'vigente'
+  responde_a_id: string | null
   remitente: string | null
   destinatario: string | null
   assignee_id: string | null
@@ -495,13 +496,122 @@ function OficioModal({
   )
 }
 
+// ── RespuestaModal ────────────────────────────────────────────────────────────
+
+function RespuestaModal({ oficio, workspaceId, onClose }: {
+  oficio:      Oficio
+  workspaceId: string
+  onClose:     () => void
+}) {
+  const [noOficio, setNoOficio] = useState('')
+  const [fecha,    setFecha]    = useState('')
+  const [notas,    setNotas]    = useState('')
+  const [file,     setFile]     = useState<File | null>(null)
+  const [saving,   setSaving]   = useState(false)
+  const [error,    setError]    = useState<string | null>(null)
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!noOficio.trim()) { setError('El No. de oficio de respuesta es requerido'); return }
+    if (!file)            { setError('El archivo del oficio de respuesta es requerido'); return }
+    setSaving(true); setError(null)
+
+    const uploadResult = await uploadFile(file, workspaceId, 'salida')
+    if (!uploadResult) { setError('Error al subir el archivo'); setSaving(false); return }
+
+    const result = await responderOficio(oficio.id, {
+      no_oficio:       noOficio.trim(),
+      fecha_documento: fecha || null,
+      storage_key:     uploadResult.storageKey,
+      file_name:       file.name,
+      file_type:       uploadResult.fileType,
+      file_size:       file.size,
+      notas:           notas.trim() || null,
+    })
+
+    if (result?.error) { setError(result.error); setSaving(false); return }
+    onClose()
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+          <div>
+            <h2 className="text-base font-bold text-[#1A2744]">Oficio de respuesta</h2>
+            <p className="text-xs text-slate-400 mt-0.5 truncate max-w-[320px]">{oficio.asunto}</p>
+          </div>
+          <button onClick={onClose} className="p-1 rounded-lg hover:bg-slate-100">
+            <X className="w-4 h-4 text-slate-400" />
+          </button>
+        </div>
+        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1.5">No. de oficio de respuesta *</label>
+            <input value={noOficio} onChange={e => setNoOficio(e.target.value)} required
+              placeholder="Ej: LFMQ-F12-1041"
+              className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/40" />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1.5">Fecha del documento</label>
+            <input type="date" value={fecha} onChange={e => setFecha(e.target.value)}
+              className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/40" />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1.5">Archivo *</label>
+            {file ? (
+              <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg border border-[#00C2FF]/40 bg-[#00C2FF]/5 text-sm">
+                <FileText className="w-4 h-4 text-[#00C2FF] flex-shrink-0" />
+                <span className="text-slate-700 truncate flex-1">{file.name}</span>
+                <button type="button" onClick={() => setFile(null)} className="text-slate-400 hover:text-red-400">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ) : (
+              <label className="flex flex-col items-center gap-1.5 px-3 py-4 rounded-lg border-2 border-dashed border-slate-200 hover:border-[#00C2FF]/40 cursor-pointer transition-colors">
+                <Upload className="w-5 h-5 text-slate-300" />
+                <span className="text-xs text-slate-400">Clic para seleccionar el oficio</span>
+                <input type="file" className="hidden" accept=".pdf,.docx,.doc,.xlsx,.png,.jpg,.jpeg"
+                  onChange={e => setFile(e.target.files?.[0] || null)} />
+              </label>
+            )}
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1.5">Notas (opcional)</label>
+            <textarea value={notas} onChange={e => setNotas(e.target.value)} rows={2}
+              placeholder="Observaciones adicionales..."
+              className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/40 resize-none" />
+          </div>
+          {error && <p className="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
+          <div className="flex gap-3 pt-1">
+            <button type="button" onClick={onClose}
+              className="flex-1 py-2.5 rounded-lg border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50">
+              Cancelar
+            </button>
+            <button type="submit" disabled={saving}
+              className="flex-1 py-2.5 rounded-lg bg-[#1A2744] text-white text-sm font-bold hover:bg-[#243660] disabled:opacity-60 flex items-center justify-center gap-2">
+              {saving ? <><Loader2 className="w-4 h-4 animate-spin" /> Guardando...</> : 'Registrar respuesta'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
 // ── EstadoDropdown ────────────────────────────────────────────────────────────
 
-function EstadoDropdown({ oficio }: { oficio: Oficio }) {
-  const [open,    setOpen]    = useState(false)
-  const [loading, setLoading] = useState(false)
+function EstadoDropdown({ oficio, workspaceId }: { oficio: Oficio; workspaceId: string }) {
+  const [open,          setOpen]          = useState(false)
+  const [loading,       setLoading]       = useState(false)
+  const [showRespuesta, setShowRespuesta] = useState(false)
 
   async function handleChange(estado: string) {
+    if (estado === 'respondido') {
+      setOpen(false)
+      setShowRespuesta(true)
+      return
+    }
     setLoading(true); setOpen(false)
     await updateOficioStatus(oficio.id, estado)
     setLoading(false)
@@ -532,11 +642,19 @@ function EstadoDropdown({ oficio }: { oficio: Oficio }) {
               >
                 <span className={`w-2 h-2 rounded-full ${c.dot}`} />
                 {c.label}
-                {key === oficio.estado && <Check className="w-3 h-3 ml-auto text-[#00C2FF]" />}
+                {key === 'respondido' && <ArrowUpFromLine className="w-3 h-3 ml-auto text-slate-300" />}
+                {key === oficio.estado && key !== 'respondido' && <Check className="w-3 h-3 ml-auto text-[#00C2FF]" />}
               </button>
             ))}
           </div>
         </>
+      )}
+      {showRespuesta && (
+        <RespuestaModal
+          oficio={oficio}
+          workspaceId={workspaceId}
+          onClose={() => setShowRespuesta(false)}
+        />
       )}
     </div>
   )
@@ -574,7 +692,7 @@ function CopyLinkButton({ oficioId }: { oficioId: string }) {
 
 function OficioRow({
   oficio, projects, members, especialidades, workspaceId, canEdit, canDelete,
-  isSelected, onToggleSelect, onEdit,
+  isSelected, onToggleSelect, onEdit, respuesta,
 }: {
   oficio: Oficio
   projects: Project[]
@@ -586,6 +704,7 @@ function OficioRow({
   isSelected: boolean
   onToggleSelect: (id: string) => void
   onEdit: (o: Oficio) => void
+  respuesta?: string | null
 }) {
   const [deleting, setDeleting] = useState(false)
 
@@ -613,6 +732,12 @@ function OficioRow({
         <div className="flex items-start gap-2 min-w-0">
           <div className="min-w-0">
             <p title={oficio.asunto} className="text-sm font-medium text-[#1A2744] truncate max-w-[260px] cursor-default">{oficio.asunto}</p>
+            {respuesta && (
+              <p className="text-[10px] text-emerald-600 font-medium mt-0.5 flex items-center gap-1">
+                <ArrowUpFromLine className="w-3 h-3" />
+                Resp: {respuesta}
+              </p>
+            )}
             {(oficio.remitente || oficio.destinatario) && (
               <p className="text-xs text-slate-400 truncate max-w-[260px]">
                 {oficio.tipo === 'entrada' ? oficio.remitente : oficio.destinatario}
@@ -663,7 +788,7 @@ function OficioRow({
       {/* Estado (solo entrada) / vacío para salida */}
       <td className="px-4 py-3">
         {oficio.tipo === 'entrada'
-          ? <EstadoDropdown oficio={oficio} />
+          ? <EstadoDropdown oficio={oficio} workspaceId={workspaceId} />
           : <span className="text-slate-300 text-xs">—</span>
         }
       </td>
@@ -761,6 +886,15 @@ export default function OficiosPanel({
   const [bulkDeleting,   setBulkDeleting]   = useState(false)
 
   const canEdit   = true
+
+  // Mapa: entrada_id → no_oficio del oficio de salida que lo responde
+  const respuestasMap = useMemo(() => {
+    const map: Record<string, string> = {}
+    for (const o of oficios) {
+      if (o.responde_a_id && o.no_oficio) map[o.responde_a_id] = o.no_oficio
+    }
+    return map
+  }, [oficios])
   const canDelete = ['owner', 'admin'].includes(currentUserRole)
 
   const filtered = useMemo(() => {
@@ -1021,6 +1155,7 @@ export default function OficiosPanel({
                     isSelected={selected.has(o.id)}
                     onToggleSelect={toggleSelect}
                     onEdit={openEdit}
+                    respuesta={respuestasMap[o.id] ?? null}
                   />
                 ))}
               </tbody>

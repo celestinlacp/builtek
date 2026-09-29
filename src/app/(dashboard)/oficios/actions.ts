@@ -152,6 +152,59 @@ export async function assignOficio(id: string, assignee_id: string | null) {
   return { success: true }
 }
 
+export async function responderOficio(originalId: string, data: {
+  no_oficio?:       string | null
+  fecha_documento?: string | null
+  storage_key?:     string | null
+  file_name?:       string | null
+  file_type?:       string | null
+  file_size?:       number | null
+  notas?:           string | null
+}) {
+  const { user, workspaceId } = await getUser()
+  const admin = getAdminClient()
+
+  // Datos del oficio original para heredar contexto
+  const { data: original } = await admin
+    .from('oficios')
+    .select('asunto, proyecto_id, especialidad, destinatario, remitente')
+    .eq('id', originalId)
+    .single()
+  if (!original) return { error: 'Oficio no encontrado' }
+
+  // Crear oficio de salida (la respuesta)
+  const { error: insertError } = await admin.from('oficios').insert({
+    workspace_id:    workspaceId,
+    tipo:            'salida',
+    asunto:          original.asunto,
+    no_oficio:       data.no_oficio       || null,
+    fecha_documento: data.fecha_documento || null,
+    proyecto_id:     original.proyecto_id,
+    especialidad:    original.especialidad,
+    estado:          'vigente',
+    remitente:       original.destinatario,
+    destinatario:    original.remitente,
+    responde_a_id:   originalId,
+    storage_key:     data.storage_key || null,
+    file_name:       data.file_name   || null,
+    file_type:       data.file_type   || null,
+    file_size:       data.file_size   || null,
+    notas:           data.notas       || null,
+    created_by:      user.id,
+  })
+  if (insertError) return { error: insertError.message }
+
+  // Marcar el original como respondido
+  const { error: updateError } = await admin
+    .from('oficios')
+    .update({ estado: 'respondido' })
+    .eq('id', originalId)
+  if (updateError) return { error: updateError.message }
+
+  revalidatePath('/oficios')
+  return { success: true }
+}
+
 export async function deleteOficio(id: string) {
   await getUser()
   const admin = getAdminClient()
