@@ -606,6 +606,24 @@ function ProjectModal({
             </div>
           )}
 
+          {/* Cruce vial + INAH */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">Cruce vial</label>
+              <input name="cruce_vial" defaultValue={project?.cruce_vial || ''}
+                placeholder="Ej: CV-001, KM+450"
+                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50 focus:border-[#00C2FF]" />
+            </div>
+            <div className="flex items-end pb-1">
+              <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                <input type="checkbox" name="is_inah" defaultChecked={project?.is_inah ?? false}
+                  className="w-4 h-4 rounded border-slate-300 text-yellow-500 accent-yellow-500 cursor-pointer" />
+                <span className="text-sm font-semibold text-slate-700">Proyecto INAH</span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-yellow-100 text-yellow-700 font-bold">INAH</span>
+              </label>
+            </div>
+          </div>
+
           {error && <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-600">{error}</div>}
 
           <div className="flex gap-3 pt-2">
@@ -686,6 +704,16 @@ function ProjectCard({ project, onEdit, onShare }: { project: Project; onEdit: (
           {project.project_type && (
             <span className="text-xs px-2.5 py-1 rounded-full font-medium bg-slate-100 text-slate-500">
               {project.project_type}
+            </span>
+          )}
+          {project.is_inah && (
+            <span className="text-xs px-2.5 py-1 rounded-full font-bold bg-yellow-100 text-yellow-700">
+              INAH
+            </span>
+          )}
+          {project.cruce_vial && (
+            <span className="text-xs px-2.5 py-1 rounded-full font-medium bg-orange-100 text-orange-600">
+              {project.cruce_vial}
             </span>
           )}
         </div>
@@ -2068,6 +2096,8 @@ export default function AdminPanel({
   const [showModal, setShowModal] = useState(false)
   const [editProject, setEditProject] = useState<Project | null>(null)
   const [shareProject, setShareProject] = useState<Project | null>(null)
+  const [filterInah, setFilterInah] = useState(false)
+  const [filterCruceVial, setFilterCruceVial] = useState('')
 
   const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [
     { id: 'projects',       label: 'Proyectos',      icon: FolderOpen },
@@ -2106,10 +2136,15 @@ export default function AdminPanel({
 
       {/* Projects tab */}
       {tab === 'projects' && (() => {
-        const rootProjects = projects.filter(p => !p.parent_project_id)
+        const allRootProjects = projects.filter(p => !p.parent_project_id)
+        const cruceVialOptions = [...new Set(projects.filter(p => p.cruce_vial).map(p => p.cruce_vial!))]
+          .sort()
+        const rootProjects = allRootProjects
+          .filter(p => !filterInah || p.is_inah)
+          .filter(p => !filterCruceVial || p.cruce_vial === filterCruceVial)
         return (
           <div>
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between mb-3">
               <p className="text-sm text-slate-500">
                 {rootProjects.length} proyecto{rootProjects.length !== 1 ? 's' : ''} ·{' '}
                 {rootProjects.filter(p => p.status === 'active').length} activos
@@ -2119,6 +2154,40 @@ export default function AdminPanel({
                   className="flex items-center gap-2 bg-[#1A2744] text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-[#243660] transition-colors">
                   <Plus className="w-4 h-4" />
                   Nuevo proyecto
+                </button>
+              )}
+            </div>
+
+            {/* Filtros */}
+            <div className="flex items-center gap-2 mb-4 flex-wrap">
+              <button
+                onClick={() => setFilterInah(v => !v)}
+                className={`text-xs px-3 py-1.5 rounded-full font-bold transition-colors border ${
+                  filterInah
+                    ? 'bg-yellow-100 text-yellow-700 border-yellow-300'
+                    : 'bg-white text-slate-400 border-slate-200 hover:border-yellow-300 hover:text-yellow-600'
+                }`}
+              >
+                INAH
+              </button>
+              {cruceVialOptions.length > 0 && (
+                <select
+                  value={filterCruceVial}
+                  onChange={e => setFilterCruceVial(e.target.value)}
+                  className="text-xs px-3 py-1.5 rounded-full border border-slate-200 bg-white text-slate-500 focus:outline-none focus:border-[#00C2FF]"
+                >
+                  <option value="">Cruces viales</option>
+                  {cruceVialOptions.map(cv => (
+                    <option key={cv} value={cv}>{cv}</option>
+                  ))}
+                </select>
+              )}
+              {(filterInah || filterCruceVial) && (
+                <button
+                  onClick={() => { setFilterInah(false); setFilterCruceVial('') }}
+                  className="text-xs text-slate-400 hover:text-slate-600 underline"
+                >
+                  Limpiar filtros
                 </button>
               )}
             </div>

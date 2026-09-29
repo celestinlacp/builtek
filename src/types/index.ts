@@ -73,6 +73,8 @@ export interface Project {
   chainage_start: number | null
   chainage_end: number | null
   mic_identifier: string | null
+  is_inah: boolean
+  cruce_vial: string | null
   created_at: string
 }
 
