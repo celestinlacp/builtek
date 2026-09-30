@@ -77,7 +77,7 @@ function ShareModal({ fileId, fileName, workspaceId, onClose }: {
   const qrRef = useRef<HTMLDivElement>(null)
 
   const appUrl  = process.env.NEXT_PUBLIC_APP_URL || 'https://builtek.app'
-  const shareUrl = token ? `${appUrl}/share/${token}` : ''
+  const shareUrl = token ? `${appUrl}/share/drive/${token}` : ''
 
   function downloadQR() {
     const svg = qrRef.current?.querySelector('svg')
@@ -661,7 +661,7 @@ function LinksPanel({ workspaceId }: { workspaceId: string }) {
   }
 
   function handleCopy(token: string) {
-    navigator.clipboard.writeText(`${appUrl}/share/${token}`)
+    navigator.clipboard.writeText(`${appUrl}/share/drive/${token}`)
     setCopied(token)
     setTimeout(() => setCopied(null), 2000)
   }
@@ -701,7 +701,7 @@ function LinksPanel({ workspaceId }: { workspaceId: string }) {
             <span className="text-lg">{FILE_ICONS[fileType]}</span>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-slate-700 truncate">{share.label || share.drive_files?.name}</p>
-              <p className="text-xs text-slate-400 font-mono truncate">{appUrl}/share/{share.token.slice(0, 8)}...</p>
+              <p className="text-xs text-slate-400 font-mono truncate">{appUrl}/share/drive/{share.token.slice(0, 8)}...</p>
             </div>
             <span className="hidden md:block w-20 text-center text-sm text-slate-500">{share.access_count}</span>
             <span className="hidden lg:block w-28 text-xs text-slate-400">
@@ -716,7 +716,7 @@ function LinksPanel({ workspaceId }: { workspaceId: string }) {
                 className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-200 text-slate-400 hover:text-slate-600" title="Copiar link">
                 {copied === share.token ? <CheckCheck className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
               </button>
-              <a href={`${appUrl}/share/${share.token}`} target="_blank" rel="noopener noreferrer"
+              <a href={`${appUrl}/share/drive/${share.token}`} target="_blank" rel="noopener noreferrer"
                 className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-200 text-slate-400 hover:text-slate-600" title="Abrir link">
                 <ExternalLink className="w-3.5 h-3.5" />
               </a>
