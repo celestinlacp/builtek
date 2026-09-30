@@ -205,6 +205,152 @@ function ShareModal({ fileId, fileName, workspaceId, onClose }: {
   )
 }
 
+// ── Folder Share Modal ────────────────────────────────────────────────────────
+
+function FolderShareModal({ folderId, folderName, workspaceId, onClose }: {
+  folderId:    string
+  folderName:  string
+  workspaceId: string
+  onClose:     () => void
+}) {
+  const [label,     setLabel]     = useState('')
+  const [expiresAt, setExpiresAt] = useState('')
+  const [loading,   setLoading]   = useState(false)
+  const [token,     setToken]     = useState<string | null>(null)
+  const [copied,    setCopied]    = useState(false)
+  const qrRef = useRef<HTMLDivElement>(null)
+
+  const appUrl   = process.env.NEXT_PUBLIC_APP_URL || 'https://builtek.app'
+  const shareUrl = token ? `${appUrl}/share/drive/folder/${token}` : ''
+
+  function downloadQR() {
+    const svg = qrRef.current?.querySelector('svg')
+    if (!svg) return
+    const svgData  = new XMLSerializer().serializeToString(svg)
+    const canvas   = document.createElement('canvas')
+    const size     = 400
+    canvas.width   = size
+    canvas.height  = size
+    const ctx      = canvas.getContext('2d')!
+    const img      = new Image()
+    img.onload = () => {
+      ctx.fillStyle = '#ffffff'
+      ctx.fillRect(0, 0, size, size)
+      ctx.drawImage(img, 0, 0, size, size)
+      const a   = document.createElement('a')
+      a.href     = canvas.toDataURL('image/png')
+      a.download = `qr-carpeta-${folderName.replace(/\s+/g, '-')}.png`
+      a.click()
+    }
+    img.src = `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svgData)))}`
+  }
+
+  async function handleCreate() {
+    setLoading(true)
+    const result = await createShare({
+      workspace_id: workspaceId,
+      folder_id:    folderId,
+      label:        label || folderName,
+      expires_at:   expiresAt || null,
+    })
+    setLoading(false)
+    if (result.token) setToken(result.token)
+  }
+
+  function handleCopy() {
+    navigator.clipboard.writeText(shareUrl)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-base font-bold text-[#1A2744]">Compartir carpeta</h2>
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#00C2FF]/10 text-[#00C2FF]">Carpeta</span>
+            </div>
+            <p className="text-xs text-slate-400 mt-0.5 truncate max-w-[280px]">{folderName}</p>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100">
+            <X className="w-4 h-4 text-slate-400" />
+          </button>
+        </div>
+
+        <div className="p-6 space-y-4">
+          {!token ? (
+            <>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
+                  Etiqueta del link <span className="text-slate-400 font-normal">(opcional)</span>
+                </label>
+                <input value={label} onChange={e => setLabel(e.target.value)}
+                  placeholder={folderName}
+                  className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
+                  Expira el <span className="text-slate-400 font-normal">(opcional)</span>
+                </label>
+                <input type="date" value={expiresAt} onChange={e => setExpiresAt(e.target.value)}
+                  min={new Date().toISOString().split('T')[0]}
+                  className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50" />
+              </div>
+              <p className="text-xs text-slate-400 bg-slate-50 rounded-lg px-3 py-2.5">
+                El link permitirá ver y descargar todos los archivos dentro de <strong className="text-slate-600">{folderName}</strong>.
+              </p>
+              <div className="flex gap-3 pt-1">
+                <button onClick={onClose} className="flex-1 py-2.5 rounded-lg border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50">
+                  Cancelar
+                </button>
+                <button onClick={handleCreate} disabled={loading}
+                  className="flex-1 py-2.5 rounded-lg bg-[#1A2744] text-white text-sm font-bold hover:bg-[#243660] disabled:opacity-60 flex items-center justify-center gap-2">
+                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Share2 className="w-4 h-4" />}
+                  {loading ? 'Generando...' : 'Generar link'}
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="flex flex-col items-center gap-2 p-4 bg-white border border-slate-100 rounded-xl">
+                <div ref={qrRef}>
+                  <QRCode value={shareUrl} size={160} />
+                </div>
+                <button onClick={downloadQR}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50">
+                  <Download className="w-3.5 h-3.5" />
+                  Descargar QR
+                </button>
+              </div>
+              <div className="flex items-center gap-2 bg-slate-50 rounded-lg px-3 py-2.5">
+                <span className="flex-1 text-xs text-slate-600 truncate font-mono">{shareUrl}</span>
+                <button onClick={handleCopy}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#1A2744] text-white text-xs font-semibold hover:bg-[#243660] flex-shrink-0">
+                  {copied ? <CheckCheck className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                  {copied ? '¡Copiado!' : 'Copiar'}
+                </button>
+              </div>
+              <div className="flex gap-3">
+                <a href={shareUrl} target="_blank" rel="noopener noreferrer"
+                  className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50">
+                  <ExternalLink className="w-4 h-4" /> Abrir link
+                </a>
+                <button onClick={onClose}
+                  className="flex-1 py-2.5 rounded-lg bg-[#1A2744] text-white text-sm font-bold hover:bg-[#243660]">
+                  Listo
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Upload Modal ─────────────────────────────────────────────────────────────
 
 function UploadModal({
@@ -535,11 +681,12 @@ function PdfViewerModal({ fileId, fileName, onClose }: { fileId: string; fileNam
 
 // ── Folder Card ───────────────────────────────────────────────────────────────
 
-function FolderCard({ folder, onOpen, onDelete, onRename, isAdmin, viewMode }: {
+function FolderCard({ folder, onOpen, onDelete, onRename, onShare, isAdmin, viewMode }: {
   folder:   DriveFolder
   onOpen:   () => void
   onDelete: () => void
   onRename: (name: string) => void
+  onShare:  () => void
   isAdmin:  boolean
   viewMode: 'grid' | 'list'
 }) {
@@ -573,6 +720,9 @@ function FolderCard({ folder, onOpen, onDelete, onRename, isAdmin, viewMode }: {
         </div>
         <span className="text-xs text-slate-400 w-28 hidden md:block">{formatDate(folder.created_at)}</span>
         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <button onClick={e => { e.stopPropagation(); onShare() }} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-[#00C2FF]/10 text-slate-400 hover:text-[#00C2FF]" title="Compartir carpeta">
+            <Share2 className="w-3.5 h-3.5" />
+          </button>
           {isAdmin && (
             <button onClick={() => setEditing(true)} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-200 text-slate-400 hover:text-slate-600">
               <Pencil className="w-3.5 h-3.5" />
@@ -598,16 +748,21 @@ function FolderCard({ folder, onOpen, onDelete, onRename, isAdmin, viewMode }: {
         <div className="w-12 h-12 bg-[#00C2FF]/10 rounded-xl flex items-center justify-center">
           <FolderOpen className="w-6 h-6 text-[#00C2FF]" />
         </div>
-        {isAdmin && (
-          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
+        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
+          <button onClick={onShare} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-[#00C2FF]/10 text-slate-400 hover:text-[#00C2FF]" title="Compartir">
+            <Share2 className="w-3.5 h-3.5" />
+          </button>
+          {isAdmin && (
             <button onClick={() => setEditing(true)} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-400">
               <Pencil className="w-3.5 h-3.5" />
             </button>
+          )}
+          {isAdmin && (
             <button onClick={onDelete} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-500">
               <Trash2 className="w-3.5 h-3.5" />
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
       {editing ? (
         <input ref={inputRef} value={editName}
@@ -634,7 +789,12 @@ type DriveShare = {
   access_count: number
   last_accessed: string | null
   created_at: string
+  created_by_name: string | null
+  folder_id: string | null
+  folder_name: string | null
+  file_folder_name: string | null
   drive_files: { name: string; file_type: string } | null
+  drive_folders: { name: string } | null
 }
 
 function LinksPanel({ workspaceId }: { workspaceId: string }) {
@@ -694,29 +854,55 @@ function LinksPanel({ workspaceId }: { workspaceId: string }) {
       </div>
 
       {shares.map(share => {
-        const isExpired = share.expires_at && new Date(share.expires_at) < new Date()
-        const fileType  = share.drive_files?.file_type || 'other'
+        const isExpired  = share.expires_at && new Date(share.expires_at) < new Date()
+        const isFolder   = !!share.folder_id
+        const fileType   = share.drive_files?.file_type || 'other'
+        const icon       = isFolder ? '📁' : FILE_ICONS[fileType]
+        const displayName = share.label || (isFolder ? share.folder_name : share.drive_files?.name) || '—'
+        const shareUrl   = isFolder
+          ? `${appUrl}/share/drive/folder/${share.token}`
+          : `${appUrl}/share/drive/${share.token}`
+        const locationLabel = isFolder
+          ? null
+          : (share.file_folder_name ? `Carpeta: ${share.file_folder_name}` : 'Raíz del Drive')
+
         return (
           <div key={share.id} className={`flex items-center gap-3 px-4 py-3 border-b border-slate-50 hover:bg-slate-50 ${isExpired ? 'opacity-50' : ''}`}>
-            <span className="text-lg">{FILE_ICONS[fileType]}</span>
+            <span className="text-lg flex-shrink-0">{icon}</span>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-slate-700 truncate">{share.label || share.drive_files?.name}</p>
-              <p className="text-xs text-slate-400 font-mono truncate">{appUrl}/share/drive/{share.token.slice(0, 8)}...</p>
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-medium text-slate-700 truncate">{displayName}</p>
+                {isFolder && (
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#00C2FF]/10 text-[#00C2FF] flex-shrink-0">Carpeta</span>
+                )}
+              </div>
+              <div className="flex items-center gap-2 flex-wrap mt-0.5">
+                {share.created_by_name && (
+                  <span className="text-xs text-slate-400">
+                    Emitido por <span className="text-slate-600 font-medium">{share.created_by_name}</span>
+                    {' · '}
+                    {new Date(share.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
+                  </span>
+                )}
+                {locationLabel && (
+                  <span className="text-[11px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">{locationLabel}</span>
+                )}
+              </div>
             </div>
-            <span className="hidden md:block w-20 text-center text-sm text-slate-500">{share.access_count}</span>
-            <span className="hidden lg:block w-28 text-xs text-slate-400">
+            <span className="hidden md:block w-16 text-center text-sm text-slate-500 flex-shrink-0">{share.access_count}</span>
+            <span className="hidden lg:block w-28 text-xs text-slate-400 flex-shrink-0">
               {share.expires_at
                 ? isExpired
                   ? <span className="text-red-400 font-medium">Expirado</span>
                   : new Date(share.expires_at).toLocaleDateString('es-MX')
                 : 'Nunca'}
             </span>
-            <div className="flex items-center gap-1 w-32 justify-end">
+            <div className="flex items-center gap-1 flex-shrink-0 justify-end">
               <button onClick={() => handleCopy(share.token)}
                 className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-200 text-slate-400 hover:text-slate-600" title="Copiar link">
                 {copied === share.token ? <CheckCheck className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
               </button>
-              <a href={`${appUrl}/share/drive/${share.token}`} target="_blank" rel="noopener noreferrer"
+              <a href={shareUrl} target="_blank" rel="noopener noreferrer"
                 className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-200 text-slate-400 hover:text-slate-600" title="Abrir link">
                 <ExternalLink className="w-3.5 h-3.5" />
               </a>
@@ -877,6 +1063,7 @@ export default function DrivePanel({ workspaceId, userRole, currentUserId }: {
   const [folderError,    setFolderError]    = useState<string | null>(null)
   const [viewingFile,   setViewingFile]   = useState<{ id: string; name: string } | null>(null)
   const [sharingFile,   setSharingFile]   = useState<{ id: string; name: string } | null>(null)
+  const [sharingFolder, setSharingFolder] = useState<{ id: string; name: string } | null>(null)
   const [replacingFile, setReplacingFile] = useState<{ id: string; name: string } | null>(null)
   const [activeTab,     setActiveTab]     = useState<'drive' | 'links'>('drive')
 
@@ -1211,6 +1398,7 @@ export default function DrivePanel({ workspaceId, userRole, currentUserId }: {
                         onOpen={() => openFolder(f)}
                         onDelete={() => handleDeleteFolder(f.id, f.name)}
                         onRename={name => handleRenameFolder(f.id, name)}
+                        onShare={() => setSharingFolder({ id: f.id, name: f.name })}
                         isAdmin={true} />
                     ))}
                     {Object.entries(othersByOwner).map(([ownerId, ownerFolders]) => (
@@ -1225,6 +1413,7 @@ export default function DrivePanel({ workspaceId, userRole, currentUserId }: {
                             onOpen={() => openFolder(f)}
                             onDelete={() => handleDeleteFolder(f.id, f.name)}
                             onRename={name => handleRenameFolder(f.id, name)}
+                            onShare={() => setSharingFolder({ id: f.id, name: f.name })}
                             isAdmin={isAdmin} />
                         ))}
                       </div>
@@ -1261,6 +1450,7 @@ export default function DrivePanel({ workspaceId, userRole, currentUserId }: {
                               onOpen={() => openFolder(f)}
                               onDelete={() => handleDeleteFolder(f.id, f.name)}
                               onRename={name => handleRenameFolder(f.id, name)}
+                              onShare={() => setSharingFolder({ id: f.id, name: f.name })}
                               isAdmin={true} />
                           ))}
                         </div>
@@ -1277,6 +1467,7 @@ export default function DrivePanel({ workspaceId, userRole, currentUserId }: {
                               onOpen={() => openFolder(f)}
                               onDelete={() => handleDeleteFolder(f.id, f.name)}
                               onRename={name => handleRenameFolder(f.id, name)}
+                              onShare={() => setSharingFolder({ id: f.id, name: f.name })}
                               isAdmin={isAdmin} />
                           ))}
                         </div>
@@ -1289,6 +1480,7 @@ export default function DrivePanel({ workspaceId, userRole, currentUserId }: {
                             onOpen={() => openFolder(f)}
                             onDelete={() => handleDeleteFolder(f.id, f.name)}
                             onRename={name => handleRenameFolder(f.id, name)}
+                            onShare={() => setSharingFolder({ id: f.id, name: f.name })}
                             isAdmin={f.created_by === currentUserId || isAdmin} />
                         ))}
                       </div>
@@ -1339,6 +1531,15 @@ export default function DrivePanel({ workspaceId, userRole, currentUserId }: {
           fileName={sharingFile.name}
           workspaceId={workspaceId}
           onClose={() => setSharingFile(null)}
+        />
+      )}
+
+      {sharingFolder && (
+        <FolderShareModal
+          folderId={sharingFolder.id}
+          folderName={sharingFolder.name}
+          workspaceId={workspaceId}
+          onClose={() => setSharingFolder(null)}
         />
       )}
 

@@ -141,7 +141,8 @@ export async function renameFolder(folderId: string, name: string) {
 
 export async function createShare(data: {
   workspace_id: string
-  file_id:      string
+  file_id?:     string | null
+  folder_id?:   string | null
   label?:       string
   expires_at?:  string | null
 }) {
@@ -150,8 +151,9 @@ export async function createShare(data: {
 
   const { data: share, error } = await admin.from('drive_shares').insert({
     workspace_id: data.workspace_id,
-    file_id:      data.file_id,
-    label:        data.label || null,
+    file_id:      data.file_id   || null,
+    folder_id:    data.folder_id || null,
+    label:        data.label     || null,
     expires_at:   data.expires_at || null,
     created_by:   user.id,
   }).select('token').single()
@@ -173,12 +175,32 @@ export async function revokeShare(shareId: string) {
 export async function getWorkspaceShares(workspaceId: string) {
   await getUser()
   const admin = getAdminClient()
+
   const { data, error } = await admin
     .from('drive_shares')
-    .select('id, token, label, is_active, expires_at, access_count, last_accessed, created_at, drive_files(name, file_type)')
+    .select('id, token, label, is_active, expires_at, access_count, last_accessed, created_at, created_by, folder_id, drive_files(name, file_type, folder_id, drive_folders(name)), drive_folders(name)')
     .eq('workspace_id', workspaceId)
     .eq('is_active', true)
     .order('created_at', { ascending: false })
+
   if (error) return { error: error.message }
-  return { shares: data }
+
+  // Enriquecer con nombre del creador
+  const creatorIds = [...new Set((data ?? []).map((s: any) => s.created_by).filter(Boolean))]
+  const creatorMap: Record<string, string> = {}
+  if (creatorIds.length > 0) {
+    const { data: users } = await admin.from('users').select('id, full_name').in('id', creatorIds)
+    for (const u of (users ?? [])) {
+      if (u.id && u.full_name) creatorMap[u.id] = u.full_name
+    }
+  }
+
+  const enriched = (data ?? []).map((s: any) => ({
+    ...s,
+    created_by_name:  creatorMap[s.created_by] ?? null,
+    file_folder_name: (s.drive_files as any)?.drive_folders?.name ?? null,
+    folder_name:      (s.drive_folders as any)?.name ?? null,
+  }))
+
+  return { shares: enriched }
 }
