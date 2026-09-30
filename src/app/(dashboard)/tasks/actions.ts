@@ -132,15 +132,16 @@ export async function deleteTask(taskId: string) {
   return { success: true }
 }
 
-export async function addComment(taskId: string, content: string) {
+export async function addComment(taskId: string, content: string, imageUrl?: string | null) {
   const { userId, workspaceId } = await getWorkspaceId()
   const admin = getAdminClient()
 
   const trimmed = content.trim()
   const { error } = await admin.from('comments').insert({
-    task_id: taskId,
-    user_id: userId,
-    content: trimmed,
+    task_id:   taskId,
+    user_id:   userId,
+    content:   trimmed || ' ',
+    image_url: imageUrl || null,
   })
   if (error) return { error: error.message }
 
