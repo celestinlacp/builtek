@@ -13,6 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://builtek.app'),
   title: "Builtek",
   description: "El OS de la construcción — gestión de proyectos y control documental para AEC",
 };
