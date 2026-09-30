@@ -218,6 +218,7 @@ function FolderShareModal({ folderId, folderName, workspaceId, onClose }: {
   const [loading,   setLoading]   = useState(false)
   const [token,     setToken]     = useState<string | null>(null)
   const [copied,    setCopied]    = useState(false)
+  const [error,     setError]     = useState<string | null>(null)
   const qrRef = useRef<HTMLDivElement>(null)
 
   const appUrl   = process.env.NEXT_PUBLIC_APP_URL || 'https://builtek.app'
@@ -247,14 +248,24 @@ function FolderShareModal({ folderId, folderName, workspaceId, onClose }: {
 
   async function handleCreate() {
     setLoading(true)
-    const result = await createShare({
-      workspace_id: workspaceId,
-      folder_id:    folderId,
-      label:        label || folderName,
-      expires_at:   expiresAt || null,
-    })
-    setLoading(false)
-    if (result.token) setToken(result.token)
+    setError(null)
+    try {
+      const result = await createShare({
+        workspace_id: workspaceId,
+        folder_id:    folderId,
+        label:        label || folderName,
+        expires_at:   expiresAt || null,
+      })
+      if ('error' in result && result.error) {
+        setError(result.error)
+      } else if ('token' in result && result.token) {
+        setToken(result.token)
+      }
+    } catch (e: any) {
+      setError(e?.message ?? 'Error al generar el link. Verifica que la migración SQL esté aplicada en Supabase.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   function handleCopy() {
@@ -302,6 +313,9 @@ function FolderShareModal({ folderId, folderName, workspaceId, onClose }: {
               <p className="text-xs text-slate-400 bg-slate-50 rounded-lg px-3 py-2.5">
                 El link permitirá ver y descargar todos los archivos dentro de <strong className="text-slate-600">{folderName}</strong>.
               </p>
+              {error && (
+                <p className="text-xs text-red-500 bg-red-50 rounded-lg px-3 py-2.5">{error}</p>
+              )}
               <div className="flex gap-3 pt-1">
                 <button onClick={onClose} className="flex-1 py-2.5 rounded-lg border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50">
                   Cancelar
