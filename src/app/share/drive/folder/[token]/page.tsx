@@ -57,9 +57,15 @@ export async function generateMetadata(
     .eq('token', token)
     .single()
   const name = share?.label || (share?.drive_folders as any)?.name
+  const title = name ?? 'Carpeta compartida'
   return {
-    title: name ? `${name} — Builtek` : 'Carpeta compartida — Builtek',
+    title: `${title} — Builtek`,
     description: 'Accede y descarga los archivos de esta carpeta compartida.',
+    openGraph: {
+      title,
+      description: 'Accede y descarga los archivos de esta carpeta compartida desde Builtek.',
+      siteName: 'Builtek',
+    },
   }
 }
 
