@@ -1,0 +1,301 @@
+'use client'
+
+import { useState, useCallback } from 'react'
+import { Download, Grid3X3, List, Link2, Check, Eye, FolderOpen } from 'lucide-react'
+import { FileTypeIcon } from '@/components/ui/FileTypeIcon'
+
+export type SharedFile = {
+  id: string
+  name: string
+  file_name: string
+  file_type: string
+  file_size: number
+  created_at: string
+  uploader?: string
+}
+
+type Props = {
+  files: SharedFile[]
+  token: string
+  folderName: string
+  wsName?: string
+  expiresFormatted?: string | null
+}
+
+// Soft background tints per file type for grid cards
+const TYPE_BG: Record<string, string> = {
+  pdf:   'bg-red-50',
+  pptx:  'bg-orange-50', ppt:  'bg-orange-50',
+  xlsx:  'bg-emerald-50', xls: 'bg-emerald-50',
+  docx:  'bg-blue-50',   doc:  'bg-blue-50',
+  dwg:   'bg-sky-50',    dxf:  'bg-sky-50',
+  img:   'bg-purple-50',
+  zip:   'bg-yellow-50', rar:  'bg-amber-50',
+}
+
+function formatSize(bytes: number): string {
+  if (!bytes) return '—'
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`
+  return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GB`
+}
+
+function relativeDate(d: string): string {
+  const diff   = Date.now() - new Date(d).getTime()
+  const mins   = Math.floor(diff / 60000)
+  const hours  = Math.floor(diff / 3600000)
+  const days   = Math.floor(diff / 86400000)
+  const months = Math.floor(days / 30)
+  const years  = Math.floor(days / 365)
+  if (mins  < 1)  return 'ahora'
+  if (mins  < 60) return `${mins}min`
+  if (hours < 24) return `${hours}h`
+  if (days  < 30) return `${days}d`
+  if (months < 12) return `${months}m`
+  return `${years}a`
+}
+
+export function FolderShareContent({ files, token, folderName, wsName, expiresFormatted }: Props) {
+  const [view, setView] = useState<'list' | 'grid'>('list')
+  const [copied, setCopied]    = useState(false)
+
+  const zipUrl   = `/api/drive/share/folder/${token}/zip`
+  const shareUrl = `https://builtek.app/share/drive/folder/${token}`
+  const totalSize = files.reduce((s, f) => s + (f.file_size ?? 0), 0)
+
+  const copyLink = useCallback(async () => {
+    await navigator.clipboard.writeText(shareUrl)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }, [shareUrl])
+
+  return (
+    <>
+      {/* ── Folder title + view toggle ─────────────────────────────────────── */}
+      <div className="flex items-start justify-between gap-4 mb-5">
+        <div>
+          <h1 className="text-2xl font-black text-slate-900 tracking-tight break-words leading-tight">
+            {folderName.toUpperCase()}
+          </h1>
+          {wsName && (
+            <p className="text-sm text-slate-400 mt-0.5">
+              de <span className="text-slate-600 font-medium">{wsName}</span>
+            </p>
+          )}
+        </div>
+
+        {/* View toggle */}
+        <div className="flex items-center border border-slate-200 rounded-lg overflow-hidden shrink-0 mt-0.5">
+          <button
+            onClick={() => setView('list')}
+            className={`flex items-center justify-center w-8 h-8 transition-colors ${
+              view === 'list' ? 'bg-slate-900 text-white' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-50'
+            }`}
+            title="Lista"
+          >
+            <List className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={() => setView('grid')}
+            className={`flex items-center justify-center w-8 h-8 transition-colors ${
+              view === 'grid' ? 'bg-slate-900 text-white' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-50'
+            }`}
+            title="Cuadrícula"
+          >
+            <Grid3X3 className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </div>
+
+      {/* ── Action buttons ─────────────────────────────────────────────────── */}
+      <div className="flex items-center gap-3 mb-6 flex-wrap">
+        <a
+          href={zipUrl}
+          download
+          className="flex items-center gap-2 bg-slate-900 hover:bg-slate-700 text-white text-sm font-medium px-4 py-2.5 rounded-lg transition-colors"
+        >
+          <Download className="w-4 h-4" />
+          Descargar todo
+          {totalSize > 0 && (
+            <span className="text-slate-400 text-xs">({formatSize(totalSize)})</span>
+          )}
+        </a>
+        <button
+          onClick={copyLink}
+          className="flex items-center gap-2 border border-slate-200 hover:bg-slate-50 text-slate-700 text-sm font-medium px-4 py-2.5 rounded-lg transition-colors"
+        >
+          {copied
+            ? <Check className="w-4 h-4 text-green-500" />
+            : <Link2 className="w-4 h-4" />
+          }
+          {copied ? 'Copiado' : 'Copiar link'}
+        </button>
+      </div>
+
+      {/* ── File count summary ─────────────────────────────────────────────── */}
+      <p className="text-xs text-slate-400 mb-4">
+        {files.length} archivo{files.length !== 1 ? 's' : ''} · {formatSize(totalSize)} en total
+      </p>
+
+      {/* ── Empty state ────────────────────────────────────────────────────── */}
+      {files.length === 0 ? (
+        <div className="border border-slate-200 rounded-xl p-12 text-center">
+          <FolderOpen className="w-10 h-10 text-slate-200 mx-auto mb-3" />
+          <p className="text-sm text-slate-400">Esta carpeta no tiene archivos.</p>
+        </div>
+
+      ) : view === 'list' ? (
+        /* ── LIST VIEW ──────────────────────────────────────────────────── */
+        <div className="border border-slate-200 rounded-xl overflow-hidden">
+          {/* Header */}
+          <div className="grid grid-cols-[1fr_110px_80px_100px] px-4 py-2.5 bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+            <div>Nombre</div>
+            <div>Subido por</div>
+            <div>Fecha</div>
+            <div className="text-right">Tamaño</div>
+          </div>
+
+          {/* Rows */}
+          {files.map(file => {
+            const isPdf    = file.file_type?.toLowerCase() === 'pdf'
+            const fileUrl  = `/api/drive/share/folder/${token}/file/${file.id}`
+            return (
+              <div
+                key={file.id}
+                className="grid grid-cols-[1fr_110px_80px_100px] items-center px-4 py-2.5 border-b border-slate-50 last:border-b-0 hover:bg-slate-50 transition-colors group"
+              >
+                {/* Name */}
+                <div className="flex items-center gap-3 min-w-0 pr-4">
+                  <FileTypeIcon fileType={file.file_type ?? 'other'} size={26} />
+                  <div className="min-w-0">
+                    <a
+                      href={fileUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm font-medium text-slate-800 hover:text-blue-600 hover:underline truncate block"
+                      title={file.name}
+                    >
+                      {file.name}
+                    </a>
+                    <span className="text-[10px] text-slate-400 uppercase font-semibold tracking-wide">
+                      {file.file_type}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Uploader */}
+                <div className="text-xs text-slate-500 truncate pr-2">{file.uploader ?? '—'}</div>
+
+                {/* Date */}
+                <div className="text-xs text-slate-500">
+                  {file.created_at ? relativeDate(file.created_at) : '—'}
+                </div>
+
+                {/* Size + actions */}
+                <div className="flex items-center justify-end gap-1">
+                  <span className="text-xs text-slate-500">{formatSize(file.file_size ?? 0)}</span>
+                  {isPdf && (
+                    <a
+                      href={fileUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="ml-0.5 w-6 h-6 flex items-center justify-center rounded hover:bg-slate-200 text-slate-400 hover:text-slate-700 opacity-0 group-hover:opacity-100 transition-opacity"
+                      title="Ver"
+                    >
+                      <Eye className="w-3 h-3" />
+                    </a>
+                  )}
+                  <a
+                    href={fileUrl}
+                    download
+                    className="w-6 h-6 flex items-center justify-center rounded hover:bg-slate-200 text-slate-400 hover:text-slate-700 opacity-0 group-hover:opacity-100 transition-opacity"
+                    title="Descargar"
+                  >
+                    <Download className="w-3 h-3" />
+                  </a>
+                </div>
+              </div>
+            )
+          })}
+
+          {/* Footer totals */}
+          <div className="grid grid-cols-[1fr_110px_80px_100px] px-4 py-2 bg-slate-50 border-t border-slate-200">
+            <span className="text-xs text-slate-500 font-medium">
+              {files.length} archivo{files.length !== 1 ? 's' : ''}
+            </span>
+            <span /><span />
+            <span className="text-xs text-slate-500 font-medium text-right">{formatSize(totalSize)}</span>
+          </div>
+        </div>
+
+      ) : (
+        /* ── GRID VIEW ──────────────────────────────────────────────────── */
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+          {files.map(file => {
+            const isPdf   = file.file_type?.toLowerCase() === 'pdf'
+            const fileUrl = `/api/drive/share/folder/${token}/file/${file.id}`
+            const bgClass = TYPE_BG[file.file_type?.toLowerCase() ?? ''] ?? 'bg-slate-50'
+
+            return (
+              <div
+                key={file.id}
+                className="group border border-slate-200 rounded-xl overflow-hidden hover:border-slate-300 hover:shadow-md transition-all cursor-pointer"
+              >
+                {/* Preview tile */}
+                <div className={`relative flex items-center justify-center h-28 ${bgClass}`}>
+                  <FileTypeIcon fileType={file.file_type ?? 'other'} size={52} />
+
+                  {/* Hover overlay with actions */}
+                  <div className="absolute inset-0 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity bg-black/5">
+                    {isPdf && (
+                      <a
+                        href={fileUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={e => e.stopPropagation()}
+                        className="w-8 h-8 flex items-center justify-center rounded-lg bg-white shadow text-slate-600 hover:text-slate-900 hover:shadow-md transition-all"
+                        title="Ver"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                      </a>
+                    )}
+                    <a
+                      href={fileUrl}
+                      download
+                      onClick={e => e.stopPropagation()}
+                      className="w-8 h-8 flex items-center justify-center rounded-lg bg-white shadow text-slate-600 hover:text-slate-900 hover:shadow-md transition-all"
+                      title="Descargar"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                    </a>
+                  </div>
+                </div>
+
+                {/* Card info */}
+                <a
+                  href={fileUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block p-2.5 hover:bg-slate-50 transition-colors"
+                >
+                  <p className="text-xs font-semibold text-slate-800 truncate leading-snug" title={file.name}>
+                    {file.name}
+                  </p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">{formatSize(file.file_size ?? 0)}</p>
+                </a>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* ── Expiry notice ──────────────────────────────────────────────────── */}
+      {expiresFormatted && (
+        <p className="text-xs text-slate-400 mt-6">
+          Link válido hasta el {expiresFormatted}
+        </p>
+      )}
+    </>
+  )
+}
