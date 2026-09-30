@@ -1,24 +1,63 @@
 import { createClient as createAdmin } from '@supabase/supabase-js'
 import { notFound } from 'next/navigation'
-import { FileText, FileImage, FileArchive, File, Calendar, Download, Eye } from 'lucide-react'
+import { FileText, FileImage, FileArchive, File, Download, Eye, Share2, ArrowUpDown } from 'lucide-react'
 import type { Metadata } from 'next'
 
 export const dynamic = 'force-dynamic'
 
-function formatDate(d: string) {
-  return new Date(d).toLocaleString('es-MX', {
-    day: 'numeric', month: 'short', year: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-  })
+// ── Helpers ────────────────────────────────────────────────────────────────────
+
+function formatSize(bytes: number): string {
+  if (!bytes) return '—'
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(2)} KB`
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(2)} MB`
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`
 }
 
-function FileIcon({ fileType }: { fileType: string }) {
-  const t = fileType?.toLowerCase() ?? ''
-  if (t === 'pdf') return <FileText className="w-10 h-10 text-red-400" />
-  if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(t)) return <FileImage className="w-10 h-10 text-blue-400" />
-  if (['zip', 'rar', '7z'].includes(t)) return <FileArchive className="w-10 h-10 text-yellow-400" />
-  return <File className="w-10 h-10 text-slate-400" />
+function relativeDate(d: string): string {
+  const diff = Date.now() - new Date(d).getTime()
+  const mins  = Math.floor(diff / 60000)
+  const hours = Math.floor(diff / 3600000)
+  const days  = Math.floor(diff / 86400000)
+  const months = Math.floor(days / 30)
+  const years  = Math.floor(days / 365)
+  if (mins < 1)    return 'justo ahora'
+  if (mins < 60)   return `hace ${mins} min`
+  if (hours < 24)  return `hace ${hours} hora${hours !== 1 ? 's' : ''}`
+  if (days < 30)   return `hace ${days} día${days !== 1 ? 's' : ''}`
+  if (months < 12) return `hace ${months} mes${months !== 1 ? 'es' : ''}`
+  return `hace ${years} año${years !== 1 ? 's' : ''}`
 }
+
+function fileIcon(fileType: string) {
+  const t = fileType?.toLowerCase() ?? ''
+  if (t === 'pdf')
+    return (
+      <div className="w-10 h-12 bg-red-50 border border-red-100 rounded flex items-center justify-center flex-shrink-0">
+        <FileText className="w-5 h-5 text-red-400" />
+      </div>
+    )
+  if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'img'].includes(t))
+    return (
+      <div className="w-10 h-12 bg-blue-50 border border-blue-100 rounded flex items-center justify-center flex-shrink-0">
+        <FileImage className="w-5 h-5 text-blue-400" />
+      </div>
+    )
+  if (['zip', 'rar', '7z'].includes(t))
+    return (
+      <div className="w-10 h-12 bg-yellow-50 border border-yellow-100 rounded flex items-center justify-center flex-shrink-0">
+        <FileArchive className="w-5 h-5 text-yellow-400" />
+      </div>
+    )
+  return (
+    <div className="w-10 h-12 bg-slate-50 border border-slate-200 rounded flex items-center justify-center flex-shrink-0">
+      <File className="w-5 h-5 text-slate-400" />
+    </div>
+  )
+}
+
+// ── Metadata ───────────────────────────────────────────────────────────────────
 
 export async function generateMetadata(
   { params }: { params: Promise<{ token: string }> }
@@ -30,15 +69,17 @@ export async function generateMetadata(
   )
   const { data: share } = await admin
     .from('drive_shares')
-    .select('drive_files(name)')
+    .select('label, drive_files(name)')
     .eq('token', token)
     .single()
-  const name = (share?.drive_files as any)?.name
+  const name = share?.label || (share?.drive_files as any)?.name
   return {
     title: name ? `${name} — Builtek` : 'Archivo compartido — Builtek',
-    description: 'Accede y descarga el archivo compartido.',
+    description: 'Accede y descarga el archivo compartido desde Builtek.',
   }
 }
+
+// ── Page ───────────────────────────────────────────────────────────────────────
 
 export default async function DriveSharePage(
   { params }: { params: Promise<{ token: string }> }
@@ -52,105 +93,151 @@ export default async function DriveSharePage(
 
   const { data: share } = await admin
     .from('drive_shares')
-    .select('id, is_active, expires_at, label, access_count, drive_files(name, file_name, file_type)')
+    .select('id, is_active, expires_at, label, workspace_id, drive_files(name, file_name, file_type, file_size, created_at)')
     .eq('token', token)
     .single()
 
   if (!share || !share.is_active) return notFound()
 
-  const file = share.drive_files as unknown as { name: string; file_name: string; file_type: string }
+  const file = share.drive_files as unknown as {
+    name: string; file_name: string; file_type: string; file_size: number; created_at: string
+  }
+
+  // Workspace name
+  const { data: ws } = await admin
+    .from('workspaces')
+    .select('name')
+    .eq('id', share.workspace_id)
+    .single()
+
   const expired = share.expires_at && new Date(share.expires_at) < new Date()
-  const expiresFormatted = share.expires_at ? formatDate(share.expires_at) : null
-  const fileUrl = `/api/drive/share/${token}`
-  const isPdf = file?.file_type?.toLowerCase() === 'pdf'
+  const fileUrl  = `/api/drive/share/${token}`
+  const isPdf    = file?.file_type?.toLowerCase() === 'pdf'
+  const title    = (share.label || file?.name || file?.file_name || 'Archivo').toUpperCase()
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-white">
 
-      {/* Navbar */}
-      <header className="bg-[#1A2744] text-white sticky top-0 z-30 shadow-lg">
-        <div className="max-w-2xl mx-auto px-4 h-14 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-[#00C2FF] rounded-lg flex items-center justify-center flex-shrink-0">
-              <FileText className="w-4 h-4 text-[#1A2744]" />
-            </div>
-            <span className="font-bold text-sm tracking-tight">Builtek</span>
-            <span className="hidden sm:block text-white/30 text-xs">·</span>
-            <span className="hidden sm:block text-white/60 text-xs">Archivo compartido</span>
-          </div>
-          {expiresFormatted && (
-            <div className="flex items-center gap-2 text-xs text-white/50 flex-shrink-0">
-              <Calendar className="w-3 h-3" />
-              <span className="hidden sm:block">Expira</span>
-              <span className="font-semibold text-white/80">{expiresFormatted}</span>
-            </div>
-          )}
+      {/* Topbar — minimal */}
+      <header className="border-b border-slate-100 bg-white">
+        <div className="max-w-4xl mx-auto px-6 h-12 flex items-center justify-between">
+          <span className="text-sm font-bold text-slate-800 tracking-tight">Builtek</span>
+          <span className="text-xs text-slate-400">Vista compartida</span>
         </div>
       </header>
 
-      {/* Card */}
-      <main className="max-w-2xl mx-auto px-4 py-16">
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+      <main className="max-w-4xl mx-auto px-6 py-10">
 
-          {/* File header */}
-          <div className="bg-gradient-to-br from-[#1A2744] via-[#243660] to-[#00C2FF]/40 px-8 py-10 flex flex-col items-center text-center gap-4">
-            <div className="w-20 h-20 bg-white/10 rounded-2xl flex items-center justify-center backdrop-blur-sm border border-white/20">
-              <FileIcon fileType={file?.file_type ?? ''} />
+        {expired ? (
+
+          /* ── Link expirado ─────────────────────────────────────────────────── */
+          <div className="flex flex-col items-center justify-center py-24 text-center">
+            <div className="w-14 h-14 bg-amber-50 border border-amber-100 rounded-2xl flex items-center justify-center mb-4">
+              <Share2 className="w-6 h-6 text-amber-400" />
             </div>
-            <div>
-              <h1 className="text-lg font-bold text-white leading-snug">
-                {share.label || file?.name || file?.file_name}
-              </h1>
-              {file?.file_type && (
-                <span className="inline-block mt-2 text-[11px] font-mono font-bold px-2 py-0.5 rounded bg-white/15 text-white border border-white/20 uppercase">
-                  {file.file_type}
-                </span>
-              )}
-            </div>
+            <h1 className="text-lg font-bold text-slate-800 mb-1">Este link ha expirado</h1>
+            <p className="text-sm text-slate-400 max-w-xs">
+              Venció el{' '}
+              {new Date(share.expires_at!).toLocaleString('es-MX', {
+                day: 'numeric', month: 'long', year: 'numeric',
+                hour: '2-digit', minute: '2-digit',
+              })}.{' '}
+              Solicita un nuevo link al responsable del proyecto.
+            </p>
+            <p className="text-xs text-slate-300 mt-8 font-medium">Builtek · Gestión de proyectos AEC</p>
           </div>
 
-          {/* Body */}
-          <div className="px-8 py-8">
-            {expired ? (
-              <div className="text-center py-4">
-                <p className="text-amber-600 font-semibold text-sm mb-1">Este link ha expirado</p>
-                <p className="text-xs text-slate-400">Venció el {expiresFormatted}. Solicita un nuevo link al responsable.</p>
+        ) : (
+
+          /* ── Contenido ─────────────────────────────────────────────────────── */
+          <>
+            {/* Action buttons */}
+            <div className="flex items-center gap-3 mb-8 flex-wrap">
+              {isPdf && (
+                <a
+                  href={fileUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 bg-slate-900 hover:bg-slate-700 text-white text-sm font-medium px-4 py-2.5 rounded-lg transition-colors"
+                >
+                  <Eye className="w-4 h-4" />
+                  Ver archivo
+                </a>
+              )}
+              <a
+                href={fileUrl}
+                download
+                className="flex items-center gap-2 border border-slate-200 hover:bg-slate-50 text-slate-700 text-sm font-medium px-4 py-2.5 rounded-lg transition-colors"
+              >
+                <Download className="w-4 h-4" />
+                Descargar
+              </a>
+            </div>
+
+            {/* Title */}
+            <h1 className="text-2xl font-black text-slate-900 tracking-tight mb-1 break-words">
+              {title}
+            </h1>
+            {ws?.name && (
+              <p className="text-sm text-slate-400 mb-8">
+                de <span className="text-slate-600 font-medium">{ws.name}</span>
+              </p>
+            )}
+
+            {/* File table */}
+            <div className="border border-slate-200 rounded-xl overflow-hidden">
+
+              {/* Table header */}
+              <div className="grid grid-cols-[1fr_160px_120px] px-4 py-2.5 bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                <div className="flex items-center gap-1">
+                  Nombre <ArrowUpDown className="w-3 h-3 text-slate-400" />
+                </div>
+                <div>Modificado</div>
+                <div>Tamaño</div>
               </div>
-            ) : (
-              <div className="flex flex-col sm:flex-row gap-3">
-                {isPdf && (
+
+              {/* File row */}
+              <div className="grid grid-cols-[1fr_160px_120px] items-center px-4 py-3 hover:bg-slate-50 transition-colors">
+                {/* Name */}
+                <div className="flex items-center gap-3 min-w-0 pr-4">
+                  {fileIcon(file?.file_type ?? '')}
                   <a
                     href={fileUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex-1 flex items-center justify-center gap-2 bg-[#1A2744] hover:bg-[#243660] text-white text-sm font-semibold px-5 py-3 rounded-xl transition-colors"
+                    className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline truncate"
+                    title={file?.name || file?.file_name}
                   >
-                    <Eye className="w-4 h-4" />
-                    Ver archivo
+                    {file?.name || file?.file_name}
                   </a>
-                )}
-                <a
-                  href={fileUrl}
-                  download
-                  className="flex-1 flex items-center justify-center gap-2 bg-[#00C2FF] hover:bg-[#00aee6] text-[#1A2744] text-sm font-semibold px-5 py-3 rounded-xl transition-colors"
-                >
-                  <Download className="w-4 h-4" />
-                  Descargar
-                </a>
-              </div>
-            )}
+                </div>
 
-            {expiresFormatted && !expired && (
-              <p className="text-center text-xs text-slate-400 mt-5">
-                Link válido hasta el {expiresFormatted}
+                {/* Modified */}
+                <div className="text-sm text-slate-500">
+                  {file?.created_at ? relativeDate(file.created_at) : '—'}
+                </div>
+
+                {/* Size */}
+                <div className="text-sm text-slate-500">
+                  {formatSize(file?.file_size ?? 0)}
+                </div>
+              </div>
+
+            </div>
+
+            {/* Expiry notice */}
+            {share.expires_at && (
+              <p className="text-xs text-slate-400 mt-4">
+                Link válido hasta el{' '}
+                {new Date(share.expires_at).toLocaleString('es-MX', {
+                  day: 'numeric', month: 'short', year: 'numeric',
+                  hour: '2-digit', minute: '2-digit',
+                })}
               </p>
             )}
-          </div>
-        </div>
+          </>
 
-        <p className="text-center text-[11px] text-slate-300 mt-8">
-          <strong className="text-slate-400">Builtek</strong> · Gestión de proyectos AEC
-        </p>
+        )}
       </main>
     </div>
   )
