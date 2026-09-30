@@ -439,13 +439,9 @@ function UploadModal({
   async function handleUpload() {
     if (!files.length) return
     setUploading(true)
-    for (const file of files) {
-      await uploadOne(file)
-    }
+    const results = await Promise.all(files.map(f => uploadOne(f)))
     setUploading(false)
-    // Close only if all succeeded
-    const allOk = files.every(f => !errors[f.name])
-    if (allOk) onClose()
+    if (results.every(Boolean)) onClose()
   }
 
   return (
