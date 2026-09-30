@@ -1,6 +1,7 @@
 import { createClient as createAdmin } from '@supabase/supabase-js'
 import { notFound } from 'next/navigation'
-import { FolderOpen, Calendar, FileText, FileImage, FileArchive, File, Download, Eye, ArrowUpDown } from 'lucide-react'
+import { FolderOpen, Calendar, Download, Eye, ArrowUpDown } from 'lucide-react'
+import { FileTypeIcon } from '@/components/ui/FileTypeIcon'
 import type { Metadata } from 'next'
 
 export const dynamic = 'force-dynamic'
@@ -30,16 +31,6 @@ function relativeDate(d: string): string {
   return `hace ${years} año${years !== 1 ? 's' : ''}`
 }
 
-function FileIconCell({ fileType }: { fileType: string }) {
-  const t = fileType?.toLowerCase() ?? ''
-  if (t === 'pdf')
-    return <div className="w-8 h-10 bg-red-50 border border-red-100 rounded flex items-center justify-center flex-shrink-0"><FileText className="w-4 h-4 text-red-400" /></div>
-  if (['jpg','jpeg','png','gif','webp','svg','img'].includes(t))
-    return <div className="w-8 h-10 bg-blue-50 border border-blue-100 rounded flex items-center justify-center flex-shrink-0"><FileImage className="w-4 h-4 text-blue-400" /></div>
-  if (['zip','rar','7z'].includes(t))
-    return <div className="w-8 h-10 bg-yellow-50 border border-yellow-100 rounded flex items-center justify-center flex-shrink-0"><FileArchive className="w-4 h-4 text-yellow-400" /></div>
-  return <div className="w-8 h-10 bg-slate-50 border border-slate-200 rounded flex items-center justify-center flex-shrink-0"><File className="w-4 h-4 text-slate-400" /></div>
-}
 
 // ── Metadata ───────────────────────────────────────────────────────────────────
 
@@ -190,7 +181,7 @@ export default async function FolderSharePage(
 
                       {/* Name */}
                       <div className="flex items-center gap-3 min-w-0 pr-4">
-                        <FileIconCell fileType={file.file_type ?? ''} />
+                        <FileTypeIcon fileType={file.file_type ?? 'other'} size={32} />
                         <div className="min-w-0">
                           <a
                             href={fileUrl}

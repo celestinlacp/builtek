@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { createFolder, saveDriveFile, replaceFile, deleteFolder, deleteDriveFile, renameFolder, createShare, revokeShare, getWorkspaceShares } from './actions'
+import { FileTypeIcon } from '@/components/ui/FileTypeIcon'
 import QRCode from 'react-qr-code'
 import {
   FolderOpen, Upload, LayoutGrid, List,
@@ -42,13 +43,15 @@ const FILE_COLORS: Record<string, string> = {
   dwg:   'bg-blue-50 text-blue-500 border-blue-100',
   dxf:   'bg-blue-50 text-blue-500 border-blue-100',
   xlsx:  'bg-green-50 text-green-600 border-green-100',
+  xls:   'bg-green-50 text-green-600 border-green-100',
   docx:  'bg-indigo-50 text-indigo-500 border-indigo-100',
+  doc:   'bg-indigo-50 text-indigo-500 border-indigo-100',
+  pptx:  'bg-orange-50 text-orange-600 border-orange-100',
+  ppt:   'bg-orange-50 text-orange-600 border-orange-100',
   img:   'bg-purple-50 text-purple-500 border-purple-100',
+  zip:   'bg-yellow-50 text-yellow-600 border-yellow-100',
+  rar:   'bg-yellow-50 text-yellow-600 border-yellow-100',
   other: 'bg-slate-50 text-slate-400 border-slate-100',
-}
-
-const FILE_ICONS: Record<string, string> = {
-  pdf: '📄', dwg: '📐', dxf: '📐', xlsx: '📊', docx: '📝', img: '🖼️', other: '📁'
 }
 
 function formatSize(bytes: number) {
@@ -489,7 +492,7 @@ function UploadModal({
                 const isDone = done.has(file.name)
                 return (
                   <div key={file.name} className="flex items-center gap-2 bg-slate-50 rounded-lg px-3 py-2">
-                    <span className="text-base">{FILE_ICONS[file.name.split('.').pop()?.toLowerCase() as string] || '📁'}</span>
+                    <FileTypeIcon fileType={file.name.split('.').pop()?.toLowerCase() ?? 'other'} size={28} />
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-medium text-slate-700 truncate">{file.name}</p>
                       {pct !== null && !err && (
@@ -836,8 +839,6 @@ function LinksPanel({ workspaceId }: { workspaceId: string }) {
     setTimeout(() => setCopied(null), 2000)
   }
 
-  const FILE_ICONS: Record<string, string> = { pdf: '📄', dwg: '📐', dxf: '📐', xlsx: '📊', docx: '📝', img: '🖼️', other: '📁' }
-
   if (loading) return (
     <div className="flex items-center justify-center h-40">
       <Loader2 className="w-6 h-6 text-[#00C2FF] animate-spin" />
@@ -867,7 +868,6 @@ function LinksPanel({ workspaceId }: { workspaceId: string }) {
         const isExpired  = share.expires_at && new Date(share.expires_at) < new Date()
         const isFolder   = !!share.folder_id
         const fileType   = share.drive_files?.file_type || 'other'
-        const icon       = isFolder ? '📁' : FILE_ICONS[fileType]
         const displayName = share.label || (isFolder ? share.folder_name : share.drive_files?.name) || '—'
         const shareUrl   = isFolder
           ? `${appUrl}/share/drive/folder/${share.token}`
@@ -878,7 +878,10 @@ function LinksPanel({ workspaceId }: { workspaceId: string }) {
 
         return (
           <div key={share.id} className={`flex items-center gap-3 px-4 py-3 border-b border-slate-50 hover:bg-slate-50 ${isExpired ? 'opacity-50' : ''}`}>
-            <span className="text-lg flex-shrink-0">{icon}</span>
+            {isFolder
+              ? <span className="text-lg flex-shrink-0">📁</span>
+              : <FileTypeIcon fileType={fileType} size={28} />
+            }
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
                 <p className="text-sm font-medium text-slate-700 truncate">{displayName}</p>
@@ -941,13 +944,12 @@ function FileCard({ file, onView, onDelete, onShare, onReplace, uploaderName, is
   viewMode:     'grid' | 'list'
 }) {
   const colorClass = FILE_COLORS[file.file_type] || FILE_COLORS.other
-  const icon       = FILE_ICONS[file.file_type]  || '📁'
   const isPdf      = file.file_type === 'pdf'
 
   if (viewMode === 'list') {
     return (
       <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-50 hover:bg-slate-50 group">
-        <span className="text-lg w-5 flex-shrink-0 text-center">{icon}</span>
+        <FileTypeIcon fileType={file.file_type} size={28} />
         <div className="flex-1 min-w-0">
           {isPdf ? (
             <button onClick={onView} className="text-sm font-medium text-slate-700 hover:text-[#00C2FF] text-left truncate block w-full">
@@ -997,7 +999,7 @@ function FileCard({ file, onView, onDelete, onShare, onReplace, uploaderName, is
       <div className={`h-32 flex items-center justify-center border-b ${colorClass}`}
         onClick={isPdf ? onView : undefined}
         style={{ cursor: isPdf ? 'pointer' : 'default' }}>
-        <span className="text-4xl">{icon}</span>
+        <FileTypeIcon fileType={file.file_type} size={52} />
       </div>
 
       {/* Info */}

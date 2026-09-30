@@ -1,6 +1,7 @@
 import { createClient as createAdmin } from '@supabase/supabase-js'
 import { notFound } from 'next/navigation'
-import { FileText, FileImage, FileArchive, File, Download, Eye, Share2, ArrowUpDown } from 'lucide-react'
+import { Download, Eye, ArrowUpDown, Share2 } from 'lucide-react'
+import { FileTypeIcon } from '@/components/ui/FileTypeIcon'
 import type { Metadata } from 'next'
 
 export const dynamic = 'force-dynamic'
@@ -28,33 +29,6 @@ function relativeDate(d: string): string {
   if (days < 30)   return `hace ${days} día${days !== 1 ? 's' : ''}`
   if (months < 12) return `hace ${months} mes${months !== 1 ? 'es' : ''}`
   return `hace ${years} año${years !== 1 ? 's' : ''}`
-}
-
-function fileIcon(fileType: string) {
-  const t = fileType?.toLowerCase() ?? ''
-  if (t === 'pdf')
-    return (
-      <div className="w-10 h-12 bg-red-50 border border-red-100 rounded flex items-center justify-center flex-shrink-0">
-        <FileText className="w-5 h-5 text-red-400" />
-      </div>
-    )
-  if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'img'].includes(t))
-    return (
-      <div className="w-10 h-12 bg-blue-50 border border-blue-100 rounded flex items-center justify-center flex-shrink-0">
-        <FileImage className="w-5 h-5 text-blue-400" />
-      </div>
-    )
-  if (['zip', 'rar', '7z'].includes(t))
-    return (
-      <div className="w-10 h-12 bg-yellow-50 border border-yellow-100 rounded flex items-center justify-center flex-shrink-0">
-        <FileArchive className="w-5 h-5 text-yellow-400" />
-      </div>
-    )
-  return (
-    <div className="w-10 h-12 bg-slate-50 border border-slate-200 rounded flex items-center justify-center flex-shrink-0">
-      <File className="w-5 h-5 text-slate-400" />
-    </div>
-  )
 }
 
 // ── Metadata ───────────────────────────────────────────────────────────────────
@@ -200,7 +174,7 @@ export default async function DriveSharePage(
               <div className="grid grid-cols-[1fr_160px_120px] items-center px-4 py-3 hover:bg-slate-50 transition-colors">
                 {/* Name */}
                 <div className="flex items-center gap-3 min-w-0 pr-4">
-                  {fileIcon(file?.file_type ?? '')}
+                  <FileTypeIcon fileType={file?.file_type ?? 'other'} size={40} />
                   <a
                     href={fileUrl}
                     target="_blank"
