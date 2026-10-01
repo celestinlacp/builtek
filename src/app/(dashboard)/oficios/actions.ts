@@ -35,6 +35,7 @@ export async function createOficio(data: {
   fecha_recepcion?: string | null
   proyecto_id?:     string | null
   especialidad?:    string | null
+  tema?:            string | null
   remitente?:       string | null
   destinatario?:    string | null
   assignee_id?:     string | null
@@ -44,11 +45,13 @@ export async function createOficio(data: {
   file_type?:       string | null
   file_size?:       number | null
   notas?:           string | null
+  antecedentes?:    Array<{ ref_texto: string; antecedente_oficio_id?: string | null }>
+  anexos?:          Array<{ tipo: 'link' | 'archivo'; nombre: string; url?: string | null; storage_key?: string | null; file_name?: string | null; file_size?: number | null }>
 }) {
   const { user, workspaceId } = await getUser()
   const admin = getAdminClient()
 
-  const { error } = await admin.from('oficios').insert({
+  const { data: created, error } = await admin.from('oficios').insert({
     workspace_id:    workspaceId,
     tipo:            data.tipo,
     asunto:          data.asunto,
@@ -57,6 +60,7 @@ export async function createOficio(data: {
     fecha_recepcion: data.fecha_recepcion || null,
     proyecto_id:     data.proyecto_id     || null,
     especialidad:    data.especialidad    || null,
+    tema:            data.tema            || null,
     estado:          'pendiente',
     remitente:       data.remitente       || null,
     destinatario:    data.destinatario    || null,
@@ -68,9 +72,37 @@ export async function createOficio(data: {
     file_size:       data.file_size       || null,
     notas:           data.notas           || null,
     created_by:      user.id,
-  })
+  }).select('id').single()
 
   if (error) return { error: error.message }
+
+  // Crear antecedentes
+  if (data.antecedentes?.length && created) {
+    await admin.from('oficio_antecedentes').insert(
+      data.antecedentes.map(a => ({
+        oficio_id:             created.id,
+        ref_texto:             a.ref_texto,
+        antecedente_oficio_id: a.antecedente_oficio_id || null,
+      }))
+    )
+  }
+
+  // Crear anexos (links y archivos pre-subidos)
+  if (data.anexos?.length && created) {
+    await admin.from('oficio_anexos').insert(
+      data.anexos.map(a => ({
+        oficio_id:   created.id,
+        workspace_id: workspaceId,
+        tipo:        a.tipo,
+        nombre:      a.nombre,
+        url:         a.url         || null,
+        storage_key: a.storage_key || null,
+        file_name:   a.file_name   || null,
+        file_size:   a.file_size   || null,
+        created_by:  user.id,
+      }))
+    )
+  }
 
   // Notificar al asignado si se especificó uno
   if (data.assignee_id && data.assignee_id !== user.id && workspaceId) {
@@ -96,6 +128,7 @@ export async function updateOficio(id: string, data: {
   fecha_recepcion?: string | null
   proyecto_id?:     string | null
   especialidad?:    string | null
+  tema?:            string | null
   estado?:          string
   remitente?:       string | null
   destinatario?:    string | null
@@ -113,6 +146,7 @@ export async function updateOficio(id: string, data: {
 
   if (error) return { error: error.message }
   revalidatePath('/oficios')
+  revalidatePath('/especificaciones')
   return { success: true }
 }
 
@@ -223,5 +257,73 @@ export async function deleteOficios(ids: string[]) {
   const { error } = await admin.from('oficios').delete().in('id', ids)
   if (error) return { error: error.message }
   revalidatePath('/oficios')
+  return { success: true }
+}
+
+// ── Antecedentes ──────────────────────────────────────────────────────────────
+
+export async function addOficioAntecedente(
+  oficioId: string,
+  refTexto: string,
+  antecedenteOficioId?: string | null
+) {
+  await getUser()
+  const admin = getAdminClient()
+  const { data, error } = await admin.from('oficio_antecedentes').insert({
+    oficio_id:             oficioId,
+    ref_texto:             refTexto,
+    antecedente_oficio_id: antecedenteOficioId || null,
+  }).select('id').single()
+  if (error) return { error: error.message }
+  revalidatePath('/oficios')
+  revalidatePath('/especificaciones')
+  return { success: true, id: data.id }
+}
+
+export async function removeOficioAntecedente(id: string) {
+  await getUser()
+  const admin = getAdminClient()
+  const { error } = await admin.from('oficio_antecedentes').delete().eq('id', id)
+  if (error) return { error: error.message }
+  revalidatePath('/oficios')
+  revalidatePath('/especificaciones')
+  return { success: true }
+}
+
+// ── Anexos ────────────────────────────────────────────────────────────────────
+
+export async function addOficioAnexo(
+  oficioId: string,
+  workspaceId: string,
+  tipo: 'link' | 'archivo',
+  nombre: string,
+  opts: { url?: string | null; storage_key?: string | null; file_name?: string | null; file_size?: number | null }
+) {
+  const { user } = await getUser()
+  const admin = getAdminClient()
+  const { data, error } = await admin.from('oficio_anexos').insert({
+    oficio_id:   oficioId,
+    workspace_id: workspaceId,
+    tipo,
+    nombre,
+    url:         opts.url         || null,
+    storage_key: opts.storage_key || null,
+    file_name:   opts.file_name   || null,
+    file_size:   opts.file_size   || null,
+    created_by:  user.id,
+  }).select('id').single()
+  if (error) return { error: error.message }
+  revalidatePath('/oficios')
+  revalidatePath('/especificaciones')
+  return { success: true, id: data.id }
+}
+
+export async function removeOficioAnexo(id: string) {
+  await getUser()
+  const admin = getAdminClient()
+  const { error } = await admin.from('oficio_anexos').delete().eq('id', id)
+  if (error) return { error: error.message }
+  revalidatePath('/oficios')
+  revalidatePath('/especificaciones')
   return { success: true }
 }

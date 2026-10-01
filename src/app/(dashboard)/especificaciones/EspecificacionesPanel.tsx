@@ -7,6 +7,7 @@ import {
   Plus, X, Upload, FileText, ChevronDown, Loader2, Trash2,
   Eye, AlertTriangle, CheckCircle2, Clock, ArrowLeft, Folder,
   BookOpen, Mail, ArrowDownToLine, ArrowUpFromLine, Pencil, Download, Link, Check, Copy, CheckCheck,
+  Tag, Paperclip, ExternalLink, Filter,
 } from 'lucide-react'
 
 // ── Paleta de colores (rotativa por índice) ───────────────────────────────────
@@ -64,11 +65,24 @@ type OficioRef = {
   no_oficio:       string | null
   asunto:          string
   especialidad:    string | null   // almacena el código de mic_nomenclatures (EEST, AARQ…)
+  tema:            string | null
   estado:          string
   fecha_documento: string | null
   remitente:       string | null
   destinatario:    string | null
   storage_key:     string | null
+  proyecto_id:     string | null
+}
+
+type AnexoRef = {
+  id:          string
+  oficio_id:   string
+  tipo:        'link' | 'archivo'
+  nombre:      string
+  url:         string | null
+  storage_key: string | null
+  file_name:   string | null
+  file_size:   number | null
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -552,15 +566,19 @@ function StatusBadge({ spec, userRole }: { spec: DesignSpec; userRole: string })
 // ── Sección de oficios de la mesa ─────────────────────────────────────────────
 
 function MesaOficiosSection({
-  mesaOficios, workspaceId,
+  mesaOficios, workspaceId, projects, anexos,
 }: {
   mesaOficios: OficioRef[]
   workspaceId: string
+  projects: { id: string; name: string }[]
+  anexos: AnexoRef[]
 }) {
-  const [tab, setTab] = useState<'entrada' | 'salida'>('entrada')
+  const [tab,           setTab]           = useState<'entrada' | 'salida'>('entrada')
+  const [filterProject, setFilterProject] = useState('')
 
-  const entradas = mesaOficios.filter(o => o.tipo === 'entrada')
-  const salidas  = mesaOficios.filter(o => o.tipo === 'salida')
+  const filtered = mesaOficios.filter(o => !filterProject || o.proyecto_id === filterProject)
+  const entradas = filtered.filter(o => o.tipo === 'entrada')
+  const salidas  = filtered.filter(o => o.tipo === 'salida')
   const current  = tab === 'entrada' ? entradas : salidas
 
   async function handleView(o: OficioRef) {
@@ -576,8 +594,8 @@ function MesaOficiosSection({
 
   return (
     <div className="bg-white border border-slate-100 rounded-xl overflow-hidden">
-      {/* Tabs entrada / salida */}
-      <div className="flex items-center gap-1 p-3 border-b border-slate-100 bg-slate-50">
+      {/* Tabs entrada / salida + filtro de proyecto */}
+      <div className="flex items-center gap-1 p-3 border-b border-slate-100 bg-slate-50 flex-wrap">
         <button
           onClick={() => setTab('entrada')}
           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
@@ -600,6 +618,16 @@ function MesaOficiosSection({
           Salida
           <span className="bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-full text-[10px] font-bold">{salidas.length}</span>
         </button>
+        {projects.length > 0 && (
+          <div className="ml-auto flex items-center gap-1">
+            <Filter className="w-3 h-3 text-slate-400" />
+            <select value={filterProject} onChange={e => setFilterProject(e.target.value)}
+              className="text-xs border border-slate-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-[#00C2FF]/40 bg-white text-slate-600">
+              <option value="">Todos los proyectos</option>
+              {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </div>
+        )}
       </div>
 
       {/* Lista */}
@@ -618,8 +646,8 @@ function MesaOficiosSection({
             }
             return (
               <div key={o.id}
-                className="flex items-center gap-3 px-4 py-3 border-b border-slate-50 last:border-b-0 hover:bg-slate-50 group">
-                <Mail className="w-4 h-4 text-slate-300 flex-shrink-0" />
+                className="flex items-start gap-3 px-4 py-3 border-b border-slate-50 last:border-b-0 hover:bg-slate-50 group">
+                <Mail className="w-4 h-4 text-slate-300 flex-shrink-0 mt-0.5" />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-slate-700 truncate">{o.asunto}</p>
                   <p className="text-xs text-slate-400 mt-0.5">
@@ -627,8 +655,24 @@ function MesaOficiosSection({
                     {o.tipo === 'entrada' ? (o.remitente || '—') : (o.destinatario || '—')}
                     {o.fecha_documento && <span className="ml-1.5">· {formatDate(o.fecha_documento)}</span>}
                   </p>
+                  <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                    {o.tema && (
+                      <span className="inline-flex items-center gap-0.5 bg-violet-50 text-violet-600 text-[10px] font-medium px-1.5 py-0.5 rounded-full">
+                        <Tag className="w-2.5 h-2.5" />{o.tema}
+                      </span>
+                    )}
+                    {anexos.filter(a => a.oficio_id === o.id).map(a => (
+                      <a key={a.id}
+                        href={a.tipo === 'link' ? (a.url || '#') : `/api/oficios/anexos/${a.id}`}
+                        target="_blank" rel="noopener noreferrer"
+                        title={a.nombre}
+                        className="inline-flex items-center gap-0.5 bg-blue-50 text-blue-600 text-[10px] font-medium px-1.5 py-0.5 rounded-full hover:bg-blue-100">
+                        <Paperclip className="w-2.5 h-2.5" />{a.nombre.slice(0, 20)}
+                      </a>
+                    ))}
+                  </div>
                 </div>
-                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0 ${estadoColor}`}>
+                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0 mt-0.5 ${estadoColor}`}>
                   {estadoLabel[o.estado] || o.estado}
                 </span>
                 {o.storage_key && (
@@ -651,7 +695,7 @@ function MesaOficiosSection({
 type DetailTab = 'especificaciones' | 'oficios'
 
 function MesaDetailView({
-  mesa, mesaIdx, specs, mesaOficios, userRole, workspaceId, mesas, companies, oficios, onBack,
+  mesa, mesaIdx, specs, mesaOficios, userRole, workspaceId, mesas, companies, oficios, projects, anexos, onBack,
 }: {
   mesa:        Mesa
   mesaIdx:     number
@@ -662,6 +706,8 @@ function MesaDetailView({
   mesas:       Mesa[]
   companies:   Company[]
   oficios:     Oficio[]
+  projects:    { id: string; name: string }[]
+  anexos:      AnexoRef[]
   onBack:      () => void
 }) {
   const [activeTab,    setActiveTab]    = useState<DetailTab>('especificaciones')
@@ -867,7 +913,7 @@ function MesaDetailView({
 
       {/* Contenido tab Oficios */}
       {activeTab === 'oficios' && (
-        <MesaOficiosSection mesaOficios={mesaOficios} workspaceId={workspaceId} />
+        <MesaOficiosSection mesaOficios={mesaOficios} workspaceId={workspaceId} projects={projects} anexos={anexos} />
       )}
 
       {showUpload && (
@@ -939,13 +985,15 @@ function MesaCard({
 // ── Panel principal ───────────────────────────────────────────────────────────
 
 export default function EspecificacionesPanel({
-  specs, mesas, companies, oficios, oficiosRef, workspaceId, userRole,
+  specs, mesas, companies, oficios, oficiosRef, projects, anexos, workspaceId, userRole,
 }: {
   specs:       DesignSpec[]
   mesas:       Mesa[]
   companies:   Company[]
-  oficios:     Oficio[]       // para el modal de nueva spec (vincular oficio)
-  oficiosRef:  OficioRef[]    // todos los oficios con especialidad, para mostrar en carpetas
+  oficios:     Oficio[]
+  oficiosRef:  OficioRef[]
+  projects:    { id: string; name: string }[]
+  anexos:      AnexoRef[]
   workspaceId: string
   userRole:    string
 }) {
@@ -968,6 +1016,8 @@ export default function EspecificacionesPanel({
         mesas={mesas}
         companies={companies}
         oficios={oficios}
+        projects={projects}
+        anexos={anexos}
         onBack={() => setSelectedMesaCode(null)}
       />
     )

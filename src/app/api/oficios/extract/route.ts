@@ -6,7 +6,7 @@ import Anthropic from '@anthropic-ai/sdk'
  * POST /api/oficios/extract
  * Extrae metadata de un PDF de oficio usando Claude.
  * Body: { pdfBase64: string, fileName: string }
- * Responde: { asunto, no_oficio, fecha_documento, especialidad }
+ * Responde: { asunto, no_oficio, fecha_documento, especialidad, remitente, antecedentes_texto[] }
  *
  * Fallback: si Claude falla, parsea el nombre del archivo.
  */
@@ -91,7 +91,7 @@ export async function POST(req: NextRequest) {
 
     const response = await client.messages.create({
       model:      'claude-opus-4-6',
-      max_tokens: 400,
+      max_tokens: 600,
       messages: [{
         role: 'user',
         content: [
@@ -106,12 +106,14 @@ Extrae del documento los siguientes campos y responde ÚNICAMENTE con JSON váli
 
 {
   "asunto": "El asunto del oficio tal como aparece en el documento",
-  "no_oficio": "El número o clave del oficio (ej: ARQ-1040/AIFA)",
+  "no_oficio": "El número o clave del oficio (ej: ARQ-1040/AIFA, LFMQ-F12-074)",
   "fecha_documento": "La fecha del documento en formato YYYY-MM-DD",
-  "especialidad": "La disciplina (Arquitectura, Estructuras, Hidráulica, etc.)"
+  "especialidad": "La disciplina (Arquitectura, Estructuras, Hidráulica, etc.)",
+  "remitente": "La empresa, dependencia o persona que firma o envía el documento",
+  "antecedentes_texto": ["referencias textuales a documentos previos mencionados como antecedente, tal como aparecen: ejemplo 'ARQ.1354/AIFA de 24 Oct. 2025', 'AIFA-MC-26-928 de 28 Jul. 2026'"]
 }
 
-Si no puedes extraer un campo, usa null.`,
+Si no puedes extraer un campo, usa null. antecedentes_texto debe ser un array vacío [] si no hay antecedentes.`,
           },
         ],
       }],

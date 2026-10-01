@@ -18,7 +18,7 @@ export default async function EspecificacionesPage() {
   const wsId     = membership.workspace_id
   const userRole = membership.role as string
 
-  const [specsRes, mesasRes, companiesRes, oficiosModalRes, oficiosRefRes] = await Promise.all([
+  const [specsRes, mesasRes, companiesRes, oficiosModalRes, oficiosRefRes, projectsRes] = await Promise.all([
     // Especificaciones de diseño
     supabase
       .from('design_specs')
@@ -52,10 +52,17 @@ export default async function EspecificacionesPage() {
     // Todos los oficios con especialidad asignada (para mostrar en carpetas de mesa)
     supabase
       .from('oficios')
-      .select('id, tipo, no_oficio, asunto, especialidad, estado, fecha_documento, remitente, destinatario, storage_key')
+      .select('id, tipo, no_oficio, asunto, especialidad, tema, estado, fecha_documento, remitente, destinatario, storage_key, proyecto_id')
       .eq('workspace_id', wsId)
       .not('especialidad', 'is', null)
       .order('fecha_documento', { ascending: false }),
+    // Proyectos activos (para filtro en sección de oficios por mesa)
+    supabase
+      .from('projects')
+      .select('id, name')
+      .eq('workspace_id', wsId)
+      .eq('status', 'active')
+      .order('name'),
   ])
 
   const specs       = specsRes.data       || []
@@ -63,6 +70,17 @@ export default async function EspecificacionesPage() {
   const companies   = companiesRes.data   || []
   const oficios     = oficiosModalRes.data || []
   const oficiosRef  = oficiosRefRes.data  || []
+  const projects    = projectsRes.data    || []
+
+  // Anexos para oficiosRef
+  const oficioRefIds = oficiosRef.map((o: any) => o.id)
+  const anexosRes = oficioRefIds.length > 0
+    ? await supabase
+        .from('oficio_anexos')
+        .select('id, oficio_id, tipo, nombre, url, storage_key, file_name, file_size')
+        .in('oficio_id', oficioRefIds)
+    : { data: [] }
+  const anexos = anexosRes.data || []
 
   return (
     <div className="max-w-7xl mx-auto">
@@ -84,6 +102,8 @@ export default async function EspecificacionesPage() {
         companies={companies as any}
         oficios={oficios as any}
         oficiosRef={oficiosRef as any}
+        projects={projects as any}
+        anexos={anexos as any}
         workspaceId={wsId}
         userRole={userRole}
       />

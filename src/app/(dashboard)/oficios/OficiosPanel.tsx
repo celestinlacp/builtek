@@ -5,9 +5,10 @@ import { useRouter } from 'next/navigation'
 import {
   Plus, X, Pencil, Trash2, Eye, Upload, Loader2,
   FileText, Filter, ChevronDown, Check, ArrowDownToLine,
-  ArrowUpFromLine, Search, Sparkles, Download, Link, GitBranch
+  ArrowUpFromLine, Search, Sparkles, Download, Link, GitBranch,
+  Paperclip, ExternalLink, Tag
 } from 'lucide-react'
-import { createOficio, updateOficio, deleteOficio, deleteOficios, updateOficioStatus, responderOficio } from './actions'
+import { createOficio, updateOficio, deleteOficio, deleteOficios, updateOficioStatus, responderOficio, addOficioAntecedente, removeOficioAntecedente, addOficioAnexo, removeOficioAnexo } from './actions'
 import TrazabilidadView from './TrazabilidadView'
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
@@ -21,6 +22,7 @@ type Oficio = {
   fecha_recepcion: string | null
   proyecto_id: string | null
   especialidad: string | null
+  tema: string | null
   estado: 'pendiente' | 'en_atencion' | 'respondido' | 'archivado' | 'vigente'
   responde_a_id: string | null
   remitente: string | null
@@ -36,6 +38,24 @@ type Oficio = {
   created_by: string | null
   proyecto?: { id: string; name: string } | null
   assignee?: { id: string; full_name: string; initials: string | null } | null
+}
+
+type Antecedente = {
+  id: string
+  oficio_id: string
+  ref_texto: string
+  antecedente_oficio_id: string | null
+}
+
+type Anexo = {
+  id: string
+  oficio_id: string
+  tipo: 'link' | 'archivo'
+  nombre: string
+  url: string | null
+  storage_key: string | null
+  file_name: string | null
+  file_size: number | null
 }
 
 // ── Parser de filename ─────────────────────────────────────────────────────────
@@ -227,7 +247,8 @@ async function uploadFile(file: File, workspaceId: string, tipo: string): Promis
 // ── OficioModal ───────────────────────────────────────────────────────────────
 
 function OficioModal({
-  oficio, tipo, projects, members, especialidades, workspaceId, onClose,
+  oficio, tipo, projects, members, especialidades, workspaceId, allOficios,
+  initialAntecedentes, initialAnexos, onClose,
 }: {
   oficio?: Oficio | null
   tipo: 'entrada' | 'salida'
@@ -235,6 +256,9 @@ function OficioModal({
   members: Member[]
   especialidades: { code: string; name: string }[]
   workspaceId: string
+  allOficios: Oficio[]
+  initialAntecedentes: Antecedente[]
+  initialAnexos: Anexo[]
   onClose: (saved?: boolean) => void
 }) {
   const isEdit = !!oficio
@@ -242,6 +266,7 @@ function OficioModal({
   // Campos controlados
   const [asunto,         setAsunto]         = useState(oficio?.asunto || '')
   const [noOficio,       setNoOficio]       = useState(oficio?.no_oficio || '')
+  const [tema,           setTema]           = useState(oficio?.tema || '')
   const [fechaDoc,       setFechaDoc]       = useState(oficio?.fecha_documento?.slice(0,10) || '')
   const [fechaRecep,     setFechaRecep]     = useState(oficio?.fecha_recepcion?.slice(0,10) || '')
   const [remitente,      setRemitente]      = useState(oficio?.remitente || '')
@@ -250,6 +275,32 @@ function OficioModal({
   const [especialidad,   setEspecialidad]   = useState(oficio?.especialidad || '')
   const [assigneeId,     setAssigneeId]     = useState(oficio?.assignee_id || '')
   const [notas,          setNotas]          = useState(oficio?.notas || '')
+
+  // Antecedentes
+  const [antecedentes,    setAntecedentes]    = useState<Antecedente[]>(initialAntecedentes)
+  const [anteInput,       setAnteInput]       = useState('')
+  const [anteSaving,      setAnteSaving]      = useState(false)
+  const [anteSearch,      setAnteSearch]      = useState<Oficio[]>([])
+  const [showAnteSearch,  setShowAnteSearch]  = useState(false)
+
+  // Anexos
+  const [anexos,          setAnexos]          = useState<Anexo[]>(initialAnexos)
+  const [showAnexoForm,   setShowAnexoForm]   = useState(false)
+  const [anexoTipo,       setAnexoTipo]       = useState<'link' | 'archivo'>('link')
+  const [anexoNombre,     setAnexoNombre]     = useState('')
+  const [anexoUrl,        setAnexoUrl]        = useState('')
+  const [anexoFile,       setAnexoFile]       = useState<File | null>(null)
+  const [anexoSaving,     setAnexoSaving]     = useState(false)
+
+  // Advertencia de no_oficio duplicado
+  const duplicateWarning = useMemo(() => {
+    if (!noOficio.trim() || !allOficios.length) return null
+    const match = allOficios.find(o =>
+      o.no_oficio?.toLowerCase() === noOficio.trim().toLowerCase() &&
+      o.id !== oficio?.id
+    )
+    return match || null
+  }, [noOficio, allOficios, oficio?.id])
 
   const [file,       setFile]       = useState<File | null>(null)
   const [loading,    setLoading]    = useState(false)
@@ -294,6 +345,26 @@ function OficioModal({
           if (ext.no_oficio)       setNoOficio(ext.no_oficio)
           if (ext.fecha_documento) setFechaDoc(ext.fecha_documento)
           if (ext.especialidad)    setEspecialidad(ext.especialidad)
+          if (ext.remitente && tipo === 'entrada') setRemitente(ext.remitente)
+          // Pre-cargar antecedentes extraídos por IA como refs de texto
+          if (ext.antecedentes_texto?.length) {
+            const aiAntes: Antecedente[] = ext.antecedentes_texto.map((ref: string) => {
+              // Intentar match contra oficios existentes
+              const matched = allOficios.find(o =>
+                o.no_oficio && ref.toLowerCase().includes(o.no_oficio.toLowerCase())
+              )
+              return {
+                id:                    `tmp-${Math.random().toString(36).slice(2)}`,
+                oficio_id:             oficio?.id || '',
+                ref_texto:             ref,
+                antecedente_oficio_id: matched?.id || null,
+              }
+            })
+            setAntecedentes(prev => {
+              const existing = prev.map(a => a.ref_texto.toLowerCase())
+              return [...prev, ...aiAntes.filter(a => !existing.includes(a.ref_texto.toLowerCase()))]
+            })
+          }
           setExtractMsg(ext.source === 'ai' ? '✓ Datos extraídos con IA' : '✓ Datos extraídos del nombre del archivo')
         }
       } catch {
@@ -330,6 +401,7 @@ function OficioModal({
         tipo,
         asunto:          asunto.trim(),
         no_oficio:       noOficio       || null,
+        tema:            tema.trim()    || null,
         fecha_documento: fechaDoc       || null,
         fecha_recepcion: fechaRecep     || null,
         proyecto_id:     proyectoId     || null,
@@ -344,9 +416,19 @@ function OficioModal({
         file_size:       fileSize,
       }
 
-      const result = isEdit
-        ? await updateOficio(oficio!.id, payload)
-        : await createOficio(payload as any)
+      let result
+      if (isEdit) {
+        result = await updateOficio(oficio!.id, payload)
+      } else {
+        // Pasar antecedentes y anexos de link al crear (archivos se suben después por separado)
+        const newAntecedentes = antecedentes
+          .filter(a => a.id.startsWith('tmp-'))
+          .map(a => ({ ref_texto: a.ref_texto, antecedente_oficio_id: a.antecedente_oficio_id }))
+        const newAnexosLink = anexos
+          .filter(a => a.id.startsWith('tmp-') && a.tipo === 'link')
+          .map(a => ({ tipo: 'link' as const, nombre: a.nombre, url: a.url }))
+        result = await createOficio({ ...payload, antecedentes: newAntecedentes, anexos: newAnexosLink } as any)
+      }
 
       if (result?.error) { setError(result.error); return }
       onClose(true)
@@ -356,6 +438,97 @@ function OficioModal({
       setLoading(false)
       setUploading(false)
     }
+  }
+
+  // ── Antecedentes helpers ────────────────────────────────────────────────────
+
+  function handleAnteSearch(q: string) {
+    setAnteInput(q)
+    if (q.length < 2) { setAnteSearch([]); setShowAnteSearch(false); return }
+    const results = allOficios.filter(o =>
+      o.id !== oficio?.id &&
+      (o.no_oficio?.toLowerCase().includes(q.toLowerCase()) ||
+       o.asunto.toLowerCase().includes(q.toLowerCase()))
+    ).slice(0, 6)
+    setAnteSearch(results)
+    setShowAnteSearch(results.length > 0)
+  }
+
+  async function handleAddAnte(refTexto: string, linkedId?: string | null) {
+    if (!refTexto.trim()) return
+    const already = antecedentes.some(a => a.ref_texto.toLowerCase() === refTexto.trim().toLowerCase())
+    if (already) { setAnteInput(''); setShowAnteSearch(false); return }
+
+    if (isEdit && oficio) {
+      setAnteSaving(true)
+      const res = await addOficioAntecedente(oficio.id, refTexto.trim(), linkedId)
+      if (res.success) {
+        setAntecedentes(prev => [...prev, { id: res.id!, oficio_id: oficio.id, ref_texto: refTexto.trim(), antecedente_oficio_id: linkedId || null }])
+      }
+      setAnteSaving(false)
+    } else {
+      setAntecedentes(prev => [...prev, { id: `tmp-${Math.random().toString(36).slice(2)}`, oficio_id: '', ref_texto: refTexto.trim(), antecedente_oficio_id: linkedId || null }])
+    }
+    setAnteInput(''); setShowAnteSearch(false)
+  }
+
+  async function handleRemoveAnte(ant: Antecedente) {
+    if (isEdit && !ant.id.startsWith('tmp-')) {
+      await removeOficioAntecedente(ant.id)
+    }
+    setAntecedentes(prev => prev.filter(a => a.id !== ant.id))
+  }
+
+  // ── Anexos helpers ──────────────────────────────────────────────────────────
+
+  async function handleAddAnexoLink() {
+    if (!anexoNombre.trim() || !anexoUrl.trim()) return
+    setAnexoSaving(true)
+    if (isEdit && oficio) {
+      const res = await addOficioAnexo(oficio.id, workspaceId, 'link', anexoNombre.trim(), { url: anexoUrl.trim() })
+      if (res.success) {
+        setAnexos(prev => [...prev, { id: res.id!, oficio_id: oficio.id, tipo: 'link', nombre: anexoNombre.trim(), url: anexoUrl.trim(), storage_key: null, file_name: null, file_size: null }])
+      }
+    } else {
+      setAnexos(prev => [...prev, { id: `tmp-${Math.random().toString(36).slice(2)}`, oficio_id: '', tipo: 'link', nombre: anexoNombre.trim(), url: anexoUrl.trim(), storage_key: null, file_name: null, file_size: null }])
+    }
+    setAnexoNombre(''); setAnexoUrl(''); setShowAnexoForm(false); setAnexoSaving(false)
+  }
+
+  async function handleAddAnexoFile(f: File) {
+    setAnexoSaving(true)
+    try {
+      const presignRes = await fetch('/api/oficios/presign', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ workspaceId, tipo: 'anexo', fileName: f.name, contentType: f.type, fileSize: f.size }),
+      })
+      if (!presignRes.ok) { setAnexoSaving(false); return }
+      const { uploadUrl, storageKey: sk } = await presignRes.json()
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest()
+        xhr.open('PUT', uploadUrl)
+        xhr.setRequestHeader('Content-Type', f.type)
+        xhr.onload = () => xhr.status < 300 ? resolve() : reject()
+        xhr.onerror = reject
+        xhr.send(f)
+      })
+      if (isEdit && oficio) {
+        const res = await addOficioAnexo(oficio.id, workspaceId, 'archivo', anexoNombre.trim() || f.name, { storage_key: sk, file_name: f.name, file_size: f.size })
+        if (res.success) {
+          setAnexos(prev => [...prev, { id: res.id!, oficio_id: oficio.id, tipo: 'archivo', nombre: anexoNombre.trim() || f.name, url: null, storage_key: sk, file_name: f.name, file_size: f.size }])
+        }
+      } else {
+        setAnexos(prev => [...prev, { id: `tmp-${Math.random().toString(36).slice(2)}`, oficio_id: '', tipo: 'archivo', nombre: anexoNombre.trim() || f.name, url: null, storage_key: sk, file_name: f.name, file_size: f.size }])
+      }
+    } catch { /* silenciar */ }
+    setAnexoNombre(''); setAnexoFile(null); setShowAnexoForm(false); setAnexoSaving(false)
+  }
+
+  async function handleRemoveAnexo(a: Anexo) {
+    if (isEdit && !a.id.startsWith('tmp-')) {
+      await removeOficioAnexo(a.id)
+    }
+    setAnexos(prev => prev.filter(x => x.id !== a.id))
   }
 
   const inputCls = 'w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50 focus:border-[#00C2FF]'
@@ -408,6 +581,19 @@ function OficioModal({
             <label className={labelCls}>No. oficio</label>
             <input value={noOficio} onChange={e => setNoOficio(e.target.value)}
               placeholder="Ej: ARQ-1040-AIFA" className={inputCls} />
+            {duplicateWarning && (
+              <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
+                <Tag className="w-3 h-3" />
+                Ya existe un oficio con este número: "{duplicateWarning.asunto.slice(0,50)}". Si es un tema diferente, agrega el campo Tema abajo.
+              </p>
+            )}
+          </div>
+
+          {/* Tema */}
+          <div>
+            <label className={labelCls}>Tema <span className="normal-case font-normal text-slate-400">(opcional — diferencia docs de la misma especialidad)</span></label>
+            <input value={tema} onChange={e => setTema(e.target.value)}
+              placeholder="Ej: Geometría horizontal, Señalética vial, Proyecto ejecutivo" className={inputCls} />
           </div>
 
           {/* Asunto */}
@@ -478,6 +664,123 @@ function OficioModal({
             <label className={labelCls}>Notas internas</label>
             <textarea value={notas} onChange={e => setNotas(e.target.value)} rows={2}
               placeholder="Observaciones..." className={`${inputCls} resize-none`} />
+          </div>
+
+          {/* ── Antecedentes ─────────────────────────────────────────────── */}
+          <div>
+            <label className={labelCls}>Antecedentes <span className="normal-case font-normal text-slate-400">(docs previos relacionados)</span></label>
+            {antecedentes.length > 0 && (
+              <div className="mb-2 space-y-1">
+                {antecedentes.map(a => {
+                  const linked = allOficios.find(o => o.id === a.antecedente_oficio_id)
+                  return (
+                    <div key={a.id} className="flex items-start gap-2 bg-slate-50 rounded-lg px-3 py-2 text-xs">
+                      <GitBranch className="w-3.5 h-3.5 text-slate-400 mt-0.5 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <span className="text-slate-600">{a.ref_texto}</span>
+                        {linked && (
+                          <span className="ml-1 text-[#00C2FF] font-medium">→ {linked.no_oficio || linked.asunto.slice(0,30)}</span>
+                        )}
+                      </div>
+                      <button type="button" onClick={() => handleRemoveAnte(a)} className="text-slate-300 hover:text-red-400 flex-shrink-0">
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+            <div className="relative">
+              <input
+                value={anteInput}
+                onChange={e => handleAnteSearch(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddAnte(anteInput) } }}
+                placeholder="Buscar No. oficio o escribir referencia libre... (Enter para agregar)"
+                className={inputCls}
+              />
+              {showAnteSearch && (
+                <div className="absolute top-full left-0 right-0 z-20 bg-white border border-slate-200 rounded-lg shadow-lg mt-1 max-h-40 overflow-y-auto">
+                  {anteSearch.map(o => (
+                    <button key={o.id} type="button"
+                      onClick={() => handleAddAnte(o.no_oficio || o.asunto, o.id)}
+                      className="w-full text-left px-3 py-2 text-xs hover:bg-slate-50 border-b border-slate-50 last:border-b-0">
+                      <span className="font-mono text-[#00C2FF] mr-2">{o.no_oficio || '—'}</span>
+                      <span className="text-slate-600">{o.asunto.slice(0, 50)}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            {anteSaving && <p className="text-xs text-slate-400 mt-1 flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" /> Guardando...</p>}
+          </div>
+
+          {/* ── Anexos ───────────────────────────────────────────────────── */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className={labelCls}>Anexos <span className="normal-case font-normal text-slate-400">(links o archivos adjuntos)</span></label>
+              <button type="button" onClick={() => setShowAnexoForm(v => !v)}
+                className="text-xs text-[#00C2FF] font-semibold hover:underline flex items-center gap-1">
+                <Plus className="w-3 h-3" /> Agregar
+              </button>
+            </div>
+
+            {anexos.length > 0 && (
+              <div className="mb-2 space-y-1">
+                {anexos.map(a => (
+                  <div key={a.id} className="flex items-center gap-2 bg-slate-50 rounded-lg px-3 py-2 text-xs">
+                    <Paperclip className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                    <span className="flex-1 text-slate-600 truncate">{a.nombre}</span>
+                    {a.tipo === 'link' && a.url && (
+                      <a href={a.url} target="_blank" rel="noopener noreferrer" className="text-[#00C2FF] hover:text-blue-600">
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    )}
+                    {a.tipo === 'archivo' && (
+                      <a href={`/api/oficios/anexos/${a.id}`} target="_blank" rel="noopener noreferrer" className="text-[#00C2FF] hover:text-blue-600">
+                        <Eye className="w-3 h-3" />
+                      </a>
+                    )}
+                    <button type="button" onClick={() => handleRemoveAnexo(a)} className="text-slate-300 hover:text-red-400">
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {showAnexoForm && (
+              <div className="border border-slate-200 rounded-lg p-3 space-y-2 bg-slate-50">
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => setAnexoTipo('link')}
+                    className={`flex-1 py-1.5 rounded text-xs font-semibold ${anexoTipo === 'link' ? 'bg-[#1A2744] text-white' : 'bg-white border border-slate-200 text-slate-500'}`}>
+                    Link URL
+                  </button>
+                  <button type="button" onClick={() => setAnexoTipo('archivo')}
+                    className={`flex-1 py-1.5 rounded text-xs font-semibold ${anexoTipo === 'archivo' ? 'bg-[#1A2744] text-white' : 'bg-white border border-slate-200 text-slate-500'}`}>
+                    Archivo
+                  </button>
+                </div>
+                <input value={anexoNombre} onChange={e => setAnexoNombre(e.target.value)}
+                  placeholder="Nombre / descripción del anexo" className={inputCls} />
+                {anexoTipo === 'link' ? (
+                  <div className="flex gap-2">
+                    <input value={anexoUrl} onChange={e => setAnexoUrl(e.target.value)}
+                      placeholder="https://..." className={`${inputCls} flex-1`} />
+                    <button type="button" onClick={handleAddAnexoLink} disabled={anexoSaving || !anexoNombre.trim() || !anexoUrl.trim()}
+                      className="px-3 py-2 bg-[#1A2744] text-white text-xs rounded-lg disabled:opacity-50">
+                      {anexoSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : 'OK'}
+                    </button>
+                  </div>
+                ) : (
+                  <label className="flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-slate-300 bg-white cursor-pointer text-xs text-slate-500">
+                    <Upload className="w-3.5 h-3.5" />
+                    {anexoFile ? anexoFile.name : 'Seleccionar archivo...'}
+                    {anexoSaving && <Loader2 className="w-3 h-3 animate-spin text-[#00C2FF]" />}
+                    <input type="file" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) { setAnexoFile(f); handleAddAnexoFile(f) } }} />
+                  </label>
+                )}
+              </div>
+            )}
           </div>
 
           {error && <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-600">{error}</div>}
@@ -774,7 +1077,7 @@ function OficioRow({
         {formatDate(oficio.fecha_recepcion)}
       </td>
 
-      {/* Proyecto / Especialidad */}
+      {/* Proyecto / Especialidad / Tema */}
       <td className="px-4 py-3">
         <div className="space-y-0.5">
           {oficio.proyecto?.name && (
@@ -785,7 +1088,12 @@ function OficioRow({
               {especialidades.find(e => e.code === oficio.especialidad)?.name || oficio.especialidad}
             </p>
           )}
-          {!oficio.proyecto && !oficio.especialidad && (
+          {oficio.tema && (
+            <span className="inline-flex items-center gap-0.5 bg-violet-50 text-violet-600 text-[10px] font-medium px-1.5 py-0.5 rounded-full truncate max-w-[140px]">
+              <Tag className="w-2.5 h-2.5 flex-shrink-0" />{oficio.tema}
+            </span>
+          )}
+          {!oficio.proyecto && !oficio.especialidad && !oficio.tema && (
             <span className="text-slate-300 text-xs">—</span>
           )}
         </div>
@@ -865,12 +1173,14 @@ function OficioRow({
 type Tab = 'entrada' | 'salida' | 'trazabilidad'
 
 export default function OficiosPanel({
-  oficios, projects, members, especialidades, workspaceId, currentUserId, currentUserRole,
+  oficios, projects, members, especialidades, antecedentes, anexos, workspaceId, currentUserId, currentUserRole,
 }: {
   oficios: Oficio[]
   projects: Project[]
   members: Member[]
   especialidades: { code: string; name: string }[]
+  antecedentes: Antecedente[]
+  anexos: Anexo[]
   workspaceId: string
   currentUserId: string
   currentUserRole: string
@@ -910,10 +1220,17 @@ export default function OficiosPanel({
       if (o.tipo !== tab) return false
       if (search) {
         const q = search.toLowerCase()
+        const antsByOficio = antecedentes.filter(a => a.oficio_id === o.id)
+        const antText = antsByOficio.map(a => a.ref_texto.toLowerCase()).join(' ')
+        const espName = especialidades.find(e => e.code === o.especialidad)?.name?.toLowerCase() || ''
         if (!o.asunto.toLowerCase().includes(q) &&
             !(o.no_oficio?.toLowerCase().includes(q)) &&
             !(o.remitente?.toLowerCase().includes(q)) &&
-            !(o.destinatario?.toLowerCase().includes(q))) return false
+            !(o.destinatario?.toLowerCase().includes(q)) &&
+            !(o.tema?.toLowerCase().includes(q)) &&
+            !(o.especialidad?.toLowerCase().includes(q)) &&
+            !espName.includes(q) &&
+            !antText.includes(q)) return false
       }
       if (filterProject  && o.proyecto_id  !== filterProject)  return false
       if (filterEsp      && o.especialidad !== filterEsp)       return false
@@ -923,7 +1240,7 @@ export default function OficiosPanel({
       if (filterTo   && o.fecha_documento && o.fecha_documento > filterTo)   return false
       return true
     })
-  }, [oficios, tab, search, filterProject, filterEsp, filterEstado, filterAssignee, filterFrom, filterTo])
+  }, [oficios, antecedentes, especialidades, tab, search, filterProject, filterEsp, filterEstado, filterAssignee, filterFrom, filterTo])
 
   const countEntrada = oficios.filter(o => o.tipo === 'entrada').length
   const countSalida  = oficios.filter(o => o.tipo === 'salida').length
@@ -1207,6 +1524,9 @@ export default function OficiosPanel({
           members={members}
           especialidades={especialidades}
           workspaceId={workspaceId}
+          allOficios={oficios}
+          initialAntecedentes={editOficio ? antecedentes.filter(a => a.oficio_id === editOficio.id) : []}
+          initialAnexos={editOficio ? anexos.filter(a => a.oficio_id === editOficio.id) : []}
           onClose={closeModal}
         />
       )}

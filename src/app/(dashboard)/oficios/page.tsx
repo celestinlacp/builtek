@@ -56,7 +56,7 @@ export default async function OficiosPage() {
       .from('oficios')
       .select(`
         id, tipo, no_oficio, asunto, fecha_documento, fecha_recepcion,
-        proyecto_id, especialidad, estado,
+        proyecto_id, especialidad, tema, estado,
         remitente, destinatario, assignee_id,
         storage_key, file_name, file_type, file_size,
         notas, link_entrega, created_by, created_at, updated_at, responde_a_id,
@@ -75,6 +75,24 @@ export default async function OficiosPage() {
       .order('name'),
   ])
 
+  const oficios = oficiosRes.data || []
+  const oficioIds = oficios.map(o => o.id)
+
+  // Cargar antecedentes y anexos para los oficios del workspace
+  const [antecedentesRes, anexosRes] = await Promise.all([
+    oficioIds.length > 0
+      ? supabase
+          .from('oficio_antecedentes')
+          .select('id, oficio_id, ref_texto, antecedente_oficio_id')
+          .in('oficio_id', oficioIds)
+      : Promise.resolve({ data: [] }),
+    supabase
+      .from('oficio_anexos')
+      .select('id, oficio_id, tipo, nombre, url, storage_key, file_name, file_size, created_at')
+      .eq('workspace_id', wsId)
+      .order('created_at'),
+  ])
+
   const currentUserName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Usuario'
 
   return (
@@ -90,10 +108,12 @@ export default async function OficiosPage() {
       </div>
 
       <OficiosPanel
-        oficios={(oficiosRes.data || []) as any}
+        oficios={oficios as any}
         projects={projectsRes.data || []}
         members={(membersRes.data || []) as any}
         especialidades={(especialidadesRes.data || []) as any}
+        antecedentes={(antecedentesRes.data || []) as any}
+        anexos={(anexosRes.data || []) as any}
         workspaceId={wsId}
         currentUserId={user.id}
         currentUserRole={membership.role as any}
