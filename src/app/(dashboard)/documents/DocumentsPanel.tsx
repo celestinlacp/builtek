@@ -1335,7 +1335,7 @@ function QuickEditProjectModal({ project, onClose }: {
   )
 }
 
-function ProjectCard({ project, docCount, disciplines, lastUpload, workspaceId, isAdmin, subprojectCount, onSelect, onEdit, onShare }: {
+function ProjectCard({ project, docCount, disciplines, lastUpload, workspaceId, isAdmin, subprojectCount, coverUrl, onSelect, onEdit, onShare }: {
   project: Project
   docCount: number
   disciplines: number
@@ -1343,11 +1343,12 @@ function ProjectCard({ project, docCount, disciplines, lastUpload, workspaceId, 
   workspaceId: string
   isAdmin: boolean
   subprojectCount: number
+  coverUrl: string | null
   onSelect: (id: string) => void
   onEdit: (project: Project) => void
   onShare: (project: Project) => void
 }) {
-  const [coverKey, setCoverKey] = useState<string | null>(project.cover_image_url)
+  const [displayCoverUrl, setDisplayCoverUrl] = useState<string | null>(coverUrl)
   const hasChainage = project.chainage_start != null || project.chainage_end != null
 
   return (
@@ -1356,13 +1357,13 @@ function ProjectCard({ project, docCount, disciplines, lastUpload, workspaceId, 
       <div
         onClick={() => onSelect(project.id)}
         className="relative h-36 bg-[#1A2744]/5 flex items-center justify-center overflow-hidden cursor-pointer">
-        {coverKey ? (
-          <img src={`/api/projects/${project.id}/cover`} alt={project.name} className="w-full h-full object-cover" />
+        {displayCoverUrl ? (
+          <img src={displayCoverUrl} alt={project.name} className="w-full h-full object-cover" />
         ) : (
           <FolderOpen className="w-10 h-10 text-[#1A2744]/20" />
         )}
         {isAdmin && (
-          <ProjectCoverUploader project={project} workspaceId={workspaceId} onUploaded={key => setCoverKey(key)} />
+          <ProjectCoverUploader project={project} workspaceId={workspaceId} onUploaded={() => setDisplayCoverUrl(`/api/projects/${project.id}/cover?t=${Date.now()}`)} />
         )}
         {/* Botones editar + compartir — top-left, visibles al hover */}
         {isAdmin && (
@@ -1490,13 +1491,14 @@ function ProjectCoverUploader({ project, workspaceId, onUploaded }: {
 }
 
 function ProjectsView({
-  projects, documents, onSelect, userRole, workspaceId,
+  projects, documents, onSelect, userRole, workspaceId, coverUrls,
 }: {
   projects: Project[]
   documents: Doc[]
   onSelect: (projectId: string) => void
   userRole: string
   workspaceId: string
+  coverUrls: Record<string, string>
 }) {
   const [filterFrente, setFilterFrente] = useState('all')
   const [filterType,   setFilterType]   = useState('all')
@@ -1591,6 +1593,7 @@ function ProjectsView({
               workspaceId={workspaceId}
               isAdmin={isAdmin}
               subprojectCount={subprojectCount}
+              coverUrl={coverUrls[project.id] ?? null}
               onSelect={onSelect}
               onEdit={setEditingProject}
               onShare={setShareProject}
@@ -1837,6 +1840,9 @@ function ProjectDetailView({
           {/* Formulario crear subproyecto */}
           {showCreateSub && (
             <div className="mb-3 bg-violet-50 border border-violet-200 rounded-xl p-4 space-y-3">
+              <p className="text-xs text-violet-600 font-medium">
+                Se creará como subproyecto de <span className="font-bold">"{project.name}"</span>. Para crear un proyecto raíz, ve a Admin → Proyectos.
+              </p>
               <input value={newSubName} onChange={e => setNewSubName(e.target.value)}
                 placeholder="Nombre del subproyecto *"
                 onKeyDown={e => { if (e.key === 'Enter') handleCreateSubproject(); if (e.key === 'Escape') setShowCreateSub(false) }}
@@ -2247,7 +2253,7 @@ function ProjectDetailView({
 // ── Componente principal ───────────────────────────────────────────────────────
 
 export default function DocumentsPanel({
-  documents, projects, workspaceId, userRole, deleteRequests, currentUserId, companies, members, micNomenclatures, workspaceOficios, mesasTecnicas
+  documents, projects, workspaceId, userRole, deleteRequests, currentUserId, companies, members, micNomenclatures, workspaceOficios, mesasTecnicas, coverUrls
 }: {
   documents: Doc[]
   projects: Project[]
@@ -2260,6 +2266,7 @@ export default function DocumentsPanel({
   micNomenclatures: MicNomenclature[]
   workspaceOficios: OfiEntry[]
   mesasTecnicas: MesaTecnica[]
+  coverUrls: Record<string, string>
 }) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -2314,6 +2321,7 @@ export default function DocumentsPanel({
             onSelect={selectProject}
             userRole={userRole}
             workspaceId={workspaceId}
+            coverUrls={coverUrls}
           />
         </>
       )}

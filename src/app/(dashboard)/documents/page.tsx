@@ -3,6 +3,9 @@ import { createClient as createAdmin } from '@supabase/supabase-js'
 import { redirect } from 'next/navigation'
 import { FileText } from 'lucide-react'
 import DocumentsPanel from './DocumentsPanel'
+import { GetObjectCommand } from '@aws-sdk/client-s3'
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
+import { getR2Client, R2_BUCKET, r2IsConfigured } from '@/lib/r2/client'
 
 function getAdminClient() {
   return createAdmin(
@@ -84,6 +87,20 @@ export default async function DocumentsPage() {
   const workspaceOficios  = (oficiosRes.data || []) as { id: string; no_oficio: string | null; asunto: string; tipo: string; proyecto_id: string | null; especialidad: string | null }[]
   const mesasTecnicas     = (mesasRes.data   || []) as { id: string; nombre: string; codigo: string | null; especialidad: string | null }[]
 
+  // Generar URLs presignadas para portadas de proyectos (evita round-trips individuales por tarjeta)
+  const coverUrls: Record<string, string> = {}
+  if (r2IsConfigured()) {
+    const projectsWithCovers = projects.filter(p => p.cover_image_url)
+    await Promise.all(
+      projectsWithCovers.map(async (p) => {
+        try {
+          const cmd = new GetObjectCommand({ Bucket: R2_BUCKET(), Key: p.cover_image_url! })
+          coverUrls[p.id] = await getSignedUrl(getR2Client(), cmd, { expiresIn: 3600 })
+        } catch { /* silencioso — la tarjeta carga sin imagen */ }
+      })
+    )
+  }
+
   const rawMemberIds = (membersRes.data || []).map((m: any) => m.user_id)
   const profilesRes  = rawMemberIds.length > 0
     ? await supabase.from('profiles').select('id, full_name, initials').in('id', rawMemberIds)
@@ -124,6 +141,7 @@ export default async function DocumentsPage() {
         micNomenclatures={micNomenclatures as any}
         workspaceOficios={workspaceOficios}
         mesasTecnicas={mesasTecnicas}
+        coverUrls={coverUrls}
       />
     </div>
   )
