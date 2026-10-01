@@ -109,11 +109,11 @@ export function FolderShareContent({ files, token, folderName, wsName, expiresFo
       </div>
 
       {/* ── Action buttons ─────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-3 mb-6 flex-wrap">
+      <div className="flex flex-wrap gap-3 mb-6">
         <a
           href={zipUrl}
           download
-          className="flex items-center gap-2 bg-slate-900 hover:bg-slate-700 text-white text-sm font-medium px-4 py-2.5 rounded-lg transition-colors"
+          className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-700 text-white text-sm font-medium px-4 py-2.5 rounded-lg transition-colors"
         >
           <Download className="w-4 h-4" />
           Descargar todo
@@ -123,7 +123,7 @@ export function FolderShareContent({ files, token, folderName, wsName, expiresFo
         </a>
         <button
           onClick={copyLink}
-          className="flex items-center gap-2 border border-slate-200 hover:bg-slate-50 text-slate-700 text-sm font-medium px-4 py-2.5 rounded-lg transition-colors"
+          className="flex-1 sm:flex-none flex items-center justify-center gap-2 border border-slate-200 hover:bg-slate-50 text-slate-700 text-sm font-medium px-4 py-2.5 rounded-lg transition-colors"
         >
           {copied
             ? <Check className="w-4 h-4 text-green-500" />
@@ -149,10 +149,10 @@ export function FolderShareContent({ files, token, folderName, wsName, expiresFo
         /* ── LIST VIEW ──────────────────────────────────────────────────── */
         <div className="border border-slate-200 rounded-xl overflow-hidden">
           {/* Header */}
-          <div className="grid grid-cols-[1fr_110px_80px_100px] px-4 py-2.5 bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+          <div className="grid grid-cols-[1fr_80px] sm:grid-cols-[1fr_110px_80px_100px] px-4 py-2.5 bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider">
             <div>Nombre</div>
-            <div>Subido por</div>
-            <div>Fecha</div>
+            <div className="hidden sm:block">Subido por</div>
+            <div className="hidden sm:block">Fecha</div>
             <div className="text-right">Tamaño</div>
           </div>
 
@@ -163,7 +163,7 @@ export function FolderShareContent({ files, token, folderName, wsName, expiresFo
             return (
               <div
                 key={file.id}
-                className="grid grid-cols-[1fr_110px_80px_100px] items-center px-4 py-2.5 border-b border-slate-50 last:border-b-0 hover:bg-slate-50 transition-colors group"
+                className="grid grid-cols-[1fr_80px] sm:grid-cols-[1fr_110px_80px_100px] items-center px-4 py-2.5 border-b border-slate-50 last:border-b-0 hover:bg-slate-50 transition-colors group"
               >
                 {/* Name */}
                 <div className="flex items-center gap-3 min-w-0 pr-4">
@@ -184,11 +184,11 @@ export function FolderShareContent({ files, token, folderName, wsName, expiresFo
                   </div>
                 </div>
 
-                {/* Uploader */}
-                <div className="text-xs text-slate-500 truncate pr-2">{file.uploader ?? '—'}</div>
+                {/* Uploader — desktop only */}
+                <div className="hidden sm:block text-xs text-slate-500 truncate pr-2">{file.uploader ?? '—'}</div>
 
-                {/* Date */}
-                <div className="text-xs text-slate-500">
+                {/* Date — desktop only */}
+                <div className="hidden sm:block text-xs text-slate-500">
                   {file.created_at ? relativeDate(file.created_at) : '—'}
                 </div>
 
@@ -200,7 +200,7 @@ export function FolderShareContent({ files, token, folderName, wsName, expiresFo
                       href={fileUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="ml-0.5 w-6 h-6 flex items-center justify-center rounded hover:bg-slate-200 text-slate-400 hover:text-slate-700 opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="ml-0.5 w-6 h-6 flex items-center justify-center rounded hover:bg-slate-200 text-slate-400 hover:text-slate-700 opacity-0 group-hover:opacity-100 sm:transition-opacity"
                       title="Ver"
                     >
                       <Eye className="w-3 h-3" />
@@ -209,7 +209,7 @@ export function FolderShareContent({ files, token, folderName, wsName, expiresFo
                   <a
                     href={fileUrl}
                     download
-                    className="w-6 h-6 flex items-center justify-center rounded hover:bg-slate-200 text-slate-400 hover:text-slate-700 opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="w-6 h-6 flex items-center justify-center rounded hover:bg-slate-200 text-slate-400 hover:text-slate-700 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity"
                     title="Descargar"
                   >
                     <Download className="w-3 h-3" />
@@ -220,11 +220,11 @@ export function FolderShareContent({ files, token, folderName, wsName, expiresFo
           })}
 
           {/* Footer totals */}
-          <div className="grid grid-cols-[1fr_110px_80px_100px] px-4 py-2 bg-slate-50 border-t border-slate-200">
+          <div className="grid grid-cols-[1fr_80px] sm:grid-cols-[1fr_110px_80px_100px] px-4 py-2 bg-slate-50 border-t border-slate-200">
             <span className="text-xs text-slate-500 font-medium">
               {files.length} archivo{files.length !== 1 ? 's' : ''}
             </span>
-            <span /><span />
+            <span className="hidden sm:block" /><span className="hidden sm:block" />
             <span className="text-xs text-slate-500 font-medium text-right">{formatSize(totalSize)}</span>
           </div>
         </div>

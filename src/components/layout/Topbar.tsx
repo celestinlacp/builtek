@@ -197,6 +197,14 @@ export default function Topbar({
   const [avatarOpen, setAvatarOpen] = useState(false)
   const avatarRef = useRef<HTMLDivElement>(null)
 
+  // Update last_seen_at on every app load
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) supabase.from('profiles').update({ last_seen_at: new Date().toISOString() }).eq('id', user.id).then(() => {})
+    })
+  }, [])
+
   // Load notifications
   useEffect(() => {
     if (!workspaceId || workspaceId === 'dev') return

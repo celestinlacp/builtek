@@ -75,9 +75,9 @@ export default async function AdminPage() {
   // Fetch profiles separately (no FK between workspace_members and profiles)
   const memberUserIds = rawMembers.map((m: any) => m.user_id)
   const profilesRes = memberUserIds.length > 0
-    ? await supabase.from('profiles').select('id, full_name, avatar_url, phone, initials').in('id', memberUserIds)
+    ? await supabase.from('profiles').select('id, full_name, avatar_url, phone, initials, last_seen_at').in('id', memberUserIds)
     : { data: [] }
-  const profileMap: Record<string, { id: string; full_name: string | null; avatar_url: string | null; phone: string | null; initials: string | null }> =
+  const profileMap: Record<string, { id: string; full_name: string | null; avatar_url: string | null; phone: string | null; initials: string | null; last_seen_at: string | null }> =
     Object.fromEntries((profilesRes.data || []).map((p: any) => [p.id, p]))
 
   const members = rawMembers.map((m: any) => ({
@@ -139,7 +139,7 @@ export default async function AdminPage() {
   const enrichedMembers = members.map((m: any) => ({
     ...m,
     email: authMap[m.user_id]?.email || (m.user_id === user.id ? user.email : null),
-    last_sign_in_at: authMap[m.user_id]?.last_sign_in_at || null,
+    last_seen_at: profileMap[m.user_id]?.last_seen_at || authMap[m.user_id]?.last_sign_in_at || null,
   }))
 
   const currentUserName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Usuario'

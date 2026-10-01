@@ -123,7 +123,7 @@ function RoleDescription({ role }: { role: string }) {
 
 type MemberWithProfile = WorkspaceMember & {
   email?:           string | null
-  last_sign_in_at?: string | null
+  last_seen_at?: string | null
   user?: { id: string; full_name: string | null; avatar_url: string | null; phone: string | null; initials: string | null } | null
 }
 
@@ -209,9 +209,9 @@ function MemberRow({
           </div>
           {member.email && <p className="text-xs text-slate-400 truncate">{member.email}</p>}
           <div className="flex items-center gap-3 mt-0.5">
-            {member.last_sign_in_at ? (
+            {member.last_seen_at ? (
               <p className="text-xs text-slate-400">
-                Última conexión: {new Date(member.last_sign_in_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                Última conexión: {new Date(member.last_seen_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
               </p>
             ) : (
               <p className="text-xs text-slate-300">Sin conexiones registradas</p>

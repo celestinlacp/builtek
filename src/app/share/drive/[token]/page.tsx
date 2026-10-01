@@ -100,7 +100,7 @@ export default async function DriveSharePage(
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto px-6 py-10">
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
 
         {expired ? (
 
@@ -126,13 +126,13 @@ export default async function DriveSharePage(
           /* ── Contenido ─────────────────────────────────────────────────────── */
           <>
             {/* Action buttons */}
-            <div className="flex items-center gap-3 mb-8 flex-wrap">
+            <div className="flex flex-wrap gap-3 mb-8">
               {isPdf && (
                 <a
                   href={fileUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2 bg-slate-900 hover:bg-slate-700 text-white text-sm font-medium px-4 py-2.5 rounded-lg transition-colors"
+                  className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-700 text-white text-sm font-medium px-4 py-2.5 rounded-lg transition-colors"
                 >
                   <Eye className="w-4 h-4" />
                   Ver archivo
@@ -141,7 +141,7 @@ export default async function DriveSharePage(
               <a
                 href={fileUrl}
                 download
-                className="flex items-center gap-2 border border-slate-200 hover:bg-slate-50 text-slate-700 text-sm font-medium px-4 py-2.5 rounded-lg transition-colors"
+                className="flex-1 sm:flex-none flex items-center justify-center gap-2 border border-slate-200 hover:bg-slate-50 text-slate-700 text-sm font-medium px-4 py-2.5 rounded-lg transition-colors"
               >
                 <Download className="w-4 h-4" />
                 Descargar
@@ -162,16 +162,16 @@ export default async function DriveSharePage(
             <div className="border border-slate-200 rounded-xl overflow-hidden">
 
               {/* Table header */}
-              <div className="grid grid-cols-[1fr_160px_120px] px-4 py-2.5 bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              <div className="grid grid-cols-[1fr_80px] sm:grid-cols-[1fr_160px_120px] px-4 py-2.5 bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider">
                 <div className="flex items-center gap-1">
                   Nombre <ArrowUpDown className="w-3 h-3 text-slate-400" />
                 </div>
-                <div>Modificado</div>
+                <div className="hidden sm:block">Modificado</div>
                 <div>Tamaño</div>
               </div>
 
               {/* File row */}
-              <div className="grid grid-cols-[1fr_160px_120px] items-center px-4 py-3 hover:bg-slate-50 transition-colors">
+              <div className="grid grid-cols-[1fr_80px] sm:grid-cols-[1fr_160px_120px] items-center px-4 py-3 hover:bg-slate-50 transition-colors">
                 {/* Name */}
                 <div className="flex items-center gap-3 min-w-0 pr-4">
                   <FileTypeIcon fileType={file?.file_type ?? 'other'} size={40} />
@@ -186,8 +186,8 @@ export default async function DriveSharePage(
                   </a>
                 </div>
 
-                {/* Modified */}
-                <div className="text-sm text-slate-500">
+                {/* Modified — desktop only */}
+                <div className="hidden sm:block text-sm text-slate-500">
                   {file?.created_at ? relativeDate(file.created_at) : '—'}
                 </div>
 
