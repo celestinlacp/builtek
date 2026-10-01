@@ -18,7 +18,7 @@ export default async function EspecificacionesPage() {
   const wsId     = membership.workspace_id
   const userRole = membership.role as string
 
-  const [specsRes, mesasRes, companiesRes, oficiosModalRes, oficiosRefRes, projectsRes] = await Promise.all([
+  const [specsRes, mesasRes, companiesRes, oficiosModalRes, oficiosRefRes, projectsRes, mesasTecnicasRes] = await Promise.all([
     // Especificaciones de diseño
     supabase
       .from('design_specs')
@@ -52,7 +52,7 @@ export default async function EspecificacionesPage() {
     // Todos los oficios con especialidad asignada (para mostrar en carpetas de mesa)
     supabase
       .from('oficios')
-      .select('id, tipo, no_oficio, asunto, especialidad, tema, estado, fecha_documento, remitente, destinatario, storage_key, proyecto_id')
+      .select('id, tipo, no_oficio, asunto, especialidad, tema, estado, fecha_documento, remitente, destinatario, storage_key, proyecto_id, mesa_id')
       .eq('workspace_id', wsId)
       .not('especialidad', 'is', null)
       .order('fecha_documento', { ascending: false }),
@@ -63,14 +63,23 @@ export default async function EspecificacionesPage() {
       .eq('workspace_id', wsId)
       .eq('status', 'active')
       .order('name'),
+    // Mesas técnicas activas
+    supabase
+      .from('mesas_tecnicas')
+      .select('id, nombre, codigo, especialidad')
+      .eq('workspace_id', wsId)
+      .eq('is_active', true)
+      .order('sort_order')
+      .order('nombre'),
   ])
 
-  const specs       = specsRes.data       || []
-  const mesas       = mesasRes.data       || []
-  const companies   = companiesRes.data   || []
-  const oficios     = oficiosModalRes.data || []
-  const oficiosRef  = oficiosRefRes.data  || []
-  const projects    = projectsRes.data    || []
+  const specs          = specsRes.data          || []
+  const mesas          = mesasRes.data          || []
+  const companies      = companiesRes.data      || []
+  const oficios        = oficiosModalRes.data   || []
+  const oficiosRef     = oficiosRefRes.data     || []
+  const projects       = projectsRes.data       || []
+  const mesasTecnicas  = mesasTecnicasRes.data  || []
 
   // Anexos para oficiosRef
   const oficioRefIds = oficiosRef.map((o: any) => o.id)
@@ -104,6 +113,7 @@ export default async function EspecificacionesPage() {
         oficiosRef={oficiosRef as any}
         projects={projects as any}
         anexos={anexos as any}
+        mesasTecnicas={mesasTecnicas as any}
         workspaceId={wsId}
         userRole={userRole}
       />

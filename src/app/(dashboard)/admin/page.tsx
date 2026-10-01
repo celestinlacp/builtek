@@ -65,12 +65,21 @@ export default async function AdminPage() {
 
   if (!workspaceRes.data) redirect('/onboarding')
 
+  // Cargar mesas técnicas (BD Oficios)
+  const mesasRes = await supabase
+    .from('mesas_tecnicas')
+    .select('id, nombre, codigo, especialidad, is_active, sort_order')
+    .eq('workspace_id', wsId)
+    .order('sort_order')
+    .order('nombre')
+
   const workspace         = workspaceRes.data
   const projects          = projectsRes.data         || []
   const companies         = companiesRes.data        || []
   const biDocs            = biDocsRes.data           || []
   const rawMembers        = membersRes.data          || []
   const micNomenclatures  = nomenclaturesRes.data    || []
+  const mesasTecnicas     = mesasRes.data            || []
 
   // Fetch profiles separately (no FK between workspace_members and profiles)
   const memberUserIds = rawMembers.map((m: any) => m.user_id)
@@ -173,6 +182,7 @@ export default async function AdminPage() {
         biDocs={biDocs as any}
         workspaceId={wsId}
         micNomenclatures={micNomenclatures as any}
+        mesasTecnicas={mesasTecnicas as any}
       />
     </div>
   )

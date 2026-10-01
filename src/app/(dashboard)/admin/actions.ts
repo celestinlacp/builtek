@@ -730,6 +730,62 @@ export async function getProjectShare(projectId: string) {
   return data as { token: string; expires_at: string; created_at: string } | null
 }
 
+// ── Mesas Técnicas (BD Oficios) ───────────────────────────────────────────────
+
+export async function createMesaTecnica(data: {
+  nombre:      string
+  codigo?:     string | null
+  especialidad?: string | null
+  sort_order?: number
+}) {
+  const { workspaceId } = await getWorkspaceId()
+  if (!workspaceId) return { error: 'Sin workspace' }
+  const admin = getAdminClient()
+  const { data: created, error } = await admin.from('mesas_tecnicas').insert({
+    workspace_id: workspaceId,
+    nombre:       data.nombre.trim(),
+    codigo:       data.codigo?.trim()  || null,
+    especialidad: data.especialidad   || null,
+    sort_order:   data.sort_order     ?? 0,
+  }).select('id').single()
+  if (error) return { error: error.message }
+  revalidatePath('/admin')
+  revalidatePath('/oficios')
+  return { success: true, id: created.id }
+}
+
+export async function updateMesaTecnica(id: string, data: {
+  nombre:      string
+  codigo?:     string | null
+  especialidad?: string | null
+  is_active:   boolean
+  sort_order?: number
+}) {
+  await getWorkspaceId()
+  const admin = getAdminClient()
+  const { error } = await admin.from('mesas_tecnicas').update({
+    nombre:       data.nombre.trim(),
+    codigo:       data.codigo?.trim()  || null,
+    especialidad: data.especialidad   || null,
+    is_active:    data.is_active,
+    sort_order:   data.sort_order     ?? 0,
+  }).eq('id', id)
+  if (error) return { error: error.message }
+  revalidatePath('/admin')
+  revalidatePath('/oficios')
+  return { success: true }
+}
+
+export async function deleteMesaTecnica(id: string) {
+  await getWorkspaceId()
+  const admin = getAdminClient()
+  const { error } = await admin.from('mesas_tecnicas').delete().eq('id', id)
+  if (error) return { error: error.message }
+  revalidatePath('/admin')
+  revalidatePath('/oficios')
+  return { success: true }
+}
+
 export async function upsertProjectShare(projectId: string) {
   const admin = getAdminClient()
   const token     = crypto.randomUUID().replace(/-/g, '')

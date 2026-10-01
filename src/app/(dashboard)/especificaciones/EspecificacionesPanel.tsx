@@ -59,6 +59,8 @@ type DesignSpec = {
   oficio?:   { no_oficio: string | null; asunto: string } | null
 }
 
+type MesaTecnica = { id: string; nombre: string; codigo: string | null; especialidad: string | null }
+
 type OficioRef = {
   id:              string
   tipo:            'entrada' | 'salida'
@@ -72,6 +74,7 @@ type OficioRef = {
   destinatario:    string | null
   storage_key:     string | null
   proyecto_id:     string | null
+  mesa_id:         string | null
 }
 
 type AnexoRef = {
@@ -566,17 +569,22 @@ function StatusBadge({ spec, userRole }: { spec: DesignSpec; userRole: string })
 // ── Sección de oficios de la mesa ─────────────────────────────────────────────
 
 function MesaOficiosSection({
-  mesaOficios, workspaceId, projects, anexos,
+  mesaOficios, workspaceId, projects, anexos, mesasTecnicas,
 }: {
   mesaOficios: OficioRef[]
   workspaceId: string
   projects: { id: string; name: string }[]
   anexos: AnexoRef[]
+  mesasTecnicas: MesaTecnica[]
 }) {
   const [tab,           setTab]           = useState<'entrada' | 'salida'>('entrada')
   const [filterProject, setFilterProject] = useState('')
+  const [filterMesaTec, setFilterMesaTec] = useState('')
 
-  const filtered = mesaOficios.filter(o => !filterProject || o.proyecto_id === filterProject)
+  const filtered = mesaOficios.filter(o =>
+    (!filterProject || o.proyecto_id === filterProject) &&
+    (!filterMesaTec || o.mesa_id === filterMesaTec)
+  )
   const entradas = filtered.filter(o => o.tipo === 'entrada')
   const salidas  = filtered.filter(o => o.tipo === 'salida')
   const current  = tab === 'entrada' ? entradas : salidas
@@ -618,16 +626,23 @@ function MesaOficiosSection({
           Salida
           <span className="bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-full text-[10px] font-bold">{salidas.length}</span>
         </button>
-        {projects.length > 0 && (
-          <div className="ml-auto flex items-center gap-1">
-            <Filter className="w-3 h-3 text-slate-400" />
+        <div className="ml-auto flex items-center gap-1 flex-wrap">
+          <Filter className="w-3 h-3 text-slate-400" />
+          {projects.length > 0 && (
             <select value={filterProject} onChange={e => setFilterProject(e.target.value)}
               className="text-xs border border-slate-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-[#00C2FF]/40 bg-white text-slate-600">
               <option value="">Todos los proyectos</option>
               {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
-          </div>
-        )}
+          )}
+          {mesasTecnicas.length > 0 && (
+            <select value={filterMesaTec} onChange={e => setFilterMesaTec(e.target.value)}
+              className="text-xs border border-slate-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-[#00C2FF]/40 bg-white text-slate-600">
+              <option value="">Todas las mesas técnicas</option>
+              {mesasTecnicas.map(m => <option key={m.id} value={m.id}>{m.nombre}</option>)}
+            </select>
+          )}
+        </div>
       </div>
 
       {/* Lista */}
@@ -661,6 +676,14 @@ function MesaOficiosSection({
                         <Tag className="w-2.5 h-2.5" />{o.tema}
                       </span>
                     )}
+                    {o.mesa_id && (() => {
+                      const mt = mesasTecnicas.find(m => m.id === o.mesa_id)
+                      return mt ? (
+                        <span className="inline-flex items-center gap-0.5 bg-cyan-50 text-cyan-600 text-[10px] font-medium px-1.5 py-0.5 rounded-full" title={mt.nombre}>
+                          {mt.codigo || mt.nombre.slice(0, 12)}
+                        </span>
+                      ) : null
+                    })()}
                     {anexos.filter(a => a.oficio_id === o.id).map(a => (
                       <a key={a.id}
                         href={a.tipo === 'link' ? (a.url || '#') : `/api/oficios/anexos/${a.id}`}
@@ -695,20 +718,21 @@ function MesaOficiosSection({
 type DetailTab = 'especificaciones' | 'oficios'
 
 function MesaDetailView({
-  mesa, mesaIdx, specs, mesaOficios, userRole, workspaceId, mesas, companies, oficios, projects, anexos, onBack,
+  mesa, mesaIdx, specs, mesaOficios, userRole, workspaceId, mesas, companies, oficios, projects, anexos, mesasTecnicas, onBack,
 }: {
-  mesa:        Mesa
-  mesaIdx:     number
-  specs:       DesignSpec[]
-  mesaOficios: OficioRef[]
-  userRole:    string
-  workspaceId: string
-  mesas:       Mesa[]
-  companies:   Company[]
-  oficios:     Oficio[]
-  projects:    { id: string; name: string }[]
-  anexos:      AnexoRef[]
-  onBack:      () => void
+  mesa:           Mesa
+  mesaIdx:        number
+  specs:          DesignSpec[]
+  mesaOficios:    OficioRef[]
+  userRole:       string
+  workspaceId:    string
+  mesas:          Mesa[]
+  companies:      Company[]
+  oficios:        Oficio[]
+  projects:       { id: string; name: string }[]
+  anexos:         AnexoRef[]
+  mesasTecnicas:  MesaTecnica[]
+  onBack:         () => void
 }) {
   const [activeTab,    setActiveTab]    = useState<DetailTab>('especificaciones')
   const [showUpload,   setShowUpload]   = useState(false)
@@ -913,7 +937,7 @@ function MesaDetailView({
 
       {/* Contenido tab Oficios */}
       {activeTab === 'oficios' && (
-        <MesaOficiosSection mesaOficios={mesaOficios} workspaceId={workspaceId} projects={projects} anexos={anexos} />
+        <MesaOficiosSection mesaOficios={mesaOficios} workspaceId={workspaceId} projects={projects} anexos={anexos} mesasTecnicas={mesasTecnicas} />
       )}
 
       {showUpload && (
@@ -985,17 +1009,18 @@ function MesaCard({
 // ── Panel principal ───────────────────────────────────────────────────────────
 
 export default function EspecificacionesPanel({
-  specs, mesas, companies, oficios, oficiosRef, projects, anexos, workspaceId, userRole,
+  specs, mesas, companies, oficios, oficiosRef, projects, anexos, mesasTecnicas, workspaceId, userRole,
 }: {
-  specs:       DesignSpec[]
-  mesas:       Mesa[]
-  companies:   Company[]
-  oficios:     Oficio[]
-  oficiosRef:  OficioRef[]
-  projects:    { id: string; name: string }[]
-  anexos:      AnexoRef[]
-  workspaceId: string
-  userRole:    string
+  specs:          DesignSpec[]
+  mesas:          Mesa[]
+  companies:      Company[]
+  oficios:        Oficio[]
+  oficiosRef:     OficioRef[]
+  projects:       { id: string; name: string }[]
+  anexos:         AnexoRef[]
+  mesasTecnicas:  MesaTecnica[]
+  workspaceId:    string
+  userRole:       string
 }) {
   const [selectedMesaCode, setSelectedMesaCode] = useState<string | null>(null)
   const [showUpload,        setShowUpload]        = useState(false)
@@ -1018,6 +1043,7 @@ export default function EspecificacionesPanel({
         oficios={oficios}
         projects={projects}
         anexos={anexos}
+        mesasTecnicas={mesasTecnicas}
         onBack={() => setSelectedMesaCode(null)}
       />
     )

@@ -40,8 +40,8 @@ export default async function OficiosPage() {
 
   const wsId = workspace.id
 
-  // Cargar proyectos, miembros, oficios y especialidades del workspace
-  const [projectsRes, membersRes, oficiosRes, especialidadesRes] = await Promise.all([
+  // Cargar proyectos, miembros, oficios, especialidades y mesas del workspace
+  const [projectsRes, membersRes, oficiosRes, especialidadesRes, mesasRes] = await Promise.all([
     supabase
       .from('projects')
       .select('id, name')
@@ -60,6 +60,7 @@ export default async function OficiosPage() {
         remitente, destinatario, assignee_id,
         storage_key, file_name, file_type, file_size,
         notas, link_entrega, created_by, created_at, updated_at, responde_a_id,
+        mesa_id, copia_a, para_conocimiento,
         proyecto:projects(id, name),
         assignee:profiles!oficios_assignee_id_fkey(id, full_name, initials)
       `)
@@ -73,6 +74,13 @@ export default async function OficiosPage() {
       .eq('is_active', true)
       .order('sort_order')
       .order('name'),
+    supabase
+      .from('mesas_tecnicas')
+      .select('id, nombre, codigo, especialidad, is_active, sort_order')
+      .eq('workspace_id', wsId)
+      .eq('is_active', true)
+      .order('sort_order')
+      .order('nombre'),
   ])
 
   const oficios = oficiosRes.data || []
@@ -114,6 +122,7 @@ export default async function OficiosPage() {
         especialidades={(especialidadesRes.data || []) as any}
         antecedentes={(antecedentesRes.data || []) as any}
         anexos={(anexosRes.data || []) as any}
+        mesas={(mesasRes.data || []) as any}
         workspaceId={wsId}
         currentUserId={user.id}
         currentUserRole={membership.role as any}

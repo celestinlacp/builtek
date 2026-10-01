@@ -45,6 +45,9 @@ export async function createOficio(data: {
   file_type?:       string | null
   file_size?:       number | null
   notas?:           string | null
+  mesa_id?:         string | null
+  copia_a?:         string | null
+  para_conocimiento?: string | null
   antecedentes?:    Array<{ ref_texto: string; antecedente_oficio_id?: string | null }>
   anexos?:          Array<{ tipo: 'link' | 'archivo'; nombre: string; url?: string | null; storage_key?: string | null; file_name?: string | null; file_size?: number | null }>
 }) {
@@ -71,6 +74,9 @@ export async function createOficio(data: {
     file_type:       data.file_type       || null,
     file_size:       data.file_size       || null,
     notas:           data.notas           || null,
+    mesa_id:         data.mesa_id         || null,
+    copia_a:         data.copia_a         || null,
+    para_conocimiento: data.para_conocimiento || null,
     created_by:      user.id,
   }).select('id').single()
 
@@ -122,18 +128,21 @@ export async function createOficio(data: {
 }
 
 export async function updateOficio(id: string, data: {
-  asunto?:          string
-  no_oficio?:       string | null
-  fecha_documento?: string | null
-  fecha_recepcion?: string | null
-  proyecto_id?:     string | null
-  especialidad?:    string | null
-  tema?:            string | null
-  estado?:          string
-  remitente?:       string | null
-  destinatario?:    string | null
-  assignee_id?:     string | null
-  notas?:           string | null
+  asunto?:            string
+  no_oficio?:         string | null
+  fecha_documento?:   string | null
+  fecha_recepcion?:   string | null
+  proyecto_id?:       string | null
+  especialidad?:      string | null
+  tema?:              string | null
+  estado?:            string
+  remitente?:         string | null
+  destinatario?:      string | null
+  assignee_id?:       string | null
+  notas?:             string | null
+  mesa_id?:           string | null
+  copia_a?:           string | null
+  para_conocimiento?: string | null
 }) {
   await getUser()
   const admin = getAdminClient()

@@ -34,11 +34,16 @@ type Oficio = {
   file_size: number | null
   notas: string | null
   link_entrega?: string | null
+  mesa_id: string | null
+  copia_a: string | null
+  para_conocimiento: string | null
   created_at: string
   created_by: string | null
   proyecto?: { id: string; name: string } | null
   assignee?: { id: string; full_name: string; initials: string | null } | null
 }
+
+type MesaTecnica = { id: string; nombre: string; codigo: string | null; especialidad: string | null }
 
 type Antecedente = {
   id: string
@@ -247,7 +252,7 @@ async function uploadFile(file: File, workspaceId: string, tipo: string): Promis
 // ── OficioModal ───────────────────────────────────────────────────────────────
 
 function OficioModal({
-  oficio, tipo, projects, members, especialidades, workspaceId, allOficios,
+  oficio, tipo, projects, members, especialidades, mesas, workspaceId, allOficios,
   initialAntecedentes, initialAnexos, onClose,
 }: {
   oficio?: Oficio | null
@@ -255,6 +260,7 @@ function OficioModal({
   projects: Project[]
   members: Member[]
   especialidades: { code: string; name: string }[]
+  mesas: MesaTecnica[]
   workspaceId: string
   allOficios: Oficio[]
   initialAntecedentes: Antecedente[]
@@ -275,6 +281,9 @@ function OficioModal({
   const [especialidad,   setEspecialidad]   = useState(oficio?.especialidad || '')
   const [assigneeId,     setAssigneeId]     = useState(oficio?.assignee_id || '')
   const [notas,          setNotas]          = useState(oficio?.notas || '')
+  const [mesaId,         setMesaId]         = useState(oficio?.mesa_id || '')
+  const [copiaA,         setCopiaA]         = useState(oficio?.copia_a || '')
+  const [paraConocimiento, setParaConocimiento] = useState(oficio?.para_conocimiento || '')
 
   // Antecedentes
   const [antecedentes,    setAntecedentes]    = useState<Antecedente[]>(initialAntecedentes)
@@ -346,6 +355,8 @@ function OficioModal({
           if (ext.fecha_documento) setFechaDoc(ext.fecha_documento)
           if (ext.especialidad)    setEspecialidad(ext.especialidad)
           if (ext.remitente && tipo === 'entrada') setRemitente(ext.remitente)
+          if (ext.copia_a)           setCopiaA(ext.copia_a)
+          if (ext.para_conocimiento) setParaConocimiento(ext.para_conocimiento)
           // Pre-cargar antecedentes extraídos por IA como refs de texto
           if (ext.antecedentes_texto?.length) {
             const aiAntes: Antecedente[] = ext.antecedentes_texto.map((ref: string) => {
@@ -410,6 +421,9 @@ function OficioModal({
         destinatario:    destinatario   || null,
         assignee_id:     assigneeId     || null,
         notas:           notas          || null,
+        mesa_id:         mesaId         || null,
+        copia_a:         copiaA         || null,
+        para_conocimiento: paraConocimiento || null,
         storage_key:     storageKey,
         file_name:       fileName,
         file_type:       fileType,
@@ -658,6 +672,37 @@ function OficioModal({
               </select>
             </div>
           )}
+
+          {/* Mesa Técnica */}
+          {mesas.length > 0 && (
+            <div>
+              <label className={labelCls}>Mesa técnica destinataria</label>
+              <select value={mesaId} onChange={e => setMesaId(e.target.value)} className={inputCls}>
+                <option value="">— Sin mesa —</option>
+                {mesas.map(m => (
+                  <option key={m.id} value={m.id}>
+                    {m.codigo ? `[${m.codigo}] ` : ''}{m.nombre}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Copia a / Para conocimiento */}
+          <div className="grid grid-cols-1 gap-3">
+            <div>
+              <label className={labelCls}>Con copia a <span className="font-normal text-slate-400">(opcional)</span></label>
+              <input value={copiaA} onChange={e => setCopiaA(e.target.value)}
+                placeholder="Nombre o cargo de quienes reciben copia"
+                className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>Para efectos y conocimiento de <span className="font-normal text-slate-400">(opcional)</span></label>
+              <input value={paraConocimiento} onChange={e => setParaConocimiento(e.target.value)}
+                placeholder="Nombre o cargo"
+                className={inputCls} />
+            </div>
+          </div>
 
           {/* Notas */}
           <div>
@@ -997,13 +1042,14 @@ function CopyLinkButton({ oficioId }: { oficioId: string }) {
 // ── OficioRow ─────────────────────────────────────────────────────────────────
 
 function OficioRow({
-  oficio, projects, members, especialidades, workspaceId, canEdit, canDelete,
+  oficio, projects, members, especialidades, mesas, workspaceId, canEdit, canDelete,
   isSelected, onToggleSelect, onEdit, respuesta,
 }: {
   oficio: Oficio
   projects: Project[]
   members: Member[]
   especialidades: { code: string; name: string }[]
+  mesas: MesaTecnica[]
   workspaceId: string
   canEdit: boolean
   canDelete: boolean
@@ -1093,7 +1139,12 @@ function OficioRow({
               <Tag className="w-2.5 h-2.5 flex-shrink-0" />{oficio.tema}
             </span>
           )}
-          {!oficio.proyecto && !oficio.especialidad && !oficio.tema && (
+          {oficio.mesa_id && (
+            <span className="inline-flex items-center gap-0.5 bg-cyan-50 text-cyan-600 text-[10px] font-medium px-1.5 py-0.5 rounded-full truncate max-w-[140px]" title={mesas.find(m => m.id === oficio.mesa_id)?.nombre}>
+              {mesas.find(m => m.id === oficio.mesa_id)?.codigo || 'Mesa'}
+            </span>
+          )}
+          {!oficio.proyecto && !oficio.especialidad && !oficio.tema && !oficio.mesa_id && (
             <span className="text-slate-300 text-xs">—</span>
           )}
         </div>
@@ -1173,7 +1224,7 @@ function OficioRow({
 type Tab = 'entrada' | 'salida' | 'trazabilidad'
 
 export default function OficiosPanel({
-  oficios, projects, members, especialidades, antecedentes, anexos, workspaceId, currentUserId, currentUserRole,
+  oficios, projects, members, especialidades, antecedentes, anexos, mesas, workspaceId, currentUserId, currentUserRole,
 }: {
   oficios: Oficio[]
   projects: Project[]
@@ -1181,6 +1232,7 @@ export default function OficiosPanel({
   especialidades: { code: string; name: string }[]
   antecedentes: Antecedente[]
   anexos: Anexo[]
+  mesas: MesaTecnica[]
   workspaceId: string
   currentUserId: string
   currentUserRole: string
@@ -1198,6 +1250,7 @@ export default function OficiosPanel({
   const [filterEsp,       setFilterEsp]       = useState('')
   const [filterEstado,    setFilterEstado]    = useState('')
   const [filterAssignee,  setFilterAssignee]  = useState('')
+  const [filterMesa,      setFilterMesa]      = useState('')
 
   // Selección múltiple
   const [selected,       setSelected]       = useState<Set<string>>(new Set())
@@ -1236,11 +1289,12 @@ export default function OficiosPanel({
       if (filterEsp      && o.especialidad !== filterEsp)       return false
       if (filterEstado   && o.estado       !== filterEstado)    return false
       if (filterAssignee && o.assignee_id  !== filterAssignee)  return false
+      if (filterMesa     && o.mesa_id      !== filterMesa)      return false
       if (filterFrom && o.fecha_documento && o.fecha_documento < filterFrom) return false
       if (filterTo   && o.fecha_documento && o.fecha_documento > filterTo)   return false
       return true
     })
-  }, [oficios, antecedentes, especialidades, tab, search, filterProject, filterEsp, filterEstado, filterAssignee, filterFrom, filterTo])
+  }, [oficios, antecedentes, especialidades, tab, search, filterProject, filterEsp, filterEstado, filterAssignee, filterMesa, filterFrom, filterTo])
 
   const countEntrada = oficios.filter(o => o.tipo === 'entrada').length
   const countSalida  = oficios.filter(o => o.tipo === 'salida').length
@@ -1380,6 +1434,13 @@ export default function OficiosPanel({
           {especialidades.map(e => <option key={e.code} value={e.code}>{e.name}</option>)}
         </select>
 
+        {mesas.length > 0 && (
+          <select value={filterMesa} onChange={e => setFilterMesa(e.target.value)} className={inputCls}>
+            <option value="">Todas las mesas</option>
+            {mesas.map(m => <option key={m.id} value={m.id}>{m.nombre}</option>)}
+          </select>
+        )}
+
         <select value={filterEstado} onChange={e => setFilterEstado(e.target.value)} className={inputCls}>
           <option value="">Todos los estados</option>
           {Object.entries(ESTADO_CONFIG).map(([key, cfg]) => (
@@ -1495,6 +1556,7 @@ export default function OficiosPanel({
                     projects={projects}
                     members={members}
                     especialidades={especialidades}
+                    mesas={mesas}
                     workspaceId={workspaceId}
                     canEdit={canEdit}
                     canDelete={canDelete}
@@ -1523,6 +1585,7 @@ export default function OficiosPanel({
           projects={projects}
           members={members}
           especialidades={especialidades}
+          mesas={mesas}
           workspaceId={workspaceId}
           allOficios={oficios}
           initialAntecedentes={editOficio ? antecedentes.filter(a => a.oficio_id === editOficio.id) : []}

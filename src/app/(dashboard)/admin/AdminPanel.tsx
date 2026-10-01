@@ -12,7 +12,7 @@ import {
 } from 'lucide-react'
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { toggleFeature, createMicNomenclature, updateMicNomenclature, deleteMicNomenclature, seedAllMicNomenclatures, syncIdentificadoresFromProjects, backfillMicIdentifiers } from './actions'
+import { toggleFeature, createMicNomenclature, updateMicNomenclature, deleteMicNomenclature, seedAllMicNomenclatures, syncIdentificadoresFromProjects, backfillMicIdentifiers, createMesaTecnica, updateMesaTecnica, deleteMesaTecnica } from './actions'
 import { ShareProjectModal } from './ShareProjectModal'
 
 const ROLE_CONFIG: Record<UserRole, { label: string; color: string; icon: React.ElementType }> = {
@@ -972,9 +972,11 @@ function StoragePanel({
   )
 }
 
-type Tab = 'projects' | 'team' | 'settings' | 'workspace' | 'storage' | 'empresas' | 'database' | 'nomenclaturas' | 'builtek-id'
+type Tab = 'projects' | 'team' | 'settings' | 'workspace' | 'storage' | 'empresas' | 'database' | 'nomenclaturas' | 'builtek-id' | 'bd-oficios'
 
 type MicNomenclature = { id: string; segment: string; code: string; name: string; description: string | null; is_active: boolean; sort_order: number }
+
+type MesaTecnica = { id: string; nombre: string; codigo: string | null; especialidad: string | null; is_active: boolean; sort_order: number }
 
 const PLAN_LABELS: Record<string, { label: string; color: string; description: string }> = {
   free:       { label: 'Free',        color: 'bg-slate-100 text-slate-600',   description: 'Hasta 3 proyectos · 5 miembros · 1 GB' },
@@ -1782,6 +1784,208 @@ function DatabasePanel({ docs, projects }: { docs: BiDoc[]; projects: Project[] 
   )
 }
 
+// ── BD Oficios — Mesas Técnicas ──────────────────────────────────────────────
+
+function MesasTecnicasPanel({
+  mesas,
+  especialidades,
+}: {
+  mesas: MesaTecnica[]
+  especialidades: { code: string; name: string }[]
+}) {
+  const router = useRouter()
+  const [showForm,    setShowForm]    = useState(false)
+  const [editItem,    setEditItem]    = useState<MesaTecnica | null>(null)
+  const [formNombre,  setFormNombre]  = useState('')
+  const [formCodigo,  setFormCodigo]  = useState('')
+  const [formEsp,     setFormEsp]     = useState('')
+  const [formOrder,   setFormOrder]   = useState(0)
+  const [formActive,  setFormActive]  = useState(true)
+  const [saving,      setSaving]      = useState(false)
+  const [error,       setError]       = useState<string | null>(null)
+
+  function openCreate() {
+    setEditItem(null)
+    setFormNombre(''); setFormCodigo(''); setFormEsp(''); setFormOrder(mesas.length + 1); setFormActive(true)
+    setShowForm(true); setError(null)
+  }
+
+  function openEdit(item: MesaTecnica) {
+    setEditItem(item)
+    setFormNombre(item.nombre); setFormCodigo(item.codigo || ''); setFormEsp(item.especialidad || '')
+    setFormOrder(item.sort_order); setFormActive(item.is_active)
+    setShowForm(true); setError(null)
+  }
+
+  async function handleSave() {
+    if (!formNombre.trim()) { setError('El nombre es requerido'); return }
+    setSaving(true); setError(null)
+    const payload = {
+      nombre:       formNombre.trim(),
+      codigo:       formCodigo.trim() || null,
+      especialidad: formEsp || null,
+      is_active:    formActive,
+      sort_order:   formOrder,
+    }
+    const result = editItem
+      ? await updateMesaTecnica(editItem.id, payload)
+      : await createMesaTecnica(payload)
+    setSaving(false)
+    if (result?.error) { setError(result.error); return }
+    setShowForm(false); router.refresh()
+  }
+
+  async function handleDelete(item: MesaTecnica) {
+    if (!confirm(`¿Eliminar la mesa "${item.nombre}"? Los oficios vinculados quedarán sin mesa asignada.`)) return
+    const res = await deleteMesaTecnica(item.id)
+    if (res?.error) { alert(res.error); return }
+    router.refresh()
+  }
+
+  const activeMesas   = mesas.filter(m => m.is_active)
+  const inactiveMesas = mesas.filter(m => !m.is_active)
+
+  return (
+    <div>
+      <div className="flex items-start justify-between mb-5 flex-wrap gap-3">
+        <p className="text-sm text-slate-500 max-w-lg">
+          Catálogo de mesas técnicas para clasificar y filtrar oficios por destinatario.
+          Cada mesa se asocia a una especialidad del catálogo MIC.
+        </p>
+        <button onClick={openCreate}
+          className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#1A2744] text-white text-sm font-semibold hover:bg-[#233366] transition-colors">
+          <Plus className="w-4 h-4" />
+          Nueva mesa
+        </button>
+      </div>
+
+      {/* Formulario inline */}
+      {showForm && (
+        <div className="mb-5 bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+          <h3 className="font-semibold text-[#1A2744] text-sm">{editItem ? 'Editar mesa' : 'Nueva mesa técnica'}</h3>
+          {error && <p className="text-red-500 text-xs">{error}</p>}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-medium text-slate-600 block mb-1">Nombre literal *</label>
+              <input value={formNombre} onChange={e => setFormNombre(e.target.value)}
+                placeholder="Ej: Mesa de Arquitectura e Imagen Urbana"
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-slate-600 block mb-1">Código corto</label>
+              <input value={formCodigo} onChange={e => setFormCodigo(e.target.value.toUpperCase())}
+                placeholder="Ej: MESA-ARQ"
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[#00C2FF]" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-slate-600 block mb-1">Especialidad (MIC)</label>
+              <select value={formEsp} onChange={e => setFormEsp(e.target.value)}
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]">
+                <option value="">Sin especialidad</option>
+                {especialidades.map(e => (
+                  <option key={e.code} value={e.code}>{e.code} — {e.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="flex-1">
+                <label className="text-xs font-medium text-slate-600 block mb-1">Orden</label>
+                <input type="number" value={formOrder} onChange={e => setFormOrder(Number(e.target.value))} min={0}
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]" />
+              </div>
+              {editItem && (
+                <div className="flex items-center gap-2 pt-4">
+                  <input type="checkbox" id="mesa-active" checked={formActive} onChange={e => setFormActive(e.target.checked)}
+                    className="rounded" />
+                  <label htmlFor="mesa-active" className="text-sm text-slate-600">Activa</label>
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-1">
+            <button onClick={() => setShowForm(false)}
+              className="px-4 py-2 rounded-lg border border-slate-200 text-slate-600 text-sm hover:bg-slate-50">
+              Cancelar
+            </button>
+            <button onClick={handleSave} disabled={saving}
+              className="px-4 py-2 rounded-lg bg-[#00C2FF] text-white text-sm font-semibold hover:bg-[#00aee6] disabled:opacity-60 flex items-center gap-2">
+              {saving && <Loader2 className="w-4 h-4 animate-spin" />}
+              {editItem ? 'Guardar cambios' : 'Crear mesa'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Lista activas */}
+      {activeMesas.length === 0 && !showForm && (
+        <div className="text-center py-12 text-slate-400 text-sm">
+          <Database className="w-8 h-8 mx-auto mb-3 opacity-40" />
+          No hay mesas técnicas. Crea la primera.
+        </div>
+      )}
+
+      {activeMesas.length > 0 && (
+        <div className="space-y-2 mb-6">
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Activas ({activeMesas.length})</p>
+          {activeMesas.map(mesa => {
+            const espLabel = especialidades.find(e => e.code === mesa.especialidad)
+            return (
+              <div key={mesa.id} className="flex items-center justify-between bg-white border border-slate-200 rounded-xl px-4 py-3 gap-3">
+                <div className="flex items-start gap-3 min-w-0">
+                  <div className="min-w-0">
+                    <p className="font-medium text-[#1A2744] text-sm truncate">{mesa.nombre}</p>
+                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                      {mesa.codigo && (
+                        <span className="text-xs font-mono text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">{mesa.codigo}</span>
+                      )}
+                      {espLabel && (
+                        <span className="text-xs text-[#00C2FF] font-semibold">{espLabel.code} — {espLabel.name}</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button onClick={() => openEdit(mesa)}
+                    className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors">
+                    <Pencil className="w-4 h-4" />
+                  </button>
+                  <button onClick={() => handleDelete(mesa)}
+                    className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-500 transition-colors">
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Lista inactivas */}
+      {inactiveMesas.length > 0 && (
+        <details className="mt-4">
+          <summary className="text-xs font-semibold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-slate-600">
+            Inactivas ({inactiveMesas.length})
+          </summary>
+          <div className="space-y-2 mt-2">
+            {inactiveMesas.map(mesa => (
+              <div key={mesa.id} className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 gap-3 opacity-60">
+                <div className="min-w-0">
+                  <p className="font-medium text-slate-500 text-sm truncate">{mesa.nombre}</p>
+                  {mesa.codigo && <p className="text-xs font-mono text-slate-400">{mesa.codigo}</p>}
+                </div>
+                <button onClick={() => openEdit(mesa)}
+                  className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 shrink-0">
+                  <Pencil className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+        </details>
+      )}
+    </div>
+  )
+}
+
 const MIC_SEGMENTS = ['TRONCAL', 'IDENTIFICADOR', 'TIPO_DOC', 'ESPECIALIDAD', 'TIPO_PLANO'] as const
 
 function NomenclaturasPanel({ nomenclatures, workspaceId }: { nomenclatures: MicNomenclature[]; workspaceId: string }) {
@@ -2073,7 +2277,7 @@ function NomenclaturasPanel({ nomenclatures, workspaceId }: { nomenclatures: Mic
 export default function AdminPanel({
   projects, workspace, members, currentUserId, currentUserRole,
   currentUserEmail, currentUserName, pendingInvites, dropboxConnected,
-  storageUsed, storageByModule, storageByUser, companies, biDocs, workspaceId, micNomenclatures,
+  storageUsed, storageByModule, storageByUser, companies, biDocs, workspaceId, micNomenclatures, mesasTecnicas,
 }: {
   projects: Project[]
   workspace: Workspace
@@ -2091,6 +2295,7 @@ export default function AdminPanel({
   biDocs: BiDoc[]
   workspaceId: string
   micNomenclatures: MicNomenclature[]
+  mesasTecnicas: MesaTecnica[]
 }) {
   const [tab, setTab] = useState<Tab>('projects')
   const [showModal, setShowModal] = useState(false)
@@ -2103,6 +2308,7 @@ export default function AdminPanel({
     { id: 'projects',       label: 'Proyectos',      icon: FolderOpen },
     { id: 'empresas',       label: 'Empresas',        icon: Factory    },
     { id: 'nomenclaturas',  label: 'Nomenclaturas',   icon: BookOpen   },
+    { id: 'bd-oficios',     label: 'BD Oficios',      icon: FileText   },
     { id: 'team',           label: 'Equipo',          icon: Users      },
     { id: 'workspace',      label: 'Workspace',       icon: Building2  },
     { id: 'storage',        label: 'Almacenamiento',  icon: HardDrive  },
@@ -2269,6 +2475,16 @@ export default function AdminPanel({
         <NomenclaturasPanel
           nomenclatures={micNomenclatures}
           workspaceId={workspaceId}
+        />
+      )}
+
+      {/* BD Oficios — Mesas Técnicas tab */}
+      {tab === 'bd-oficios' && (
+        <MesasTecnicasPanel
+          mesas={mesasTecnicas}
+          especialidades={micNomenclatures
+            .filter(n => n.segment === 'ESPECIALIDAD' && n.is_active)
+            .map(n => ({ code: n.code, name: n.name }))}
         />
       )}
 
