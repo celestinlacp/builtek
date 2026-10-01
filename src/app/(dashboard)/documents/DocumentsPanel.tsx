@@ -1508,6 +1508,8 @@ function ProjectsView({
   const [filterFrente, setFilterFrente] = useState('all')
   const [filterType,   setFilterType]   = useState('all')
   const [filterBadge,  setFilterBadge]  = useState('all')
+  const [filterPK,     setFilterPK]     = useState('all')
+  const [sortByPK,     setSortByPK]     = useState(false)
   const [editingProject, setEditingProject] = useState<Project | null>(null)
   const [shareProject, setShareProject]   = useState<Project | null>(null)
   const isAdmin = ['owner', 'admin', 'manager'].includes(userRole)
@@ -1519,14 +1521,24 @@ function ProjectsView({
   const projectTypes = [...new Set(rootProjects.map(p => p.project_type).filter(Boolean))] as string[]
   const hasInah      = rootProjects.some(p => p.is_inah)
   const hasCauces    = rootProjects.some(p => p.cauces_federales)
+  const pkOptions    = [...new Set(rootProjects.map(p => p.chainage_start).filter(v => v != null))] as number[]
+  pkOptions.sort((a, b) => a - b)
 
-  const filtered = rootProjects.filter(p => {
-    if (filterFrente !== 'all' && p.frente !== filterFrente) return false
-    if (filterType   !== 'all' && p.project_type !== filterType) return false
-    if (filterBadge  === 'inah'   && !p.is_inah) return false
-    if (filterBadge  === 'cauces' && !p.cauces_federales) return false
-    return true
-  })
+  const filtered = rootProjects
+    .filter(p => {
+      if (filterFrente !== 'all' && p.frente !== filterFrente) return false
+      if (filterType   !== 'all' && p.project_type !== filterType) return false
+      if (filterBadge  === 'inah'   && !p.is_inah) return false
+      if (filterBadge  === 'cauces' && !p.cauces_federales) return false
+      if (filterPK !== 'all' && p.chainage_start !== Number(filterPK)) return false
+      return true
+    })
+    .sort((a, b) => {
+      if (!sortByPK) return 0
+      const pa = a.chainage_start ?? Infinity
+      const pb = b.chainage_start ?? Infinity
+      return pa - pb
+    })
 
   if (rootProjects.length === 0) {
     return (
@@ -1545,7 +1557,7 @@ function ProjectsView({
   return (
     <div>
       {/* Filtros — solo se muestran si hay valores distintos */}
-      {(frentes.length > 0 || projectTypes.length > 0 || hasInah || hasCauces) && (
+      {(frentes.length > 0 || projectTypes.length > 0 || hasInah || hasCauces || pkOptions.length > 0) && (
         <div className="flex items-center gap-2 mb-4 flex-wrap">
           {frentes.length > 0 && (
             <select value={filterFrente} onChange={e => setFilterFrente(e.target.value)}
@@ -1569,8 +1581,29 @@ function ProjectsView({
               {hasCauces && <option value="cauces">Cauces Federales</option>}
             </select>
           )}
-          {(filterFrente !== 'all' || filterType !== 'all' || filterBadge !== 'all') && (
-            <button onClick={() => { setFilterFrente('all'); setFilterType('all'); setFilterBadge('all') }}
+          {pkOptions.length > 0 && (
+            <select value={filterPK} onChange={e => setFilterPK(e.target.value)}
+              className="text-xs px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 font-medium focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/40 font-mono">
+              <option value="all">PK inicio</option>
+              {pkOptions.map(pk => (
+                <option key={pk} value={String(pk)}>{formatChainage(pk)}</option>
+              ))}
+            </select>
+          )}
+          {pkOptions.length > 0 && (
+            <button onClick={() => setSortByPK(v => !v)}
+              title="Ordenar por PK"
+              className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border font-medium transition-colors ${
+                sortByPK
+                  ? 'bg-[#1A2744] text-white border-[#1A2744]'
+                  : 'bg-white text-slate-500 border-slate-200 hover:border-[#1A2744] hover:text-[#1A2744]'
+              }`}>
+              <Milestone className="w-3 h-3" />
+              Ordenar por PK
+            </button>
+          )}
+          {(filterFrente !== 'all' || filterType !== 'all' || filterBadge !== 'all' || filterPK !== 'all' || sortByPK) && (
+            <button onClick={() => { setFilterFrente('all'); setFilterType('all'); setFilterBadge('all'); setFilterPK('all'); setSortByPK(false) }}
               className="text-xs px-3 py-1.5 rounded-lg border border-slate-200 text-slate-400 hover:text-slate-600 hover:bg-slate-50 flex items-center gap-1">
               <X className="w-3 h-3" />
               Limpiar
