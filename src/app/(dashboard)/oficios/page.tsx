@@ -61,8 +61,7 @@ export default async function OficiosPage() {
         storage_key, file_name, file_type, file_size,
         notas, created_by, created_at, updated_at, responde_a_id,
         proyecto:projects(id, name),
-        assignee:profiles!oficios_assignee_id_fkey(id, full_name, initials),
-        creator:profiles!oficios_created_by_fkey(id, full_name, initials)
+        assignee:profiles!oficios_assignee_id_fkey(id, full_name, initials)
       `)
       .eq('workspace_id', wsId)
       .order('created_at', { ascending: false }),

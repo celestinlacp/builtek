@@ -31,9 +31,9 @@ type Oficio = {
   file_size: number | null
   notas: string | null
   created_at: string
+  created_by: string | null
   proyecto?: { id: string; name: string } | null
   assignee?: { id: string; full_name: string; initials: string | null } | null
-  creator?: { id: string; full_name: string; initials: string | null } | null
 }
 
 // ── Parser de filename ─────────────────────────────────────────────────────────
@@ -707,6 +707,9 @@ function OficioRow({
   onEdit: (o: Oficio) => void
   respuesta?: string | null
 }) {
+  const creatorName = oficio.created_by
+    ? members.find(m => m.user_id === oficio.created_by)?.user?.full_name ?? null
+    : null
   const [deleting, setDeleting] = useState(false)
 
   async function handleDelete() {
@@ -790,12 +793,8 @@ function OficioRow({
       <td className="px-4 py-3">
         {oficio.tipo === 'entrada'
           ? <EstadoDropdown oficio={oficio} workspaceId={workspaceId} />
-          : oficio.creator?.full_name
-            ? (
-              <span className="text-xs text-slate-500" title="Subido por">
-                {oficio.creator.full_name}
-              </span>
-            )
+          : creatorName
+            ? <span className="text-xs text-slate-500">{creatorName}</span>
             : <span className="text-slate-300 text-xs">—</span>
         }
       </td>

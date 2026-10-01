@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import { FolderOpen, Calendar, MapPin } from 'lucide-react'
 import type { Metadata } from 'next'
 import ShareContent from './ShareContent'
-import type { ShareDoc, ShareEntregable, ShareSubproject } from './ShareContent'
+import type { ShareDoc, ShareSubproject } from './ShareContent'
 
 export const dynamic = 'force-dynamic'
 
@@ -111,7 +111,7 @@ export default async function SharePage(
   // specialty_code no es columna directa en documents — se obtiene via join con specialties
   const { data: rawDocs } = await admin
     .from('documents')
-    .select('id, name, file_name, display_name, doc_key, file_type, status, version_number, project_id, uploaded_by, created_at, specialty:specialties(code)')
+    .select('id, name, file_name, display_name, doc_key, file_type, status, version_number, project_id, uploaded_by, author, created_at, specialty:specialties(code, name)')
     .in('project_id', allProjectIds)
     .or('is_current.is.null,is_current.eq.true')
     .order('doc_key')
@@ -130,29 +130,9 @@ export default async function SharePage(
   const documents: ShareDoc[] = (rawDocs ?? []).map((d: any) => ({
     ...d,
     specialty_code: (d.specialty as any)?.code ?? null,
-    uploaderName: uploaderNameById[d.uploaded_by] ?? null,
+    specialty_name: (d.specialty as any)?.name ?? null,
+    uploaderName:   uploaderNameById[d.uploaded_by] ?? null,
   }))
-
-  // 6. Entregables vía tareas
-  const { data: taskRows } = await admin
-    .from('tasks')
-    .select('id, name')
-    .in('project_id', allProjectIds)
-
-  const taskNameById: Record<string, string> = Object.fromEntries((taskRows ?? []).map((t: any) => [t.id, t.name]))
-  const taskIds = (taskRows ?? []).map((t: any) => t.id)
-
-  const rawEntregables = taskIds.length > 0
-    ? (await admin
-        .from('entregables')
-        .select('id, file_name, file_type, status, created_at, task_id')
-        .in('task_id', taskIds)
-        .eq('is_archived', false)
-        .order('created_at', { ascending: false })
-      ).data ?? []
-    : []
-
-  const entregables: ShareEntregable[] = rawEntregables
 
   // ── UI ─────────────────────────────────────────────────────────────────────
 
@@ -240,11 +220,6 @@ export default async function SharePage(
             <strong className="text-[#1A2744] font-bold text-sm">{documents.length}</strong>{' '}
             documento{documents.length !== 1 ? 's' : ''}
           </span>
-          <span className="text-slate-200">|</span>
-          <span>
-            <strong className="text-[#1A2744] font-bold text-sm">{entregables.length}</strong>{' '}
-            entregable{entregables.length !== 1 ? 's' : ''}
-          </span>
           {subprojects.length > 0 && (
             <>
               <span className="text-slate-200">|</span>
@@ -267,8 +242,6 @@ export default async function SharePage(
         rootProjectId={share.project_id}
         subprojects={subprojects}
         documents={documents}
-        entregables={entregables}
-        taskNameById={taskNameById}
         token={token}
       />
 
