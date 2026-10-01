@@ -93,6 +93,7 @@ export async function createProject(formData: FormData) {
     mic_identifier,
     is_inah:          formData.get('is_inah') === 'on',
     cruce_vial:       formData.get('cruce_vial') as string || null,
+    cauces_federales: formData.get('cauces_federales') === 'on',
   })
 
   if (error) return { error: error.message }
@@ -119,8 +120,9 @@ export async function updateProject(projectId: string, formData: FormData) {
     frente: formData.get('frente') as string || null,
     project_type: formData.get('project_type') as string || null,
     mic_identifier: micIdentifier,
-    is_inah:    formData.get('is_inah') === 'on',
-    cruce_vial: formData.get('cruce_vial') as string || null,
+    is_inah:          formData.get('is_inah') === 'on',
+    cruce_vial:       formData.get('cruce_vial') as string || null,
+    cauces_federales: formData.get('cauces_federales') === 'on',
   }).eq('id', projectId)
 
   if (error) return { error: error.message }

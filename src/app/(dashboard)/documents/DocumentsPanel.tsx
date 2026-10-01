@@ -1390,7 +1390,7 @@ function ProjectCard({ project, docCount, disciplines, lastUpload, workspaceId, 
           <h3 className="font-bold text-[#1A2744] text-sm leading-tight">{project.name}</h3>
           <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-[#00C2FF] transition-colors flex-shrink-0 mt-0.5" />
         </div>
-        {(project.frente || project.project_type || project.is_inah) && (
+        {(project.frente || project.project_type || project.is_inah || project.cauces_federales) && (
           <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
             {project.frente && (
               <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#00C2FF]/10 text-[#0099CC]">
@@ -1405,6 +1405,11 @@ function ProjectCard({ project, docCount, disciplines, lastUpload, workspaceId, 
             {project.is_inah && (
               <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700">
                 INAH
+              </span>
+            )}
+            {project.cauces_federales && (
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
+                Cauces Federales
               </span>
             )}
           </div>
@@ -1502,6 +1507,7 @@ function ProjectsView({
 }) {
   const [filterFrente, setFilterFrente] = useState('all')
   const [filterType,   setFilterType]   = useState('all')
+  const [filterBadge,  setFilterBadge]  = useState('all')
   const [editingProject, setEditingProject] = useState<Project | null>(null)
   const [shareProject, setShareProject]   = useState<Project | null>(null)
   const isAdmin = ['owner', 'admin', 'manager'].includes(userRole)
@@ -1511,10 +1517,14 @@ function ProjectsView({
 
   const frentes      = [...new Set(rootProjects.map(p => p.frente).filter(Boolean))] as string[]
   const projectTypes = [...new Set(rootProjects.map(p => p.project_type).filter(Boolean))] as string[]
+  const hasInah      = rootProjects.some(p => p.is_inah)
+  const hasCauces    = rootProjects.some(p => p.cauces_federales)
 
   const filtered = rootProjects.filter(p => {
     if (filterFrente !== 'all' && p.frente !== filterFrente) return false
     if (filterType   !== 'all' && p.project_type !== filterType) return false
+    if (filterBadge  === 'inah'   && !p.is_inah) return false
+    if (filterBadge  === 'cauces' && !p.cauces_federales) return false
     return true
   })
 
@@ -1535,7 +1545,7 @@ function ProjectsView({
   return (
     <div>
       {/* Filtros — solo se muestran si hay valores distintos */}
-      {(frentes.length > 0 || projectTypes.length > 0) && (
+      {(frentes.length > 0 || projectTypes.length > 0 || hasInah || hasCauces) && (
         <div className="flex items-center gap-2 mb-4 flex-wrap">
           {frentes.length > 0 && (
             <select value={filterFrente} onChange={e => setFilterFrente(e.target.value)}
@@ -1551,8 +1561,16 @@ function ProjectsView({
               {projectTypes.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
           )}
-          {(filterFrente !== 'all' || filterType !== 'all') && (
-            <button onClick={() => { setFilterFrente('all'); setFilterType('all') }}
+          {(hasInah || hasCauces) && (
+            <select value={filterBadge} onChange={e => setFilterBadge(e.target.value)}
+              className="text-xs px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 font-medium focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/40">
+              <option value="all">Todos</option>
+              {hasInah   && <option value="inah">INAH</option>}
+              {hasCauces && <option value="cauces">Cauces Federales</option>}
+            </select>
+          )}
+          {(filterFrente !== 'all' || filterType !== 'all' || filterBadge !== 'all') && (
+            <button onClick={() => { setFilterFrente('all'); setFilterType('all'); setFilterBadge('all') }}
               className="text-xs px-3 py-1.5 rounded-lg border border-slate-200 text-slate-400 hover:text-slate-600 hover:bg-slate-50 flex items-center gap-1">
               <X className="w-3 h-3" />
               Limpiar
@@ -1808,6 +1826,11 @@ function ProjectDetailView({
         {project.is_inah && (
           <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700">
             INAH
+          </span>
+        )}
+        {project.cauces_federales && (
+          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
+            Cauces Federales
           </span>
         )}
         <span className="text-xs text-slate-400 ml-1">

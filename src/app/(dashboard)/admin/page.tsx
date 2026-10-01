@@ -30,7 +30,7 @@ export default async function AdminPage() {
   const [workspaceRes, projectsRes, membersRes, myRoleRes, invitesRes, companiesRes, biDocsRes, nomenclaturesRes] = await Promise.all([
     supabase.from('workspaces').select('*, dropbox_token').eq('id', wsId).single(),
     supabase.from('projects')
-      .select('id, name, description, status, workspace_id, start_date, end_date, frente, project_type, cover_image_url, parent_project_id, chainage_start, chainage_end, created_at')
+      .select('id, name, description, status, workspace_id, start_date, end_date, frente, project_type, cover_image_url, parent_project_id, chainage_start, chainage_end, mic_identifier, is_inah, cruce_vial, cauces_federales, created_at')
       .eq('workspace_id', wsId)
       .order('created_at', { ascending: false }),
     supabase.from('workspace_members')

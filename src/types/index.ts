@@ -75,6 +75,7 @@ export interface Project {
   mic_identifier: string | null
   is_inah: boolean
   cruce_vial: string | null
+  cauces_federales: boolean
   created_at: string
 }
 

@@ -606,22 +606,28 @@ function ProjectModal({
             </div>
           )}
 
-          {/* Cruce vial + INAH */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">Cruce vial</label>
-              <input name="cruce_vial" defaultValue={project?.cruce_vial || ''}
-                placeholder="Ej: CV-001, KM+450"
-                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50 focus:border-[#00C2FF]" />
-            </div>
-            <div className="flex items-end pb-1">
-              <label className="flex items-center gap-2.5 cursor-pointer select-none">
-                <input type="checkbox" name="is_inah" defaultChecked={project?.is_inah ?? false}
-                  className="w-4 h-4 rounded border-slate-300 text-yellow-500 accent-yellow-500 cursor-pointer" />
-                <span className="text-sm font-semibold text-slate-700">Proyecto INAH</span>
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-yellow-100 text-yellow-700 font-bold">INAH</span>
-              </label>
-            </div>
+          {/* Cruce vial */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">Cruce vial</label>
+            <input name="cruce_vial" defaultValue={project?.cruce_vial || ''}
+              placeholder="Ej: CV-001, KM+450"
+              className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50 focus:border-[#00C2FF]" />
+          </div>
+
+          {/* Badges especiales */}
+          <div className="flex items-center gap-6 flex-wrap">
+            <label className="flex items-center gap-2.5 cursor-pointer select-none">
+              <input type="checkbox" name="is_inah" defaultChecked={project?.is_inah ?? false}
+                className="w-4 h-4 rounded border-slate-300 accent-yellow-500 cursor-pointer" />
+              <span className="text-sm font-semibold text-slate-700">Proyecto INAH</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-yellow-100 text-yellow-700 font-bold">INAH</span>
+            </label>
+            <label className="flex items-center gap-2.5 cursor-pointer select-none">
+              <input type="checkbox" name="cauces_federales" defaultChecked={project?.cauces_federales ?? false}
+                className="w-4 h-4 rounded border-slate-300 accent-blue-500 cursor-pointer" />
+              <span className="text-sm font-semibold text-slate-700">Cauces Federales</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 font-bold">CF</span>
+            </label>
           </div>
 
           {error && <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-600">{error}</div>}
@@ -709,6 +715,11 @@ function ProjectCard({ project, onEdit, onShare }: { project: Project; onEdit: (
           {project.is_inah && (
             <span className="text-xs px-2.5 py-1 rounded-full font-bold bg-yellow-100 text-yellow-700">
               INAH
+            </span>
+          )}
+          {project.cauces_federales && (
+            <span className="text-xs px-2.5 py-1 rounded-full font-bold bg-blue-100 text-blue-700">
+              Cauces Federales
             </span>
           )}
           {project.cruce_vial && (
