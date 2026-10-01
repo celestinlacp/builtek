@@ -1299,7 +1299,7 @@ function ProjectCard({ project, docCount, disciplines, lastUpload, workspaceId, 
           <h3 className="font-bold text-[#1A2744] text-sm leading-tight">{project.name}</h3>
           <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-[#00C2FF] transition-colors flex-shrink-0 mt-0.5" />
         </div>
-        {(project.frente || project.project_type) && (
+        {(project.frente || project.project_type || project.is_inah) && (
           <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
             {project.frente && (
               <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#00C2FF]/10 text-[#0099CC]">
@@ -1309,6 +1309,11 @@ function ProjectCard({ project, docCount, disciplines, lastUpload, workspaceId, 
             {project.project_type && (
               <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">
                 {project.project_type}
+              </span>
+            )}
+            {project.is_inah && (
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700">
+                INAH
               </span>
             )}
           </div>
@@ -1705,6 +1710,11 @@ function ProjectDetailView({
         {project.project_type && (
           <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">
             {project.project_type}
+          </span>
+        )}
+        {project.is_inah && (
+          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700">
+            INAH
           </span>
         )}
         <span className="text-xs text-slate-400 ml-1">

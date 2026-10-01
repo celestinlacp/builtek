@@ -29,7 +29,7 @@ export default async function DocumentsPage() {
   const [projectsRes, docsRes, deleteReqRes, companiesRes, membersRes, nomenclaturesRes, oficiosRes] = await Promise.all([
     supabase
       .from('projects')
-      .select('id, name, status, workspace_id, description, start_date, end_date, frente, project_type, cover_image_url, parent_project_id, chainage_start, chainage_end, mic_identifier, created_at')
+      .select('id, name, status, workspace_id, description, start_date, end_date, frente, project_type, cover_image_url, parent_project_id, chainage_start, chainage_end, mic_identifier, created_at, is_inah, cruce_vial')
       .eq('workspace_id', wsId)
       .eq('status', 'active')
       .order('name'),
