@@ -13,7 +13,8 @@ import { parseDocKey, TIPO_PLANO_DEFAULT, TIPO_DOC_DEFAULT, detectFileFormat } f
 import DocumentSlideOver from './DocumentSlideOver'
 import { ShareProjectModal } from '../admin/ShareProjectModal'
 
-type OfiEntry = { id: string; no_oficio: string | null; asunto: string; tipo: string; proyecto_id: string | null; especialidad: string | null }
+type OfiEntry    = { id: string; no_oficio: string | null; asunto: string; tipo: string; proyecto_id: string | null; especialidad: string | null }
+type MesaTecnica = { id: string; nombre: string; codigo: string | null; especialidad: string | null }
 
 type Specialty = { id: string; name: string; code: string; category: string }
 
@@ -197,7 +198,7 @@ function WorkflowBadge({ doc, userRole }: { doc: Doc; userRole: string }) {
 type Member = { user_id: string; full_name: string | null; initials: string | null }
 
 function UploadModal({
-  projects, workspaceId, defaultProjectId, existingDocs, companies, members, micNomenclatures, userRole, workspaceOficios, onClose
+  projects, workspaceId, defaultProjectId, existingDocs, companies, members, micNomenclatures, userRole, workspaceOficios, mesasTecnicas, onClose
 }: {
   projects: Project[]
   workspaceId: string
@@ -208,6 +209,7 @@ function UploadModal({
   micNomenclatures: MicNomenclature[]
   userRole: string
   workspaceOficios: OfiEntry[]
+  mesasTecnicas: MesaTecnica[]
   onClose: () => void
 }) {
   const [projectId,      setProjectId]      = useState(defaultProjectId || '')
@@ -233,12 +235,18 @@ function UploadModal({
     const parent = proj?.parent_project_id ? projects.find(p => p.id === proj.parent_project_id) : null
     return proj?.mic_identifier || parent?.mic_identifier || ''
   })
-  const [registrarOficio,  setRegistrarOficio]  = useState(false)
-  const [oficioTipo,       setOficioTipo]       = useState<'entrada' | 'salida'>('salida')
-  const [oficioNumero,     setOficioNumero]     = useState('')
-  const [oficioAsunto,     setOficioAsunto]     = useState('')
-  const [oficioContacto,   setOficioContacto]   = useState('')
-  const [oficioRespondeA,  setOficioRespondeA]  = useState('')
+  const [registrarOficio,    setRegistrarOficio]    = useState(false)
+  const [oficioTipo,         setOficioTipo]         = useState<'entrada' | 'salida'>('salida')
+  const [oficioNumero,       setOficioNumero]       = useState('')
+  const [oficioAsunto,       setOficioAsunto]       = useState('')
+  const [oficioContacto,     setOficioContacto]     = useState('')
+  const [oficioRespondeA,    setOficioRespondeA]    = useState('')
+  const [oficioTema,         setOficioTema]         = useState('')
+  const [oficioMesaId,       setOficioMesaId]       = useState('')
+  const [oficioCopiaA,       setOficioCopiaA]       = useState('')
+  const [oficioParaConoc,    setOficioParaConoc]    = useState('')
+  const [oficioExtractando,  setOficioExtractando]  = useState(false)
+  const [oficioExtractMsg,   setOficioExtractMsg]   = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   // Catálogo TIPO_PLANO: preferir valores del workspace, si vacío usar defaults
@@ -256,7 +264,7 @@ function UploadModal({
     new Set(existingDocs.map(d => d.doc_element).filter((v): v is string => !!v))
   ).sort()
 
-  function handleFileChange(f: File | null) {
+  async function handleFileChange(f: File | null) {
     setFile(f)
     setVersionWarning(null)
     if (!f) { setFileFormat(null); return }
@@ -268,6 +276,37 @@ function UploadModal({
       const existing = existingDocs.find(d => d.doc_key === parsed.doc_key && d.is_current)
       if (existing && existing.version_number !== null && existing.version_number !== parsed.version_number) {
         setVersionWarning({ prevVersion: existing.version_number, newVersion: parsed.version_number })
+      }
+    }
+    // Si es PDF y el oficio está activado, intentar extracción AI
+    if (registrarOficio && f.type === 'application/pdf') {
+      setOficioExtractando(true)
+      setOficioExtractMsg('Analizando con IA...')
+      try {
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader()
+          reader.onload  = () => resolve((reader.result as string).split(',')[1])
+          reader.onerror = reject
+          reader.readAsDataURL(f)
+        })
+        const res = await fetch('/api/oficios/extract', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pdfBase64: base64, fileName: f.name }),
+        })
+        if (res.ok) {
+          const ext = await res.json()
+          if (ext.asunto && !oficioAsunto)    setOficioAsunto(ext.asunto)
+          if (ext.no_oficio && !oficioNumero) setOficioNumero(ext.no_oficio)
+          if (ext.fecha_documento && !emissionDate) setEmissionDate(ext.fecha_documento)
+          if (ext.remitente && oficioTipo === 'entrada' && !oficioContacto) setOficioContacto(ext.remitente)
+          if (ext.copia_a)           setOficioCopiaA(ext.copia_a)
+          if (ext.para_conocimiento) setOficioParaConoc(ext.para_conocimiento)
+          setOficioExtractMsg(ext.source === 'ai' ? '✓ Datos extraídos con IA' : '✓ Datos del nombre del archivo')
+        }
+      } catch {
+        setOficioExtractMsg(null)
+      } finally {
+        setOficioExtractando(false)
       }
     }
   }
@@ -363,19 +402,23 @@ function UploadModal({
     if (registrarOficio && oficioAsunto.trim()) {
       setStep('Registrando oficio...')
       await createOficio({
-        tipo:            oficioTipo,
-        asunto:          oficioAsunto.trim(),
-        no_oficio:       oficioNumero.trim() || null,
-        proyecto_id:     projectId || null,
-        especialidad:    specialtyCode || null,
-        fecha_documento: emissionDate || null,
-        remitente:       oficioTipo === 'entrada' ? (oficioContacto.trim() || null) : null,
-        destinatario:    oficioTipo === 'salida'  ? (oficioContacto.trim() || null) : null,
-        responde_a_id:   oficioRespondeA || null,
-        storage_key:     presignData.storageKey,
-        file_name:       file.name,
-        file_type:       presignData.fileType,
-        file_size:       file.size,
+        tipo:              oficioTipo,
+        asunto:            oficioAsunto.trim(),
+        no_oficio:         oficioNumero.trim()   || null,
+        tema:              oficioTema.trim()      || null,
+        proyecto_id:       projectId             || null,
+        especialidad:      specialtyCode         || null,
+        mesa_id:           oficioMesaId          || null,
+        fecha_documento:   emissionDate          || null,
+        remitente:         oficioTipo === 'entrada' ? (oficioContacto.trim() || null) : null,
+        destinatario:      oficioTipo === 'salida'  ? (oficioContacto.trim() || null) : null,
+        copia_a:           oficioCopiaA.trim()   || null,
+        para_conocimiento: oficioParaConoc.trim() || null,
+        responde_a_id:     oficioRespondeA       || null,
+        storage_key:       presignData.storageKey,
+        file_name:         file.name,
+        file_type:         presignData.fileType,
+        file_size:         file.size,
       })
     }
     onClose()
@@ -658,11 +701,29 @@ function UploadModal({
                     ↓ Respuesta (Entrada)
                   </button>
                 </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">No. Oficio</label>
-                  <input value={oficioNumero} onChange={e => setOficioNumero(e.target.value)}
-                    placeholder="Ej: OF-4589"
-                    className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50" />
+                {/* Estado extracción AI */}
+                {(oficioExtractando || oficioExtractMsg) && (
+                  <div className={`flex items-center gap-2 text-xs px-3 py-2 rounded-lg ${oficioExtractando ? 'bg-blue-50 text-blue-600' : 'bg-green-50 text-green-700'}`}>
+                    {oficioExtractando
+                      ? <><span className="inline-block w-3 h-3 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />{oficioExtractMsg}</>
+                      : <span>{oficioExtractMsg}</span>
+                    }
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">No. Oficio</label>
+                    <input value={oficioNumero} onChange={e => setOficioNumero(e.target.value)}
+                      placeholder="Ej: OF-4589"
+                      className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Tema <span className="text-slate-400 font-normal">(distingue oficios del mismo número)</span></label>
+                    <input value={oficioTema} onChange={e => setOficioTema(e.target.value)}
+                      placeholder="Ej: Geometría, Señalética"
+                      className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50" />
+                  </div>
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 mb-1">Asunto <span className="text-red-400">*</span></label>
@@ -678,6 +739,35 @@ function UploadModal({
                     placeholder="Empresa o persona"
                     className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50" />
                 </div>
+
+                {/* Mesa técnica */}
+                {mesasTecnicas.length > 0 && (
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Mesa técnica</label>
+                    <select value={oficioMesaId} onChange={e => setOficioMesaId(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50">
+                      <option value="">— Sin mesa —</option>
+                      {mesasTecnicas.map(m => (
+                        <option key={m.id} value={m.id}>{m.codigo ? `[${m.codigo}] ` : ''}{m.nombre}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Copia a / Para conocimiento */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Con copia a <span className="text-slate-400 font-normal">(opcional)</span></label>
+                  <input value={oficioCopiaA} onChange={e => setOficioCopiaA(e.target.value)}
+                    placeholder="Nombre o cargo"
+                    className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Para efectos y conocimiento de <span className="text-slate-400 font-normal">(opcional)</span></label>
+                  <input value={oficioParaConoc} onChange={e => setOficioParaConoc(e.target.value)}
+                    placeholder="Nombre o cargo"
+                    className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50" />
+                </div>
+
                 {oficioTipo === 'entrada' && workspaceOficios.filter(o => o.proyecto_id === projectId && o.tipo === 'salida').length > 0 && (
                   <div>
                     <label className="block text-xs font-semibold text-slate-600 mb-1">Responde al oficio</label>
@@ -2157,7 +2247,7 @@ function ProjectDetailView({
 // ── Componente principal ───────────────────────────────────────────────────────
 
 export default function DocumentsPanel({
-  documents, projects, workspaceId, userRole, deleteRequests, currentUserId, companies, members, micNomenclatures, workspaceOficios
+  documents, projects, workspaceId, userRole, deleteRequests, currentUserId, companies, members, micNomenclatures, workspaceOficios, mesasTecnicas
 }: {
   documents: Doc[]
   projects: Project[]
@@ -2169,6 +2259,7 @@ export default function DocumentsPanel({
   members: Member[]
   micNomenclatures: MicNomenclature[]
   workspaceOficios: OfiEntry[]
+  mesasTecnicas: MesaTecnica[]
 }) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -2256,6 +2347,7 @@ export default function DocumentsPanel({
           micNomenclatures={micNomenclatures}
           userRole={userRole}
           workspaceOficios={workspaceOficios}
+          mesasTecnicas={mesasTecnicas}
           onClose={() => setShowUpload(false)}
         />
       )}
