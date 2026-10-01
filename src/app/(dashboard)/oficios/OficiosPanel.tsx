@@ -33,6 +33,7 @@ type Oficio = {
   created_at: string
   proyecto?: { id: string; name: string } | null
   assignee?: { id: string; full_name: string; initials: string | null } | null
+  creator?: { id: string; full_name: string; initials: string | null } | null
 }
 
 // ── Parser de filename ─────────────────────────────────────────────────────────
@@ -785,11 +786,17 @@ function OficioRow({
         </div>
       </td>
 
-      {/* Estado (solo entrada) / vacío para salida */}
+      {/* Estado (entrada) / Subido por (salida) */}
       <td className="px-4 py-3">
         {oficio.tipo === 'entrada'
           ? <EstadoDropdown oficio={oficio} workspaceId={workspaceId} />
-          : <span className="text-slate-300 text-xs">—</span>
+          : oficio.creator?.full_name
+            ? (
+              <span className="text-xs text-slate-500" title="Subido por">
+                {oficio.creator.full_name}
+              </span>
+            )
+            : <span className="text-slate-300 text-xs">—</span>
         }
       </td>
 
@@ -1135,7 +1142,9 @@ export default function OficiosPanel({
                   <th className="px-4 py-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">Fecha doc.</th>
                   <th className="px-4 py-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">Recepción</th>
                   <th className="px-4 py-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Proyecto / Especialidad</th>
-                  <th className="px-4 py-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Estado</th>
+                  <th className="px-4 py-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
+                    {tab === 'salida' ? 'Subido por' : 'Estado'}
+                  </th>
                   <th className="px-4 py-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Asignado</th>
                   <th className="px-4 py-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">No. oficio</th>
                   <th className="px-4 py-3 w-24"></th>
