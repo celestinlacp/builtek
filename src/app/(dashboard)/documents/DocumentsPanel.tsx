@@ -1670,11 +1670,92 @@ function ProjectsView({
   )
 }
 
+// ── Hero cover del subproyecto ────────────────────────────────────────────────
+
+function SubprojectHero({
+  project, workspaceId, initialCoverUrl, canManage,
+}: {
+  project: Project
+  workspaceId: string
+  initialCoverUrl: string | null
+  canManage: boolean
+}) {
+  const [coverUrl, setCoverUrl] = useState<string | null>(initialCoverUrl)
+  const [uploading, setUploading] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploading(true)
+    try {
+      if (project.cover_image_url) {
+        await fetch(`/api/projects/${project.id}/cover`, { method: 'DELETE' })
+      }
+      const ext = file.name.split('.').pop()?.toLowerCase() ?? 'jpg'
+      const res = await fetch('/api/projects/presign-cover', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId: project.id, workspaceId, contentType: file.type, extension: ext }),
+      })
+      if (!res.ok) return
+      const { uploadUrl, storageKey } = await res.json()
+      await fetch(uploadUrl, { method: 'PUT', body: file, headers: { 'Content-Type': file.type } })
+      await fetch('/api/projects/presign-cover', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId: project.id, workspaceId, save: true, storageKey }),
+      })
+      await updateProjectCover(project.id, storageKey)
+      setCoverUrl(`/api/projects/${project.id}/cover?t=${Date.now()}`)
+    } finally {
+      setUploading(false)
+      e.target.value = ''
+    }
+  }
+
+  return (
+    <div className="relative mb-6 rounded-2xl overflow-hidden h-48 group">
+      {/* Fondo: imagen o degradado violet */}
+      {coverUrl ? (
+        <img src={coverUrl} alt={project.name} className="w-full h-full object-cover" />
+      ) : (
+        <div className="w-full h-full bg-gradient-to-br from-violet-600 via-violet-700 to-violet-900 flex flex-col items-center justify-center gap-2">
+          <Layers className="w-10 h-10 text-white/30" />
+          <p className="text-white/40 text-xs font-medium">Sin imagen representativa</p>
+        </div>
+      )}
+
+      {/* Overlay sutil al hacer hover */}
+      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+
+      {/* Nombre del subproyecto superpuesto abajo-izquierda */}
+      <div className="absolute bottom-0 left-0 right-0 px-5 py-4 bg-gradient-to-t from-black/60 to-transparent">
+        <p className="text-white font-bold text-lg leading-tight drop-shadow">{project.name}</p>
+      </div>
+
+      {/* Botón cámara — solo admin, esquina inferior derecha */}
+      {canManage && (
+        <button
+          onClick={() => inputRef.current?.click()}
+          disabled={uploading}
+          title="Cambiar imagen representativa"
+          className="absolute bottom-3 right-3 w-9 h-9 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center transition-colors opacity-0 group-hover:opacity-100 z-10">
+          {uploading
+            ? <Loader2 className="w-4 h-4 animate-spin" />
+            : <Camera className="w-4 h-4" />}
+        </button>
+      )}
+      <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
+    </div>
+  )
+}
+
 // ── Vista detalle: documentos de un proyecto agrupados por disciplina ──────────
 
 function ProjectDetailView({
   project, documents, workspaceId, userRole, deleteRequests, currentUserId,
-  subprojects, parentProject, onBack, onUpload, onSelectSub,
+  subprojects, parentProject, onBack, onUpload, onSelectSub, coverUrls,
 }: {
   project: Project
   documents: Doc[]
@@ -1687,6 +1768,7 @@ function ProjectDetailView({
   onBack: () => void
   onUpload: () => void
   onSelectSub: (id: string) => void
+  coverUrls: Record<string, string>
 }) {
   const [selected,         setSelected]         = useState<Set<string>>(new Set())
   const [filterStatus,     setFilterStatus]     = useState('all')
@@ -1870,6 +1952,16 @@ function ProjectDetailView({
           ({currentDocs.length} documento{currentDocs.length !== 1 ? 's' : ''})
         </span>
       </div>
+
+      {/* ── Hero cover del subproyecto (solo subproyectos) ── */}
+      {parentProject && (
+        <SubprojectHero
+          project={project}
+          workspaceId={workspaceId}
+          initialCoverUrl={coverUrls[project.id] ?? null}
+          canManage={canManageProjects}
+        />
+      )}
 
       {/* ── Sección de Subproyectos (solo si el proyecto es raíz y tiene/puede tener subproyectos) ── */}
       {!parentProject && (
@@ -2396,6 +2488,7 @@ export default function DocumentsPanel({
           onBack={goBack}
           onUpload={() => setShowUpload(true)}
           onSelectSub={selectProject}
+          coverUrls={coverUrls}
         />
       )}
 
