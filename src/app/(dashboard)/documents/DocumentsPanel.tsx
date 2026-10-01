@@ -224,7 +224,11 @@ function UploadModal({
   const [docType,        setDocType]        = useState('')
   const [micVersion,     setMicVersion]     = useState<'V0' | 'V1'>('V0')
   const [fileFormat,     setFileFormat]     = useState<string | null>(null)
-  const [identificador,  setIdentificador]  = useState(projects.find(p => p.id === defaultProjectId)?.mic_identifier || '')
+  const [identificador,  setIdentificador]  = useState(() => {
+    const proj   = projects.find(p => p.id === defaultProjectId)
+    const parent = proj?.parent_project_id ? projects.find(p => p.id === proj.parent_project_id) : null
+    return proj?.mic_identifier || parent?.mic_identifier || ''
+  })
   const inputRef = useRef<HTMLInputElement>(null)
 
   // Catálogo TIPO_PLANO: preferir valores del workspace, si vacío usar defaults
@@ -366,8 +370,10 @@ function UploadModal({
             </label>
             <select value={projectId} onChange={e => {
                 setProjectId(e.target.value)
-                const proj = projects.find(p => p.id === e.target.value)
-                if (proj?.mic_identifier) setIdentificador(proj.mic_identifier)
+                const proj   = projects.find(p => p.id === e.target.value)
+                const parent = proj?.parent_project_id ? projects.find(p => p.id === proj.parent_project_id) : null
+                const mic    = proj?.mic_identifier || parent?.mic_identifier || ''
+                if (mic) setIdentificador(mic)
               }}
               className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50">
               <option value="">Seleccionar proyecto...</option>
