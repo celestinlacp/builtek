@@ -2315,6 +2315,7 @@ export default function AdminPanel({
   const [filterInah,           setFilterInah]           = useState(false)
   const [filterCaucesFederales, setFilterCaucesFederales] = useState(false)
   const [filterCruceVial,      setFilterCruceVial]      = useState('')
+  const [searchProjects,       setSearchProjects]       = useState('')
   const [showDbDropdown,       setShowDbDropdown]       = useState(false)
 
   const DB_TABS = ['bd-oficios', 'database', 'builtek-id'] as const
@@ -2405,7 +2406,9 @@ export default function AdminPanel({
         const allRootProjects = projects.filter(p => !p.parent_project_id)
         const cruceVialOptions = [...new Set(projects.filter(p => p.cruce_vial).map(p => p.cruce_vial!))]
           .sort()
+        const q = searchProjects.toLowerCase().trim()
         const rootProjects = allRootProjects
+          .filter(p => !q || [p.name, p.mic_identifier, p.frente, p.project_type, p.description].some(v => v?.toLowerCase().includes(q)))
           .filter(p => !filterInah           || p.is_inah)
           .filter(p => !filterCaucesFederales || p.cauces_federales)
           .filter(p => !filterCruceVial      || p.cruce_vial === filterCruceVial)
@@ -2421,6 +2424,23 @@ export default function AdminPanel({
                   className="flex items-center gap-2 bg-[#1A2744] text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-[#243660] transition-colors">
                   <Plus className="w-4 h-4" />
                   Nuevo proyecto
+                </button>
+              )}
+            </div>
+
+            {/* Buscador */}
+            <div className="relative mb-3">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+              <input
+                value={searchProjects}
+                onChange={e => setSearchProjects(e.target.value)}
+                placeholder="Buscar por nombre, ID, frente, tipo..."
+                className="w-full pl-9 pr-9 py-2.5 rounded-xl border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/40 focus:border-[#00C2FF]"
+              />
+              {searchProjects && (
+                <button onClick={() => setSearchProjects('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-300 hover:text-slate-500">
+                  <X className="w-4 h-4" />
                 </button>
               )}
             </div>
@@ -2461,7 +2481,7 @@ export default function AdminPanel({
               )}
               {(filterInah || filterCaucesFederales || filterCruceVial) && (
                 <button
-                  onClick={() => { setFilterInah(false); setFilterCaucesFederales(false); setFilterCruceVial('') }}
+                  onClick={() => { setFilterInah(false); setFilterCaucesFederales(false); setFilterCruceVial(''); setSearchProjects('') }}
                   className="text-xs text-slate-400 hover:text-slate-600 underline"
                 >
                   Limpiar filtros
