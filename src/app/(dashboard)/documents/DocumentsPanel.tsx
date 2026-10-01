@@ -455,6 +455,7 @@ function UploadModal({
                 setDocType(val)
                 if (val !== 'PLA') { setDocView('NA'); setDocViewNum('') }
                 else { setDocView(''); setDocViewNum('') }
+                if (val !== 'OFI') setRegistrarOficio(false)
               }}
               className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50">
               <option value="">Sin tipo</option>
@@ -630,8 +631,8 @@ function UploadModal({
               className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50 resize-none" />
           </div>
 
-          {/* Registrar como oficio */}
-          <div className="border border-slate-200 rounded-xl overflow-hidden">
+          {/* Registrar como oficio — solo visible cuando tipo = OFI */}
+          {docType === 'OFI' && <div className="border border-slate-200 rounded-xl overflow-hidden">
             <label className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-slate-50 transition-colors">
               <input
                 type="checkbox"
@@ -691,7 +692,7 @@ function UploadModal({
                 )}
               </div>
             )}
-          </div>
+          </div>}
 
           {error && <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-600">{error}</div>}
 
