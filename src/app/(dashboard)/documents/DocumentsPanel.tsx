@@ -630,29 +630,7 @@ function UploadModal({
               className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50 resize-none" />
           </div>
 
-          {error && <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-600">{error}</div>}
-
-          {uploading && (
-            <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-4 space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-blue-700 font-medium">{step}</span>
-                <span className="text-blue-500 font-bold tabular-nums">{uploadPct}%</span>
-              </div>
-              <div className="w-full bg-blue-100 rounded-full h-2 overflow-hidden">
-                <div className="bg-[#00C2FF] h-2 rounded-full transition-all duration-200" style={{ width: `${uploadPct}%` }} />
-              </div>
-              <p className="text-xs text-blue-500">
-                {uploadPct < 100 ? 'No cierres esta ventana mientras se sube el archivo.' : 'Finalizando...'}
-              </p>
-            </div>
-          )}
-
-          <div className="flex gap-3 pt-2">
-            <button onClick={onClose}
-              className="flex-1 py-2.5 rounded-lg border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50">
-              Cancelar
-            </button>
-            {/* Registrar como oficio */}
+          {/* Registrar como oficio */}
           <div className="border border-slate-200 rounded-xl overflow-hidden">
             <label className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-slate-50 transition-colors">
               <input
@@ -715,7 +693,29 @@ function UploadModal({
             )}
           </div>
 
-          <button onClick={handleUpload} disabled={uploading || !file || !projectId || !authorSel || !emissionDate}
+          {error && <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-600">{error}</div>}
+
+          {uploading && (
+            <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-4 space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-blue-700 font-medium">{step}</span>
+                <span className="text-blue-500 font-bold tabular-nums">{uploadPct}%</span>
+              </div>
+              <div className="w-full bg-blue-100 rounded-full h-2 overflow-hidden">
+                <div className="bg-[#00C2FF] h-2 rounded-full transition-all duration-200" style={{ width: `${uploadPct}%` }} />
+              </div>
+              <p className="text-xs text-blue-500">
+                {uploadPct < 100 ? 'No cierres esta ventana mientras se sube el archivo.' : 'Finalizando...'}
+              </p>
+            </div>
+          )}
+
+          <div className="flex gap-3 pt-2">
+            <button onClick={onClose}
+              className="flex-1 py-2.5 rounded-lg border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50">
+              Cancelar
+            </button>
+            <button onClick={handleUpload} disabled={uploading || !file || !projectId || !authorSel || !emissionDate}
               className="flex-1 py-2.5 rounded-lg bg-[#1A2744] text-white text-sm font-bold hover:bg-[#243660] disabled:opacity-60">
               {uploading ? 'Subiendo...' : 'Subir a R2'}
             </button>
