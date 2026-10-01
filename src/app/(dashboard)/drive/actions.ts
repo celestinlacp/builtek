@@ -139,12 +139,37 @@ export async function renameFolder(folderId: string, name: string) {
   return { success: true }
 }
 
+export async function getWorkspaceOficiosSalida(workspaceId: string) {
+  await getUser()
+  const admin = getAdminClient()
+  const { data, error } = await admin
+    .from('oficios')
+    .select('id, no_oficio, asunto')
+    .eq('workspace_id', workspaceId)
+    .eq('tipo', 'salida')
+    .order('created_at', { ascending: false })
+  if (error) return { error: error.message }
+  return { oficios: (data ?? []) as { id: string; no_oficio: string | null; asunto: string }[] }
+}
+
+export async function updateShare(shareId: string, data: { oficio_id?: string | null }) {
+  await getUser()
+  const admin = getAdminClient()
+  const update: Record<string, unknown> = {}
+  if ('oficio_id' in data) update.oficio_id = data.oficio_id || null
+  const { error } = await admin.from('drive_shares').update(update).eq('id', shareId)
+  if (error) return { error: error.message }
+  revalidatePath('/drive')
+  return { success: true }
+}
+
 export async function createShare(data: {
   workspace_id: string
   file_id?:     string | null
   folder_id?:   string | null
   label?:       string
   expires_at?:  string | null
+  oficio_id?:   string | null
 }) {
   const { user } = await getUser()
   const admin = getAdminClient()
@@ -155,6 +180,7 @@ export async function createShare(data: {
     folder_id:    data.folder_id || null,
     label:        data.label     || null,
     expires_at:   data.expires_at || null,
+    oficio_id:    data.oficio_id || null,
     created_by:   user.id,
   }).select('token').single()
 
@@ -178,7 +204,7 @@ export async function getWorkspaceShares(workspaceId: string) {
 
   const { data, error } = await admin
     .from('drive_shares')
-    .select('id, token, label, is_active, expires_at, access_count, last_accessed, created_at, created_by, folder_id, drive_files(name, file_type, folder_id, drive_folders(name)), drive_folders(name)')
+    .select('id, token, label, is_active, expires_at, access_count, last_accessed, created_at, created_by, folder_id, oficio_id, drive_files(name, file_type, folder_id, drive_folders(name)), drive_folders(name), oficios(no_oficio, asunto)')
     .eq('workspace_id', workspaceId)
     .eq('is_active', true)
     .order('created_at', { ascending: false })
@@ -200,6 +226,8 @@ export async function getWorkspaceShares(workspaceId: string) {
     created_by_name:  creatorMap[s.created_by] ?? null,
     file_folder_name: (s.drive_files as any)?.drive_folders?.name ?? null,
     folder_name:      (s.drive_folders as any)?.name ?? null,
+    oficio_no:        (s.oficios as any)?.no_oficio ?? null,
+    oficio_asunto:    (s.oficios as any)?.asunto ?? null,
   }))
 
   return { shares: enriched }

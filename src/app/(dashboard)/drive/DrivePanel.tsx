@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { createFolder, saveDriveFile, replaceFile, deleteFolder, deleteDriveFile, renameFolder, createShare, revokeShare, getWorkspaceShares } from './actions'
+import { createFolder, saveDriveFile, replaceFile, deleteFolder, deleteDriveFile, renameFolder, createShare, revokeShare, getWorkspaceShares, getWorkspaceOficiosSalida, updateShare } from './actions'
 import { FileTypeIcon } from '@/components/ui/FileTypeIcon'
 import QRCode from 'react-qr-code'
 import {
@@ -10,7 +10,7 @@ import {
   ChevronRight, Home, Trash2, Download, Eye,
   FolderPlus, Loader2, X, Pencil, Check, HardDrive, Link2,
   Share2, Copy, CheckCheck, ExternalLink, ShieldOff,
-  RefreshCw, Filter, UserRound
+  RefreshCw, Filter, UserRound, FileText
 } from 'lucide-react'
 
 // ── Tipos ────────────────────────────────────────────────────────────────────
@@ -66,18 +66,28 @@ function formatDate(iso: string) {
 
 // ── Share Modal ───────────────────────────────────────────────────────────────
 
+type OficioOption = { id: string; no_oficio: string | null; asunto: string }
+
 function ShareModal({ fileId, fileName, workspaceId, onClose }: {
   fileId:      string
   fileName:    string
   workspaceId: string
   onClose:     () => void
 }) {
-  const [label,     setLabel]     = useState('')
-  const [expiresAt, setExpiresAt] = useState('')
-  const [loading,   setLoading]   = useState(false)
-  const [token,     setToken]     = useState<string | null>(null)
-  const [copied,    setCopied]    = useState(false)
+  const [label,          setLabel]          = useState('')
+  const [expiresAt,      setExpiresAt]      = useState('')
+  const [oficioId,       setOficioId]       = useState('')
+  const [oficiosSalida,  setOficiosSalida]  = useState<OficioOption[]>([])
+  const [loading,        setLoading]        = useState(false)
+  const [token,          setToken]          = useState<string | null>(null)
+  const [copied,         setCopied]         = useState(false)
   const qrRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    getWorkspaceOficiosSalida(workspaceId).then(res => {
+      if ('oficios' in res) setOficiosSalida(res.oficios ?? [])
+    })
+  }, [workspaceId])
 
   const appUrl  = process.env.NEXT_PUBLIC_APP_URL || 'https://builtek.app'
   const shareUrl = token ? `${appUrl}/share/drive/${token}` : ''
@@ -111,6 +121,7 @@ function ShareModal({ fileId, fileName, workspaceId, onClose }: {
       file_id:      fileId,
       label:        label || fileName,
       expires_at:   expiresAt || null,
+      oficio_id:    oficioId || null,
     })
     setLoading(false)
     if (result.token) setToken(result.token)
@@ -155,6 +166,22 @@ function ShareModal({ fileId, fileName, workspaceId, onClose }: {
                   min={new Date().toISOString().split('T')[0]}
                   className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50" />
               </div>
+              {oficiosSalida.length > 0 && (
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
+                    Oficio de salida <span className="text-slate-400 font-normal">(opcional)</span>
+                  </label>
+                  <select value={oficioId} onChange={e => setOficioId(e.target.value)}
+                    className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50 bg-white">
+                    <option value="">Sin oficio</option>
+                    {oficiosSalida.map(o => (
+                      <option key={o.id} value={o.id}>
+                        {o.no_oficio ? `${o.no_oficio} — ` : ''}{o.asunto}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div className="flex gap-3 pt-1">
                 <button onClick={onClose} className="flex-1 py-2.5 rounded-lg border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50">
                   Cancelar
@@ -216,13 +243,21 @@ function FolderShareModal({ folderId, folderName, workspaceId, onClose }: {
   workspaceId: string
   onClose:     () => void
 }) {
-  const [label,     setLabel]     = useState('')
-  const [expiresAt, setExpiresAt] = useState('')
-  const [loading,   setLoading]   = useState(false)
-  const [token,     setToken]     = useState<string | null>(null)
-  const [copied,    setCopied]    = useState(false)
-  const [error,     setError]     = useState<string | null>(null)
+  const [label,         setLabel]         = useState('')
+  const [expiresAt,     setExpiresAt]     = useState('')
+  const [oficioId,      setOficioId]      = useState('')
+  const [oficiosSalida, setOficiosSalida] = useState<OficioOption[]>([])
+  const [loading,       setLoading]       = useState(false)
+  const [token,         setToken]         = useState<string | null>(null)
+  const [copied,        setCopied]        = useState(false)
+  const [error,         setError]         = useState<string | null>(null)
   const qrRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    getWorkspaceOficiosSalida(workspaceId).then(res => {
+      if ('oficios' in res) setOficiosSalida(res.oficios ?? [])
+    })
+  }, [workspaceId])
 
   const appUrl   = process.env.NEXT_PUBLIC_APP_URL || 'https://builtek.app'
   const shareUrl = token ? `${appUrl}/share/drive/folder/${token}` : ''
@@ -258,6 +293,7 @@ function FolderShareModal({ folderId, folderName, workspaceId, onClose }: {
         folder_id:    folderId,
         label:        label || folderName,
         expires_at:   expiresAt || null,
+        oficio_id:    oficioId || null,
       })
       if ('error' in result && result.error) {
         setError(result.error)
@@ -313,6 +349,22 @@ function FolderShareModal({ folderId, folderName, workspaceId, onClose }: {
                   min={new Date().toISOString().split('T')[0]}
                   className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50" />
               </div>
+              {oficiosSalida.length > 0 && (
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
+                    Oficio de salida <span className="text-slate-400 font-normal">(opcional)</span>
+                  </label>
+                  <select value={oficioId} onChange={e => setOficioId(e.target.value)}
+                    className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50 bg-white">
+                    <option value="">Sin oficio</option>
+                    {oficiosSalida.map(o => (
+                      <option key={o.id} value={o.id}>
+                        {o.no_oficio ? `${o.no_oficio} — ` : ''}{o.asunto}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <p className="text-xs text-slate-400 bg-slate-50 rounded-lg px-3 py-2.5">
                 El link permitirá ver y descargar todos los archivos dentro de <strong className="text-slate-600">{folderName}</strong>.
               </p>
@@ -806,21 +858,32 @@ type DriveShare = {
   folder_id: string | null
   folder_name: string | null
   file_folder_name: string | null
+  oficio_id: string | null
+  oficio_no: string | null
+  oficio_asunto: string | null
   drive_files: { name: string; file_type: string } | null
   drive_folders: { name: string } | null
 }
 
 function LinksPanel({ workspaceId }: { workspaceId: string }) {
-  const [shares,  setShares]  = useState<DriveShare[]>([])
-  const [loading, setLoading] = useState(true)
-  const [revoking, setRevoking] = useState<string | null>(null)
-  const [copied, setCopied] = useState<string | null>(null)
+  const [shares,         setShares]         = useState<DriveShare[]>([])
+  const [loading,        setLoading]        = useState(true)
+  const [revoking,       setRevoking]       = useState<string | null>(null)
+  const [copied,         setCopied]         = useState<string | null>(null)
+  const [editingId,      setEditingId]      = useState<string | null>(null)
+  const [editOficioId,   setEditOficioId]   = useState('')
+  const [savingOficio,   setSavingOficio]   = useState(false)
+  const [oficiosSalida,  setOficiosSalida]  = useState<OficioOption[]>([])
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://builtek.app'
 
   useEffect(() => {
-    getWorkspaceShares(workspaceId).then(res => {
-      setShares((res.shares as unknown as DriveShare[]) ?? [])
+    Promise.all([
+      getWorkspaceShares(workspaceId),
+      getWorkspaceOficiosSalida(workspaceId),
+    ]).then(([sharesRes, oficiosRes]) => {
+      setShares((sharesRes.shares as unknown as DriveShare[]) ?? [])
+      if ('oficios' in oficiosRes) setOficiosSalida(oficiosRes.oficios ?? [])
       setLoading(false)
     })
   }, [workspaceId])
@@ -833,10 +896,34 @@ function LinksPanel({ workspaceId }: { workspaceId: string }) {
     setRevoking(null)
   }
 
-  function handleCopy(token: string) {
-    navigator.clipboard.writeText(`${appUrl}/share/drive/${token}`)
+  function handleCopy(token: string, isFolder: boolean) {
+    const url = isFolder
+      ? `${appUrl}/share/drive/folder/${token}`
+      : `${appUrl}/share/drive/${token}`
+    navigator.clipboard.writeText(url)
     setCopied(token)
     setTimeout(() => setCopied(null), 2000)
+  }
+
+  function startEditOficio(share: DriveShare) {
+    setEditingId(share.id)
+    setEditOficioId(share.oficio_id ?? '')
+  }
+
+  async function handleSaveOficio(shareId: string) {
+    setSavingOficio(true)
+    const result = await updateShare(shareId, { oficio_id: editOficioId || null })
+    if (!result.error) {
+      const chosen = oficiosSalida.find(o => o.id === editOficioId) ?? null
+      setShares(prev => prev.map(s => s.id === shareId ? {
+        ...s,
+        oficio_id:    chosen?.id ?? null,
+        oficio_no:    chosen?.no_oficio ?? null,
+        oficio_asunto: chosen?.asunto ?? null,
+      } : s))
+      setEditingId(null)
+    }
+    setSavingOficio(false)
   }
 
   if (loading) return (
@@ -877,53 +964,108 @@ function LinksPanel({ workspaceId }: { workspaceId: string }) {
           : (share.file_folder_name ? `Carpeta: ${share.file_folder_name}` : 'Raíz del Drive')
 
         return (
-          <div key={share.id} className={`flex items-center gap-3 px-4 py-3 border-b border-slate-50 hover:bg-slate-50 ${isExpired ? 'opacity-50' : ''}`}>
-            {isFolder
-              ? <span className="text-lg flex-shrink-0">📁</span>
-              : <FileTypeIcon fileType={fileType} size={28} />
-            }
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <p className="text-sm font-medium text-slate-700 truncate">{displayName}</p>
-                {isFolder && (
-                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#00C2FF]/10 text-[#00C2FF] flex-shrink-0">Carpeta</span>
-                )}
+          <div key={share.id} className={`border-b border-slate-50 last:border-b-0 ${isExpired ? 'opacity-50' : ''}`}>
+            <div className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50">
+              {isFolder
+                ? <span className="text-lg flex-shrink-0">📁</span>
+                : <FileTypeIcon fileType={fileType} size={28} />
+              }
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="text-sm font-medium text-slate-700 truncate">{displayName}</p>
+                  {isFolder && (
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#00C2FF]/10 text-[#00C2FF] flex-shrink-0">Carpeta</span>
+                  )}
+                  {share.oficio_no && (
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-600 flex-shrink-0">
+                      OF: {share.oficio_no}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 flex-wrap mt-0.5">
+                  {share.created_by_name && (
+                    <span className="text-xs text-slate-400">
+                      <span className="text-slate-600 font-medium">{share.created_by_name}</span>
+                      {' · '}
+                      {new Date(share.created_at).toLocaleString('es-MX', {
+                        day: '2-digit', month: 'short', year: 'numeric',
+                        hour: '2-digit', minute: '2-digit',
+                      })}
+                    </span>
+                  )}
+                  {locationLabel && (
+                    <span className="text-[11px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">{locationLabel}</span>
+                  )}
+                  {share.oficio_asunto && !share.oficio_no && (
+                    <span className="text-[11px] text-indigo-400 bg-indigo-50 px-1.5 py-0.5 rounded truncate max-w-[160px]">
+                      {share.oficio_asunto}
+                    </span>
+                  )}
+                </div>
               </div>
-              <div className="flex items-center gap-2 flex-wrap mt-0.5">
-                {share.created_by_name && (
-                  <span className="text-xs text-slate-400">
-                    Emitido por <span className="text-slate-600 font-medium">{share.created_by_name}</span>
-                    {' · '}
-                    {new Date(share.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
-                  </span>
-                )}
-                {locationLabel && (
-                  <span className="text-[11px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">{locationLabel}</span>
-                )}
+              <span className="hidden md:block w-16 text-center text-sm text-slate-500 flex-shrink-0">{share.access_count}</span>
+              <span className="hidden lg:block w-28 text-xs text-slate-400 flex-shrink-0">
+                {share.expires_at
+                  ? isExpired
+                    ? <span className="text-red-400 font-medium">Expirado</span>
+                    : new Date(share.expires_at).toLocaleDateString('es-MX')
+                  : 'Nunca'}
+              </span>
+              <div className="flex items-center gap-1 flex-shrink-0 justify-end">
+                <button onClick={() => handleCopy(share.token, isFolder)}
+                  className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-200 text-slate-400 hover:text-slate-600" title="Copiar link">
+                  {copied === share.token ? <CheckCheck className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
+                </button>
+                <a href={shareUrl} target="_blank" rel="noopener noreferrer"
+                  className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-200 text-slate-400 hover:text-slate-600" title="Abrir link">
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+                <button
+                  onClick={() => editingId === share.id ? setEditingId(null) : startEditOficio(share)}
+                  className={`w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-200 text-slate-400 hover:text-indigo-500 ${editingId === share.id ? 'bg-indigo-50 text-indigo-500' : ''}`}
+                  title="Vincular oficio"
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                </button>
+                <button onClick={() => handleRevoke(share.id)} disabled={revoking === share.id}
+                  className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-500" title="Revocar">
+                  {revoking === share.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldOff className="w-3.5 h-3.5" />}
+                </button>
               </div>
             </div>
-            <span className="hidden md:block w-16 text-center text-sm text-slate-500 flex-shrink-0">{share.access_count}</span>
-            <span className="hidden lg:block w-28 text-xs text-slate-400 flex-shrink-0">
-              {share.expires_at
-                ? isExpired
-                  ? <span className="text-red-400 font-medium">Expirado</span>
-                  : new Date(share.expires_at).toLocaleDateString('es-MX')
-                : 'Nunca'}
-            </span>
-            <div className="flex items-center gap-1 flex-shrink-0 justify-end">
-              <button onClick={() => handleCopy(share.token)}
-                className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-200 text-slate-400 hover:text-slate-600" title="Copiar link">
-                {copied === share.token ? <CheckCheck className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
-              </button>
-              <a href={shareUrl} target="_blank" rel="noopener noreferrer"
-                className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-200 text-slate-400 hover:text-slate-600" title="Abrir link">
-                <ExternalLink className="w-3.5 h-3.5" />
-              </a>
-              <button onClick={() => handleRevoke(share.id)} disabled={revoking === share.id}
-                className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-500" title="Revocar">
-                {revoking === share.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldOff className="w-3.5 h-3.5" />}
-              </button>
-            </div>
+
+            {/* Inline oficio edit row */}
+            {editingId === share.id && (
+              <div className="flex items-center gap-2 px-4 pb-3 bg-indigo-50/50">
+                <FileText className="w-3.5 h-3.5 text-indigo-400 flex-shrink-0" />
+                <select
+                  value={editOficioId}
+                  onChange={e => setEditOficioId(e.target.value)}
+                  className="flex-1 text-xs rounded-lg border border-slate-200 px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
+                >
+                  <option value="">Sin oficio</option>
+                  {oficiosSalida.map(o => (
+                    <option key={o.id} value={o.id}>
+                      {o.no_oficio ? `${o.no_oficio} — ` : ''}{o.asunto}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  onClick={() => handleSaveOficio(share.id)}
+                  disabled={savingOficio}
+                  className="px-3 py-1.5 rounded-lg bg-[#1A2744] text-white text-xs font-bold hover:bg-[#243660] disabled:opacity-60 flex items-center gap-1.5"
+                >
+                  {savingOficio ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+                  Guardar
+                </button>
+                <button
+                  onClick={() => setEditingId(null)}
+                  className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-white"
+                >
+                  Cancelar
+                </button>
+              </div>
+            )}
           </div>
         )
       })}
