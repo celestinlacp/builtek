@@ -22,7 +22,7 @@ async function getWorkspaceData(userId: string) {
 
   const [projects, allProjectMappings, tasks, documents, imageDocs, allDocs, members] = await Promise.all([
     supabase.from('projects').select('id, name, status, frente, cover_image_url').eq('workspace_id', wsId).eq('status', 'active').is('parent_project_id', null).order('name'),
-    supabase.from('projects').select('id, parent_project_id').eq('workspace_id', wsId),
+    supabase.from('projects').select('id, parent_project_id, status').eq('workspace_id', wsId),
     supabase.from('tasks').select('id, name, status, priority, due_date, project_id, assignee_id').order('created_at', { ascending: false }),
     supabase.from('documents').select('id, name, status, created_at, project_id, uploaded_by').eq('workspace_id', wsId).neq('doc_status', 'deleted').order('created_at', { ascending: false }).limit(5),
     supabase.from('documents').select('id, project_id, created_at').eq('workspace_id', wsId).eq('file_type', 'img').order('created_at', { ascending: false }),
@@ -37,6 +37,9 @@ async function getWorkspaceData(userId: string) {
       latestImageByProject[d.project_id] = d.id
     }
   }
+
+  // Conteo de subproyectos activos
+  const subprojectCount = (allProjectMappings.data ?? []).filter(p => p.parent_project_id && p.status === 'active').length
 
   // Build parent project mapping (child_id -> parent_id, one level)
   const parentMap: Record<string, string> = {}
@@ -125,6 +128,7 @@ async function getWorkspaceData(userId: string) {
     documents: (documents.data ?? []).map((d: any) => ({ ...d, uploaderName: uploaderNameById[d.uploaded_by] ?? null })),
     latestImageByProject,
     docCountByProject,
+    subprojectCount,
     teamStats,
     userRole,
   }
@@ -138,7 +142,7 @@ export default async function DashboardPage() {
   const data = await getWorkspaceData(user.id)
   if (!data) redirect('/onboarding')
 
-  const { workspace, projects, tasks, documents, latestImageByProject, docCountByProject, teamStats, userRole } = data
+  const { workspace, projects, tasks, documents, latestImageByProject, docCountByProject, subprojectCount, teamStats, userRole } = data
 
   const tasksDone = tasks.filter(t => t.status === 'done').length
   const tasksInProgress = tasks.filter(t => t.status === 'in_progress').length
@@ -303,7 +307,7 @@ export default async function DashboardPage() {
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Proyectos activos', value: projects.filter(p => p.status === 'active').length, total: projects.length, icon: FolderOpen, color: 'text-blue-600', bg: 'bg-blue-50' },
+          { label: 'Proyectos activos', value: projects.length + subprojectCount, sub: `${projects.length} raíz · ${subprojectCount} subproyectos`, icon: FolderOpen, color: 'text-blue-600', bg: 'bg-blue-50' },
           { label: 'Tareas totales', value: tasks.length, sub: `${tasksInProgress} en curso`, icon: CheckSquare, color: 'text-[#1A2744]', bg: 'bg-slate-100' },
           { label: 'Completadas', value: tasksDone, sub: `${progressPct}% del total`, icon: CheckCircle2, color: 'text-green-600', bg: 'bg-green-50' },
           { label: 'Bloqueadas', value: tasksBlocked, sub: tasksBlocked > 0 ? 'Requieren atención' : 'Sin bloqueos', icon: AlertCircle, color: tasksBlocked > 0 ? 'text-red-500' : 'text-slate-400', bg: tasksBlocked > 0 ? 'bg-red-50' : 'bg-slate-50' },
@@ -316,7 +320,7 @@ export default async function DashboardPage() {
               </div>
             </div>
             <p className={`text-3xl font-bold ${kpi.color}`}>{kpi.value}</p>
-            <p className="text-xs text-slate-400 mt-1">{kpi.sub || `de ${kpi.total} total`}</p>
+            <p className="text-xs text-slate-400 mt-1">{kpi.sub ?? ''}</p>
           </div>
         ))}
       </div>
