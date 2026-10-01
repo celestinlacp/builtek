@@ -38,6 +38,7 @@ export async function createOficio(data: {
   remitente?:       string | null
   destinatario?:    string | null
   assignee_id?:     string | null
+  responde_a_id?:   string | null
   storage_key?:     string | null
   file_name?:       string | null
   file_type?:       string | null
@@ -60,6 +61,7 @@ export async function createOficio(data: {
     remitente:       data.remitente       || null,
     destinatario:    data.destinatario    || null,
     assignee_id:     data.assignee_id     || null,
+    responde_a_id:   data.responde_a_id   || null,
     storage_key:     data.storage_key     || null,
     file_name:       data.file_name       || null,
     file_type:       data.file_type       || null,

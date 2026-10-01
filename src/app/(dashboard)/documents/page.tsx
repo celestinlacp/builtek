@@ -26,7 +26,7 @@ export default async function DocumentsPage() {
   const wsId    = membership.workspace_id
   const userRole = membership.role as string
 
-  const [projectsRes, docsRes, deleteReqRes, companiesRes, membersRes, nomenclaturesRes] = await Promise.all([
+  const [projectsRes, docsRes, deleteReqRes, companiesRes, membersRes, nomenclaturesRes, oficiosRes] = await Promise.all([
     supabase
       .from('projects')
       .select('id, name, status, workspace_id, description, start_date, end_date, frente, project_type, cover_image_url, parent_project_id, chainage_start, chainage_end, mic_identifier, created_at')
@@ -62,6 +62,11 @@ export default async function DocumentsPage() {
       .eq('is_active', true)
       .order('segment')
       .order('sort_order'),
+    supabase
+      .from('oficios')
+      .select('id, no_oficio, asunto, tipo, proyecto_id, especialidad')
+      .eq('workspace_id', wsId)
+      .order('created_at', { ascending: false }),
   ])
 
   const projects         = projectsRes.data       || []
@@ -69,6 +74,7 @@ export default async function DocumentsPage() {
   const deleteRequests   = deleteReqRes.data      || []
   const companies        = companiesRes.data      || []
   const micNomenclatures = nomenclaturesRes.data  || []
+  const workspaceOficios = (oficiosRes.data || []) as { id: string; no_oficio: string | null; asunto: string; tipo: string; proyecto_id: string | null; especialidad: string | null }[]
 
   const rawMemberIds = (membersRes.data || []).map((m: any) => m.user_id)
   const profilesRes  = rawMemberIds.length > 0
@@ -108,6 +114,7 @@ export default async function DocumentsPage() {
         companies={companies as any}
         members={members}
         micNomenclatures={micNomenclatures as any}
+        workspaceOficios={workspaceOficios}
       />
     </div>
   )

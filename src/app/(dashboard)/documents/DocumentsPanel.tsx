@@ -4,6 +4,7 @@ import React, { useState, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Project, Company } from '@/types'
 import { saveDocument, updateDocumentStatus, requestDeleteDocument, approveDeleteRequest, rejectDeleteRequest, deleteDocument, submitForReview, approveDocument, rejectDocument, replaceDocument, updateProjectCover, createSubproject, updateProjectClassification } from './actions'
+import { createOficio } from '../oficios/actions'
 import {
   Upload, Download, Trash2, ChevronDown, ChevronRight, ArrowLeft, Package,
   FolderOpen, CheckCircle2, Clock, XCircle, Eye, AlertTriangle, ShieldCheck, ShieldX, X, Loader2, History, GitBranch, SlidersHorizontal, Info, RefreshCw, Camera, Plus, Layers, Pencil, Milestone, LayoutList, AlignJustify, Share2,
@@ -11,6 +12,8 @@ import {
 import { parseDocKey, TIPO_PLANO_DEFAULT, TIPO_DOC_DEFAULT, detectFileFormat } from './utils'
 import DocumentSlideOver from './DocumentSlideOver'
 import { ShareProjectModal } from '../admin/ShareProjectModal'
+
+type OfiEntry = { id: string; no_oficio: string | null; asunto: string; tipo: string; proyecto_id: string | null; especialidad: string | null }
 
 type Specialty = { id: string; name: string; code: string; category: string }
 
@@ -194,7 +197,7 @@ function WorkflowBadge({ doc, userRole }: { doc: Doc; userRole: string }) {
 type Member = { user_id: string; full_name: string | null; initials: string | null }
 
 function UploadModal({
-  projects, workspaceId, defaultProjectId, existingDocs, companies, members, micNomenclatures, userRole, onClose
+  projects, workspaceId, defaultProjectId, existingDocs, companies, members, micNomenclatures, userRole, workspaceOficios, onClose
 }: {
   projects: Project[]
   workspaceId: string
@@ -204,6 +207,7 @@ function UploadModal({
   members: Member[]
   micNomenclatures: MicNomenclature[]
   userRole: string
+  workspaceOficios: OfiEntry[]
   onClose: () => void
 }) {
   const [projectId,      setProjectId]      = useState(defaultProjectId || '')
@@ -229,6 +233,12 @@ function UploadModal({
     const parent = proj?.parent_project_id ? projects.find(p => p.id === proj.parent_project_id) : null
     return proj?.mic_identifier || parent?.mic_identifier || ''
   })
+  const [registrarOficio,  setRegistrarOficio]  = useState(false)
+  const [oficioTipo,       setOficioTipo]       = useState<'entrada' | 'salida'>('salida')
+  const [oficioNumero,     setOficioNumero]     = useState('')
+  const [oficioAsunto,     setOficioAsunto]     = useState('')
+  const [oficioContacto,   setOficioContacto]   = useState('')
+  const [oficioRespondeA,  setOficioRespondeA]  = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
 
   // Catálogo TIPO_PLANO: preferir valores del workspace, si vacío usar defaults
@@ -349,6 +359,25 @@ function UploadModal({
     })
 
     if (result?.error) { setError(result.error); setUploading(false); setStep(''); return }
+
+    if (registrarOficio && oficioAsunto.trim()) {
+      setStep('Registrando oficio...')
+      await createOficio({
+        tipo:            oficioTipo,
+        asunto:          oficioAsunto.trim(),
+        no_oficio:       oficioNumero.trim() || null,
+        proyecto_id:     projectId || null,
+        especialidad:    specialtyCode || null,
+        fecha_documento: emissionDate || null,
+        remitente:       oficioTipo === 'entrada' ? (oficioContacto.trim() || null) : null,
+        destinatario:    oficioTipo === 'salida'  ? (oficioContacto.trim() || null) : null,
+        responde_a_id:   oficioRespondeA || null,
+        storage_key:     presignData.storageKey,
+        file_name:       file.name,
+        file_type:       presignData.fileType,
+        file_size:       file.size,
+      })
+    }
     onClose()
   }
 
@@ -623,7 +652,70 @@ function UploadModal({
               className="flex-1 py-2.5 rounded-lg border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50">
               Cancelar
             </button>
-            <button onClick={handleUpload} disabled={uploading || !file || !projectId || !authorSel || !emissionDate}
+            {/* Registrar como oficio */}
+          <div className="border border-slate-200 rounded-xl overflow-hidden">
+            <label className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-slate-50 transition-colors">
+              <input
+                type="checkbox"
+                checked={registrarOficio}
+                onChange={e => setRegistrarOficio(e.target.checked)}
+                className="w-4 h-4 rounded border-slate-300 text-[#1A2744] focus:ring-[#00C2FF]"
+              />
+              <div>
+                <p className="text-sm font-semibold text-[#1A2744]">Registrar como oficio</p>
+                <p className="text-xs text-slate-400">Aparece en Trazabilidad de revisión</p>
+              </div>
+            </label>
+
+            {registrarOficio && (
+              <div className="border-t border-slate-100 px-4 py-4 space-y-3 bg-slate-50/50">
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => setOficioTipo('salida')}
+                    className={`flex-1 py-2 text-xs font-bold rounded-lg border-2 transition-all ${oficioTipo === 'salida' ? 'border-[#1A2744] bg-[#1A2744] text-white' : 'border-slate-200 text-slate-500'}`}>
+                    ↑ Envío (Salida)
+                  </button>
+                  <button type="button" onClick={() => setOficioTipo('entrada')}
+                    className={`flex-1 py-2 text-xs font-bold rounded-lg border-2 transition-all ${oficioTipo === 'entrada' ? 'border-[#00C2FF] bg-[#00C2FF]/10 text-[#1A2744]' : 'border-slate-200 text-slate-500'}`}>
+                    ↓ Respuesta (Entrada)
+                  </button>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">No. Oficio</label>
+                  <input value={oficioNumero} onChange={e => setOficioNumero(e.target.value)}
+                    placeholder="Ej: OF-4589"
+                    className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Asunto <span className="text-red-400">*</span></label>
+                  <input value={oficioAsunto} onChange={e => setOficioAsunto(e.target.value)}
+                    placeholder="Descripción del oficio"
+                    className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">
+                    {oficioTipo === 'salida' ? 'Destinatario' : 'Remitente'}
+                  </label>
+                  <input value={oficioContacto} onChange={e => setOficioContacto(e.target.value)}
+                    placeholder="Empresa o persona"
+                    className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50" />
+                </div>
+                {oficioTipo === 'entrada' && workspaceOficios.filter(o => o.proyecto_id === projectId && o.tipo === 'salida').length > 0 && (
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Responde al oficio</label>
+                    <select value={oficioRespondeA} onChange={e => setOficioRespondeA(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50">
+                      <option value="">Sin vincular</option>
+                      {workspaceOficios.filter(o => o.proyecto_id === projectId && o.tipo === 'salida').map(o => (
+                        <option key={o.id} value={o.id}>{o.no_oficio ? 'OF-' + o.no_oficio + ' — ' : ''}{o.asunto}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <button onClick={handleUpload} disabled={uploading || !file || !projectId || !authorSel || !emissionDate}
               className="flex-1 py-2.5 rounded-lg bg-[#1A2744] text-white text-sm font-bold hover:bg-[#243660] disabled:opacity-60">
               {uploading ? 'Subiendo...' : 'Subir a R2'}
             </button>
@@ -2054,7 +2146,7 @@ function ProjectDetailView({
 // ── Componente principal ───────────────────────────────────────────────────────
 
 export default function DocumentsPanel({
-  documents, projects, workspaceId, userRole, deleteRequests, currentUserId, companies, members, micNomenclatures
+  documents, projects, workspaceId, userRole, deleteRequests, currentUserId, companies, members, micNomenclatures, workspaceOficios
 }: {
   documents: Doc[]
   projects: Project[]
@@ -2065,6 +2157,7 @@ export default function DocumentsPanel({
   companies: Company[]
   members: Member[]
   micNomenclatures: MicNomenclature[]
+  workspaceOficios: OfiEntry[]
 }) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -2151,6 +2244,7 @@ export default function DocumentsPanel({
           members={members}
           micNomenclatures={micNomenclatures}
           userRole={userRole}
+          workspaceOficios={workspaceOficios}
           onClose={() => setShowUpload(false)}
         />
       )}
