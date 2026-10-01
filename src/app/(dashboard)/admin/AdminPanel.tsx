@@ -2312,20 +2312,30 @@ export default function AdminPanel({
   const [showModal, setShowModal] = useState(false)
   const [editProject, setEditProject] = useState<Project | null>(null)
   const [shareProject, setShareProject] = useState<Project | null>(null)
-  const [filterInah, setFilterInah] = useState(false)
-  const [filterCruceVial, setFilterCruceVial] = useState('')
+  const [filterInah,           setFilterInah]           = useState(false)
+  const [filterCaucesFederales, setFilterCaucesFederales] = useState(false)
+  const [filterCruceVial,      setFilterCruceVial]      = useState('')
+  const [showDbDropdown,       setShowDbDropdown]       = useState(false)
 
-  const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [
-    { id: 'projects',       label: 'Proyectos',      icon: FolderOpen },
-    { id: 'empresas',       label: 'Empresas',        icon: Factory    },
-    { id: 'nomenclaturas',  label: 'Nomenclaturas',   icon: BookOpen   },
-    { id: 'bd-oficios',     label: 'BD Oficios',      icon: FileText   },
-    { id: 'team',           label: 'Equipo',          icon: Users      },
-    { id: 'workspace',      label: 'Workspace',       icon: Building2  },
-    { id: 'storage',        label: 'Almacenamiento',  icon: HardDrive  },
-    { id: 'database',       label: 'Base de Datos',   icon: Database   },
-    { id: 'builtek-id',     label: 'Builtek ID',      icon: Layers     },
-    { id: 'settings',       label: 'Config.',         icon: Settings   },
+  const DB_TABS = ['bd-oficios', 'database', 'builtek-id'] as const
+  const isDbTab = DB_TABS.includes(tab as typeof DB_TABS[number])
+  const dbSubTabs: { id: Tab; label: string; icon: React.ElementType }[] = [
+    { id: 'bd-oficios',  label: 'BD Oficios',    icon: FileText },
+    { id: 'database',    label: 'Base de Datos',  icon: Database },
+    { id: 'builtek-id',  label: 'Builtek ID',     icon: Layers   },
+  ]
+  const dbActiveLabel = tab === 'bd-oficios' ? 'BD Oficios' : tab === 'builtek-id' ? 'Builtek ID' : tab === 'database' ? 'Base de Datos' : 'Base de datos'
+
+  const mainTabsBefore: { id: Tab; label: string; icon: React.ElementType }[] = [
+    { id: 'projects',      label: 'Proyectos',     icon: FolderOpen },
+    { id: 'empresas',      label: 'Empresas',       icon: Factory    },
+    { id: 'nomenclaturas', label: 'Nomenclaturas',  icon: BookOpen   },
+  ]
+  const mainTabsAfter: { id: Tab; label: string; icon: React.ElementType }[] = [
+    { id: 'team',      label: 'Equipo',         icon: Users     },
+    { id: 'workspace', label: 'Workspace',      icon: Building2 },
+    { id: 'storage',   label: 'Almacenamiento', icon: HardDrive },
+    { id: 'settings',  label: 'Config.',        icon: Settings  },
   ]
 
   return (
@@ -2339,8 +2349,47 @@ export default function AdminPanel({
       )}
 
       {/* Tabs */}
-      <div className="flex items-center gap-1 mb-6 bg-slate-100 p-1 rounded-xl w-fit">
-        {tabs.map(({ id, label, icon: Icon }) => (
+      {showDbDropdown && (
+        <div className="fixed inset-0 z-10" onClick={() => setShowDbDropdown(false)} />
+      )}
+      <div className="flex items-center gap-1 mb-6 bg-slate-100 p-1 rounded-xl w-fit flex-wrap">
+        {mainTabsBefore.map(({ id, label, icon: Icon }) => (
+          <button key={id} onClick={() => setTab(id)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              tab === id ? 'bg-white text-[#1A2744] shadow-sm' : 'text-slate-500 hover:text-slate-700'
+            }`}>
+            <Icon className="w-4 h-4" />
+            {label}
+          </button>
+        ))}
+
+        {/* Dropdown Base de datos */}
+        <div className="relative">
+          <button onClick={() => setShowDbDropdown(v => !v)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              isDbTab ? 'bg-white text-[#1A2744] shadow-sm' : 'text-slate-500 hover:text-slate-700'
+            }`}>
+            <Database className="w-4 h-4" />
+            {isDbTab ? dbActiveLabel : 'Base de datos'}
+            <ChevronDown className="w-3 h-3" />
+          </button>
+          {showDbDropdown && (
+            <div className="absolute top-full left-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg z-20 py-1 min-w-[160px]">
+              {dbSubTabs.map(({ id, label, icon: Icon }) => (
+                <button key={id}
+                  onClick={() => { setTab(id); setShowDbDropdown(false) }}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-left transition-colors ${
+                    tab === id ? 'bg-slate-50 text-[#1A2744] font-semibold' : 'text-slate-600 hover:bg-slate-50'
+                  }`}>
+                  <Icon className="w-3.5 h-3.5" />
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {mainTabsAfter.map(({ id, label, icon: Icon }) => (
           <button key={id} onClick={() => setTab(id)}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
               tab === id ? 'bg-white text-[#1A2744] shadow-sm' : 'text-slate-500 hover:text-slate-700'
@@ -2357,8 +2406,9 @@ export default function AdminPanel({
         const cruceVialOptions = [...new Set(projects.filter(p => p.cruce_vial).map(p => p.cruce_vial!))]
           .sort()
         const rootProjects = allRootProjects
-          .filter(p => !filterInah || p.is_inah)
-          .filter(p => !filterCruceVial || p.cruce_vial === filterCruceVial)
+          .filter(p => !filterInah           || p.is_inah)
+          .filter(p => !filterCaucesFederales || p.cauces_federales)
+          .filter(p => !filterCruceVial      || p.cruce_vial === filterCruceVial)
         return (
           <div>
             <div className="flex items-center justify-between mb-3">
@@ -2387,6 +2437,16 @@ export default function AdminPanel({
               >
                 INAH
               </button>
+              <button
+                onClick={() => setFilterCaucesFederales(v => !v)}
+                className={`text-xs px-3 py-1.5 rounded-full font-bold transition-colors border ${
+                  filterCaucesFederales
+                    ? 'bg-blue-100 text-blue-700 border-blue-300'
+                    : 'bg-white text-slate-400 border-slate-200 hover:border-blue-300 hover:text-blue-600'
+                }`}
+              >
+                Cauces Federales
+              </button>
               {cruceVialOptions.length > 0 && (
                 <select
                   value={filterCruceVial}
@@ -2399,9 +2459,9 @@ export default function AdminPanel({
                   ))}
                 </select>
               )}
-              {(filterInah || filterCruceVial) && (
+              {(filterInah || filterCaucesFederales || filterCruceVial) && (
                 <button
-                  onClick={() => { setFilterInah(false); setFilterCruceVial('') }}
+                  onClick={() => { setFilterInah(false); setFilterCaucesFederales(false); setFilterCruceVial('') }}
                   className="text-xs text-slate-400 hover:text-slate-600 underline"
                 >
                   Limpiar filtros
