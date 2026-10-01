@@ -865,7 +865,7 @@ type DriveShare = {
   drive_folders: { name: string } | null
 }
 
-function LinksPanel({ workspaceId }: { workspaceId: string }) {
+function LinksPanel({ workspaceId, isAdmin }: { workspaceId: string; isAdmin: boolean }) {
   const [shares,         setShares]         = useState<DriveShare[]>([])
   const [loading,        setLoading]        = useState(true)
   const [revoking,       setRevoking]       = useState<string | null>(null)
@@ -1027,10 +1027,12 @@ function LinksPanel({ workspaceId }: { workspaceId: string }) {
                 >
                   <FileText className="w-3.5 h-3.5" />
                 </button>
-                <button onClick={() => handleRevoke(share.id)} disabled={revoking === share.id}
-                  className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-500" title="Revocar">
-                  {revoking === share.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldOff className="w-3.5 h-3.5" />}
-                </button>
+                {isAdmin && (
+                  <button onClick={() => handleRevoke(share.id)} disabled={revoking === share.id}
+                    className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-500" title="Revocar">
+                    {revoking === share.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldOff className="w-3.5 h-3.5" />}
+                  </button>
+                )}
               </div>
             </div>
 
@@ -1476,7 +1478,7 @@ export default function DrivePanel({ workspaceId, userRole, currentUserId }: {
 
         {/* Panel Links activos */}
         {activeTab === 'links' && (
-          <LinksPanel workspaceId={workspaceId} />
+          <LinksPanel workspaceId={workspaceId} isAdmin={isAdmin} />
         )}
 
         {/* Contenido Drive — con drag & drop */}
