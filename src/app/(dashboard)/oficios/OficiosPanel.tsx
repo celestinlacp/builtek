@@ -5,9 +5,10 @@ import { useRouter } from 'next/navigation'
 import {
   Plus, X, Pencil, Trash2, Eye, Upload, Loader2,
   FileText, Filter, ChevronDown, Check, ArrowDownToLine,
-  ArrowUpFromLine, Search, Sparkles, Download, Link
+  ArrowUpFromLine, Search, Sparkles, Download, Link, GitBranch
 } from 'lucide-react'
 import { createOficio, updateOficio, deleteOficio, deleteOficios, updateOficioStatus, responderOficio } from './actions'
+import TrazabilidadView from './TrazabilidadView'
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
@@ -30,6 +31,7 @@ type Oficio = {
   file_type: string | null
   file_size: number | null
   notas: string | null
+  link_entrega?: string | null
   created_at: string
   created_by: string | null
   proyecto?: { id: string; name: string } | null
@@ -860,7 +862,7 @@ function OficioRow({
 
 // ── Panel principal ───────────────────────────────────────────────────────────
 
-type Tab = 'entrada' | 'salida'
+type Tab = 'entrada' | 'salida' | 'trazabilidad'
 
 export default function OficiosPanel({
   oficios, projects, members, especialidades, workspaceId, currentUserId, currentUserRole,
@@ -994,19 +996,38 @@ export default function OficiosPanel({
               {countSalida}
             </span>
           </button>
+          <button
+            onClick={() => { setTab('trazabilidad'); setSelected(new Set()) }}
+            className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-medium transition-all ${
+              tab === 'trazabilidad' ? 'bg-white text-[#1A2744] shadow-sm' : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            <GitBranch className="w-4 h-4" />
+            Trazabilidad
+          </button>
         </div>
 
-        <button
-          onClick={openNew}
-          className="flex items-center gap-2 bg-[#1A2744] text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-[#243660] transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          Nuevo oficio
-        </button>
+        {tab !== 'trazabilidad' && (
+          <button
+            onClick={openNew}
+            className="flex items-center gap-2 bg-[#1A2744] text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-[#243660] transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            Nuevo oficio
+          </button>
+        )}
       </div>
 
-      {/* Filtros */}
-      <div className="flex flex-wrap gap-2 mb-4">
+      {/* Trazabilidad tab */}
+      {tab === 'trazabilidad' && (
+        <TrazabilidadView
+          oficios={oficios}
+          projects={projects}
+        />
+      )}
+
+      {/* Filtros + Tabla */}
+      {tab !== 'trazabilidad' && (<><div className="flex flex-wrap gap-2 mb-4">
         <div className="relative">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
           <input
@@ -1181,7 +1202,7 @@ export default function OficiosPanel({
       {showModal && (
         <OficioModal
           oficio={editOficio}
-          tipo={editOficio ? editOficio.tipo : tab}
+          tipo={editOficio ? editOficio.tipo : tab as 'entrada' | 'salida'}
           projects={projects}
           members={members}
           especialidades={especialidades}
@@ -1189,6 +1210,7 @@ export default function OficiosPanel({
           onClose={closeModal}
         />
       )}
+      </>)}
     </div>
   )
 }
