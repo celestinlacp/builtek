@@ -22,10 +22,10 @@ export async function sendMenvioWhatsApp(
   phone: string,
   variables: string[]
 ): Promise<{ ok: boolean; messageSid?: string; error?: string }> {
-  const apiKey = process.env.MENVIO_BUILTEK_API_KEY
+  const apiKey = process.env.BUILTEK_API_KEY
   if (!apiKey) {
-    console.error('[menvio] MENVIO_BUILTEK_API_KEY no configurada')
-    return { ok: false, error: 'MENVIO_BUILTEK_API_KEY no configurada' }
+    console.error('[menvio] BUILTEK_API_KEY no configurada')
+    return { ok: false, error: 'BUILTEK_API_KEY no configurada' }
   }
 
   try {
