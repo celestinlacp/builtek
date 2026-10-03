@@ -52,7 +52,7 @@ export async function generateMetadata(
   return {
     title,
     description,
-    openGraph: { title, description, siteName: 'Builtek', images: [{ url: '/api/og', width: 1200, height: 1200 }] },
+    openGraph: { title, description, siteName: 'Builtek', images: [{ url: '/api/og', width: 256, height: 256 }] },
     twitter:   { card: 'summary', title, description, images: ['/api/og'] },
   }
 }

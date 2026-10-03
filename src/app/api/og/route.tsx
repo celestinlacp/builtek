@@ -11,8 +11,8 @@ export const contentType = 'image/png'
 export async function GET() {
   return new ImageResponse(
     (
-      <div style={{ width: 1200, height: 1200, display: 'flex' }}>
-        <svg width="1200" height="1200" viewBox="0 0 1200 1200" xmlns="http://www.w3.org/2000/svg">
+      <div style={{ width: 256, height: 256, display: 'flex' }}>
+        <svg width="256" height="256" viewBox="0 0 1200 1200" xmlns="http://www.w3.org/2000/svg">
           <defs>
             <radialGradient id="g" cx="50%" cy="38%" r="75%">
               <stop offset="0" stopColor="#1A2C4E" />
@@ -70,6 +70,6 @@ export async function GET() {
         </svg>
       </div>
     ),
-    { width: 1200, height: 1200 }
+    { width: 256, height: 256 }
   )
 }
