@@ -421,6 +421,54 @@ export async function updateProjectCover(projectId: string, storageKey: string) 
   return { success: true }
 }
 
+// ── Links compartidos por documento (24h) ────────────────────────────────────
+
+export async function createDocumentShare(docId: string, workspaceId: string) {
+  const { user } = await getUser()
+  const admin = getAdminClient()
+
+  const { data: doc } = await admin
+    .from('documents')
+    .select('doc_key')
+    .eq('id', docId)
+    .single()
+
+  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+
+  const { data, error } = await admin
+    .from('document_shares')
+    .insert({
+      document_id:  docId,
+      doc_key:      doc?.doc_key ?? null,
+      workspace_id: workspaceId,
+      expires_at:   expiresAt,
+      created_by:   user.id,
+    })
+    .select('token')
+    .single()
+
+  if (error) return { error: error.message }
+  return { token: data.token }
+}
+
+// ── Renombrar documento ───────────────────────────────────────────────────────
+
+export async function renameDocument(docId: string, displayName: string) {
+  await getUser()
+  const admin = getAdminClient()
+  const trimmed = displayName.trim()
+  if (!trimmed) return { error: 'El nombre no puede estar vacío' }
+
+  const { error } = await admin
+    .from('documents')
+    .update({ display_name: trimmed, name: trimmed })
+    .eq('id', docId)
+
+  if (error) return { error: error.message }
+  revalidatePath('/documents')
+  return { success: true }
+}
+
 // ── Edición rápida de proyecto (frente + tipo) ────────────────────────────────
 
 export async function updateProjectClassification(projectId: string, data: {

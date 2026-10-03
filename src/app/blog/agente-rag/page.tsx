@@ -222,7 +222,7 @@ export default function BlogRAGPage() {
                 Crear cuenta gratis →
               </Link>
               <a
-                href="mailto:hola@builtek.app"
+                href="mailto:hola@menvio.app"
                 className="inline-flex items-center gap-2 border border-white/20 text-white/60 hover:text-white hover:border-white/40 px-6 py-3 rounded-xl text-sm font-normal transition-colors"
               >
                 Solicitar demo

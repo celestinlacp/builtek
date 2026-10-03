@@ -1,9 +1,10 @@
 import Link from 'next/link'
+import { AnimateIn } from '@/components/AnimateIn'
 import {
   LayoutDashboard, CheckSquare, FileText, HardDrive,
   Bot, Calendar, ArrowRight, ChevronRight, Zap,
   Shield, Users, TrendingUp, QrCode, Upload,
-  Layers, Menu, MessageSquare, Sparkles, BookOpen
+  Layers, Menu, MessageSquare, Sparkles, BookOpen, Wrench
 } from 'lucide-react'
 import PricingSection from '@/components/PricingSection'
 
@@ -112,6 +113,34 @@ function ConstructionBg() {
   )
 }
 
+// ── Ticker ────────────────────────────────────────────────────────────────────
+function Ticker() {
+  const items = [
+    'Proyectos ilimitados',
+    'Sin cobros por usuario',
+    'Viewers gratis en todos los planes',
+    'WhatsApp integrado',
+    'CFDI en planes pagados',
+    'Control de versiones',
+    'Aprobaciones firmadas',
+    'Empresa mexicana · CDMX',
+    'Trazabilidad total',
+    'Drive compartido',
+  ]
+  return (
+    <div className="bg-[#0a1220] border-y border-white/5 py-3 overflow-hidden">
+      <div className="ticker-track">
+        {[...items, ...items].map((item, i) => (
+          <span key={i} className="inline-flex items-center gap-5 px-5">
+            <span className="text-white/22 text-xs font-light tracking-wide whitespace-nowrap">{item}</span>
+            <span className="text-[#00C2FF]/20 text-xs flex-shrink-0">◆</span>
+          </span>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 // ── Navbar ────────────────────────────────────────────────────────────────────
 function Navbar() {
   return (
@@ -131,6 +160,8 @@ function Navbar() {
             <Sparkles className="w-3 h-3" />RAG
           </a>
           <a href="#drive"    className="text-white/50 hover:text-white text-sm font-normal transition-colors">Drive</a>
+          <a href="#whatsapp" className="text-white/50 hover:text-white text-sm font-normal transition-colors">WhatsApp</a>
+          <a href="#partner"  className="text-white/50 hover:text-white text-sm font-normal transition-colors">Partner</a>
           <a href="#precios"  className="text-white/50 hover:text-white text-sm font-normal transition-colors">Precios</a>
         </div>
 
@@ -209,7 +240,7 @@ function MockDashboard() {
 // ── Hero ──────────────────────────────────────────────────────────────────────
 function Hero() {
   return (
-    <section className="min-h-screen bg-[#0D1729] flex flex-col items-center justify-center pt-16 px-6 relative overflow-hidden">
+    <section className="min-h-[100svh] bg-[#0D1729] flex flex-col items-center justify-center pt-16 px-4 md:px-6 relative overflow-hidden">
       {/* Hero background image */}
       <img
         src="/hero-bg.jpg"
@@ -223,32 +254,33 @@ function Hero() {
       {/* Blueprint grid */}
       <div className="absolute inset-0 bg-[linear-gradient(rgba(0,194,255,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(0,194,255,0.04)_1px,transparent_1px)] bg-[size:60px_60px]" />
       {/* Radial glow */}
-      <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] bg-[#00C2FF]/8 rounded-full blur-[140px] pointer-events-none" />
+      <div className="glow-pulse absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] bg-[#00C2FF]/8 rounded-full blur-[140px] pointer-events-none" />
 
       {/* Animated construction blueprint elements */}
       <ConstructionBg />
 
       <div className="relative max-w-7xl w-full mx-auto text-center">
         {/* Badge */}
-        <div className="inline-flex items-center gap-2 bg-[#00C2FF]/10 border border-[#00C2FF]/20 rounded-full px-4 py-1.5 mb-8">
-          <Zap className="w-3.5 h-3.5 text-[#00C2FF]" />
-          <span className="text-[#00C2FF] text-xs font-medium tracking-wide">Diseñado para equipos AEC en LATAM</span>
+        <div className="hero-enter inline-flex items-center gap-2 bg-[#00C2FF]/10 border border-[#00C2FF]/20 rounded-full px-3 py-1.5 mb-6" style={{ animationDelay: '0ms' }}>
+          <Zap className="w-3 h-3 text-[#00C2FF] flex-shrink-0" />
+          <span className="text-[#00C2FF] text-xs font-medium tracking-wide">Para constructoras, ingenieros y arquitectos en México y LATAM</span>
         </div>
 
-        {/* Headline — weight contrast: light + bold */}
-        <h1 className="text-5xl md:text-7xl text-white leading-[1.08] tracking-tight mb-6">
-          <span className="font-extralight">El sistema operativo</span><br />
+        {/* Headline */}
+        <h1 className="hero-enter text-3xl sm:text-4xl md:text-5xl text-white leading-[1.15] tracking-tight mb-3 max-w-3xl mx-auto" style={{ animationDelay: '150ms' }}>
+          <span className="font-light">El software de construcción que</span><br />
           <span className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#00C2FF] to-[#0077FF]">
-            de la construcción
-          </span>
+            entiende tus planos,
+          </span>{' '}
+          <span className="font-bold text-white">habla por WhatsApp</span>{' '}
+          <span className="font-bold text-white">y crece contigo.</span>
         </h1>
 
-        <p className="text-white/40 text-lg md:text-xl max-w-2xl mx-auto leading-relaxed mb-10 font-light">
-          Tareas, documentos, planos y IA en una sola plataforma.<br className="hidden md:block" />
-          Tu obra digitalizada, tu equipo alineado.
+        <p className="hero-enter text-white/25 text-xs tracking-widest uppercase font-light mb-8" style={{ animationDelay: '300ms' }}>
+          El sistema operativo de la construcción
         </p>
 
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16">
+        <div className="hero-enter flex flex-col sm:flex-row items-center justify-center gap-3 mb-10 md:mb-16" style={{ animationDelay: '430ms' }}>
           <Link href="/demo"
             className="flex items-center gap-2 bg-[#00C2FF] text-[#0D1729] px-7 py-3.5 rounded-xl font-semibold text-base hover:bg-white transition-colors shadow-lg shadow-[#00C2FF]/20">
             Solicitar demo gratis
@@ -261,8 +293,8 @@ function Hero() {
           </a>
         </div>
 
-        {/* Mock app window */}
-        <div className="max-w-4xl mx-auto bg-[#1A2744]/80 rounded-2xl border border-white/10 shadow-2xl shadow-black/50 overflow-hidden">
+        {/* Mock app window — hidden on mobile */}
+        <div className="hero-enter hidden md:block max-w-4xl mx-auto bg-[#1A2744]/80 rounded-2xl border border-white/10 shadow-2xl shadow-black/50 overflow-hidden" style={{ animationDelay: '580ms' }}>
           <div className="flex items-center gap-2 px-4 py-3 border-b border-white/5 bg-white/3">
             <div className="w-3 h-3 rounded-full bg-red-400/60" />
             <div className="w-3 h-3 rounded-full bg-yellow-400/60" />
@@ -331,23 +363,25 @@ function Problem() {
   ]
 
   return (
-    <section className="bg-[#0a1220] py-24 px-6">
+    <section className="bg-[#0a1220] py-14 md:py-24 px-4 md:px-6">
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-16">
           <p className="text-[#00C2FF] text-xs font-semibold uppercase tracking-widest mb-5">El problema</p>
-          <h2 className="text-3xl md:text-5xl text-white leading-tight">
+          <h2 className="text-2xl md:text-4xl text-white leading-tight">
             <span className="font-light">En construcción, la información</span><br />
             <span className="font-semibold text-white/35">está fragmentada.</span>
           </h2>
         </div>
 
         <div className="grid md:grid-cols-3 gap-6">
-          {pains.map(p => (
-            <div key={p.title} className="bg-white/3 border border-white/8 rounded-2xl p-8 hover:border-[#00C2FF]/20 transition-colors group">
+          {pains.map((p, i) => (
+            <AnimateIn key={p.title} delay={i * 100}>
+            <div className="bg-white/3 border border-white/8 rounded-2xl p-8 hover:border-[#00C2FF]/20 hover:scale-[1.02] transition-all duration-200 group">
               <span className="text-4xl block mb-5">{p.emoji}</span>
               <h3 className="text-lg font-semibold text-white mb-3">{p.title}</h3>
               <p className="text-white/35 text-sm leading-relaxed font-light">{p.desc}</p>
             </div>
+            </AnimateIn>
           ))}
         </div>
 
@@ -374,20 +408,20 @@ function Modules() {
     {
       icon: CheckSquare,
       color: 'text-emerald-400 bg-emerald-400/10',
-      title: 'Gestión de Tareas',
-      desc: 'TaskBoard por especialidad (EST, ARQ, HID...). Asigna responsables, prioridades y fechas límite. Sin Excel.',
+      title: 'Gestión de Proyectos',
+      desc: 'TaskBoard por especialidad (EST, ARQ, HID...). Asigna responsables, fechas límite y prioridades. Visualiza el avance real de la obra sin Excel.',
     },
     {
       icon: FileText,
       color: 'text-amber-400 bg-amber-400/10',
       title: 'Control Documental',
-      desc: 'Sube planos, oficios y especificaciones. Control de versiones, estados (borrador → aprobado) y flujo de aprobación con Two-Person Rule.',
+      desc: 'Planos, especificaciones y revisiones con control de versiones, flujo de aprobación Two-Person Rule y trazabilidad total: quién aprobó qué y cuándo.',
     },
     {
       icon: HardDrive,
       color: 'text-purple-400 bg-purple-400/10',
       title: 'Drive',
-      desc: 'Almacenamiento centralizado con carpetas. Comparte archivos con terceros mediante link público o código QR — sin que necesiten cuenta.',
+      desc: 'Un disco compartido para todo el equipo: sube, organiza y accede a los archivos del proyecto desde un solo lugar. Comparte con terceros vía link o QR — sin que necesiten cuenta.',
     },
     {
       icon: Calendar,
@@ -404,25 +438,38 @@ function Modules() {
   ]
 
   return (
-    <section id="modulos" className="bg-[#0D1729] py-24 px-6">
+    <section id="modulos" className="bg-[#0D1729] py-14 md:py-24 px-4 md:px-6">
       <div className="max-w-7xl mx-auto">
-        <div className="text-center mb-16">
+        <div className="text-center mb-10">
           <p className="text-[#00C2FF] text-xs font-semibold uppercase tracking-widest mb-5">La plataforma</p>
-          <h2 className="text-3xl md:text-5xl text-white leading-tight">
+          <h2 className="text-2xl md:text-4xl text-white leading-tight">
             <span className="font-light">Todo lo que tu obra necesita.</span><br />
             <span className="font-semibold text-transparent bg-clip-text bg-gradient-to-r from-[#00C2FF] to-[#0077FF]">En un solo lugar.</span>
           </h2>
         </div>
 
+        {/* Pain strip — gestión de proyectos */}
+        <div className="flex flex-wrap justify-center gap-3 mb-12">
+          {[
+            '¿Delegas tareas y no sabes cuándo terminan?',
+            '¿No llevas un registro del avance real de tu equipo?',
+            '¿Tus planos viven en correos y grupos de WhatsApp?',
+          ].map(q => (
+            <span key={q} className="bg-white/3 border border-white/8 rounded-full px-4 py-2 text-white/35 text-xs font-light italic">{q}</span>
+          ))}
+        </div>
+
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {modules.map(m => (
-            <div key={m.title} className="bg-white/3 border border-white/8 rounded-2xl p-7 hover:border-[#00C2FF]/25 hover:bg-white/5 transition-all group">
-              <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-5 ${m.color}`}>
-                <m.icon className="w-6 h-6" />
+          {modules.map((m, i) => (
+            <AnimateIn key={m.title} delay={i * 75}>
+              <div className="bg-white/3 border border-white/8 rounded-2xl p-7 hover:border-[#00C2FF]/25 hover:bg-white/5 hover:scale-[1.02] transition-all duration-200 group">
+                <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-5 ${m.color}`}>
+                  <m.icon className="w-6 h-6" />
+                </div>
+                <h3 className="text-lg font-semibold text-white mb-2">{m.title}</h3>
+                <p className="text-white/35 text-sm leading-relaxed font-light">{m.desc}</p>
               </div>
-              <h3 className="text-lg font-semibold text-white mb-2">{m.title}</h3>
-              <p className="text-white/35 text-sm leading-relaxed font-light">{m.desc}</p>
-            </div>
+            </AnimateIn>
           ))}
         </div>
       </div>
@@ -433,17 +480,17 @@ function Modules() {
 // ── AI Feature ────────────────────────────────────────────────────────────────
 function AIFeature() {
   return (
-    <section id="ia" className="bg-[#060e1c] py-24 px-6 relative overflow-hidden">
+    <section id="ia" className="bg-[#060e1c] py-14 md:py-24 px-4 md:px-6 relative overflow-hidden">
       <div className="absolute inset-0 bg-gradient-to-br from-[#00C2FF]/5 via-transparent to-transparent pointer-events-none" />
 
-      <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-16 items-center">
+      <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-10 lg:gap-16 items-center">
         <div>
           <div className="inline-flex items-center gap-2 bg-[#00C2FF]/10 border border-[#00C2FF]/20 rounded-full px-4 py-1.5 mb-8">
             <Bot className="w-3.5 h-3.5 text-[#00C2FF]" />
             <span className="text-[#00C2FF] text-xs font-medium">Agente AI — Diferenciador clave</span>
           </div>
 
-          <h2 className="text-3xl md:text-5xl text-white leading-tight mb-6">
+          <h2 className="text-2xl md:text-4xl text-white leading-tight mb-5">
             <span className="font-light">Sube un plano.</span><br />
             <span className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#00C2FF] to-[#0077FF]">
               La IA hace el resto.
@@ -509,129 +556,41 @@ function AIFeature() {
           </div>
         </div>
       </div>
+
+      {/* Inline CTA */}
+      <div className="max-w-7xl mx-auto mt-14 px-6">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-[#00C2FF]/5 border border-[#00C2FF]/15 rounded-2xl px-7 py-5">
+          <p className="text-white/55 text-sm font-light text-center sm:text-left">
+            ¿Quieres ver la extracción AI funcionando con un plano tuyo?
+          </p>
+          <Link href="/demo" className="flex-shrink-0 flex items-center gap-2 bg-[#00C2FF] text-[#0D1729] px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-white transition-colors whitespace-nowrap">
+            Ver demo en vivo <ArrowRight className="w-4 h-4" />
+          </Link>
+        </div>
+      </div>
     </section>
   )
 }
 
 // ── RAG Feature ───────────────────────────────────────────────────────────────
 function RAGFeature() {
-  const messages = [
-    {
-      role: 'user',
-      text: '¿Cuántos pilotes de 60cm tiene el Tramo 4?',
-    },
-    {
-      role: 'ai',
-      text: 'Según el plano PE-024 Rev.B, el Tramo 4 tiene 36 pilotes de ∅60cm tipo PF-1, con longitud promedio de 12m. Resistencia especificada: f\'c = 300 kg/cm².',
-      sources: ['PE-024 Rev.B', 'ET-Pilotes-v2'],
-    },
-    {
-      role: 'user',
-      text: '¿Hay documentos con observaciones sin resolver?',
-    },
-    {
-      role: 'ai',
-      text: 'Encontré 3 documentos con observaciones activas:\n• DO-047 — Planos Arq. Rev.C (2 obs. pendientes)\n• ET-003 — Especificaciones hidráulicas (1 obs.)\n• OF-012 — Oficio supervisión 14/09 (requiere respuesta)',
-      sources: ['Base de datos documental'],
-    },
-  ]
-
   return (
-    <section id="rag" className="bg-[#060e1c] py-24 px-6 relative overflow-hidden">
-      <div className="absolute inset-0 bg-gradient-to-bl from-[#00C2FF]/5 via-transparent to-transparent pointer-events-none" />
-      <div className="absolute top-1/2 right-0 -translate-y-1/2 w-[500px] h-[500px] bg-[#00C2FF]/5 rounded-full blur-[140px] pointer-events-none" />
-
-      <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-16 items-center relative">
-
-        {/* Text */}
-        <div>
-          <div className="inline-flex items-center gap-2 bg-[#00C2FF]/10 border border-[#00C2FF]/20 rounded-full px-4 py-1.5 mb-4">
-            <Sparkles className="w-3.5 h-3.5 text-[#00C2FF]" />
-            <span className="text-[#00C2FF] text-xs font-medium">Agente RAG — Próximamente</span>
-          </div>
-
-          <h2 className="text-3xl md:text-5xl text-white leading-tight mb-6">
-            <span className="font-light">Tu proyecto no</span><br />
-            <span className="font-light">cabe en </span>
-            <span className="font-bold text-white/30 line-through">ChatGPT.</span>
-            <br />
-            <span className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#00C2FF] to-[#0077FF]">
-              En Builtek, sí.
-            </span>
-          </h2>
-
-          <p className="text-white/40 text-lg leading-relaxed mb-6 font-light">
-            Un proyecto real tiene 200, 500, 1,000 documentos. ChatGPT solo puede leer
-            lo que le pegas en cada sesión — y lo olvida al cerrar. El Agente RAG de Builtek
-            conoce <em>toda tu obra</em>, siempre actualizado, y te dice de qué documento
-            viene cada respuesta.
-          </p>
-
-          <div className="space-y-3 mb-8">
-            {[
-              { icon: '✗', label: 'ChatGPT', desc: 'Olvida todo al cerrar sesión. No cita fuentes. Tus planos van a sus servidores.', muted: true },
-              { icon: '✓', label: 'Agente RAG de Builtek', desc: 'Conoce todos tus documentos. Cita el plano y la sección exacta. Tus datos en tu workspace.', muted: false },
-            ].map(item => (
-              <div key={item.label} className={`flex items-start gap-3 rounded-xl p-4 border ${item.muted ? 'border-white/5 bg-white/2 opacity-60' : 'border-[#00C2FF]/20 bg-[#00C2FF]/5'}`}>
-                <span className={`text-sm font-bold flex-shrink-0 mt-0.5 ${item.muted ? 'text-white/25' : 'text-[#00C2FF]'}`}>{item.icon}</span>
-                <div>
-                  <p className={`text-sm font-semibold mb-0.5 ${item.muted ? 'text-white/30' : 'text-white'}`}>{item.label}</p>
-                  <p className={`text-xs leading-relaxed font-light ${item.muted ? 'text-white/25' : 'text-white/50'}`}>{item.desc}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <Link
-            href="/blog/agente-rag"
-            className="inline-flex items-center gap-2 text-[#00C2FF] text-sm font-medium hover:gap-3 transition-all"
-          >
-            <BookOpen className="w-4 h-4" />
-            Entender por qué RAG cambia todo en construcción
-            <ArrowRight className="w-4 h-4" />
-          </Link>
-        </div>
-
-        {/* Mock RAG Chat */}
-        <div className="bg-[#1A2744]/60 border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
-          <div className="flex items-center gap-2 px-4 py-3 border-b border-white/5 bg-white/3">
-            <Sparkles className="w-4 h-4 text-[#00C2FF]" />
-            <span className="text-white/50 text-xs font-medium">Agente RAG — Proyecto: Viaducto Norte</span>
-            <span className="ml-auto text-[9px] bg-[#00C2FF]/15 text-[#00C2FF] px-2 py-0.5 rounded-full font-semibold">847 docs indexados</span>
-          </div>
-
-          <div className="p-4 space-y-4 max-h-[420px] overflow-y-auto">
-            {messages.map((msg, i) => (
-              <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                {msg.role === 'ai' && (
-                  <div className="w-6 h-6 rounded-full bg-[#00C2FF]/20 flex items-center justify-center flex-shrink-0 mt-1 mr-2">
-                    <Sparkles className="w-3 h-3 text-[#00C2FF]" />
-                  </div>
-                )}
-                <div className={`max-w-[85%] ${msg.role === 'user' ? 'bg-[#00C2FF]/15 border border-[#00C2FF]/20' : 'bg-white/5 border border-white/8'} rounded-2xl px-4 py-3`}>
-                  <p className="text-xs text-white/70 leading-relaxed whitespace-pre-line font-light">{msg.text}</p>
-                  {(msg as any).sources && (
-                    <div className="flex flex-wrap gap-1.5 mt-2 pt-2 border-t border-white/8">
-                      <span className="text-[9px] text-white/25 font-light">Fuentes:</span>
-                      {(msg as any).sources.map((s: string) => (
-                        <span key={s} className="text-[9px] bg-[#00C2FF]/10 text-[#00C2FF]/70 px-1.5 py-0.5 rounded font-medium">{s}</span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="px-4 pb-4">
-            <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5">
-              <MessageSquare className="w-3.5 h-3.5 text-white/20 flex-shrink-0" />
-              <span className="text-xs text-white/20 font-light flex-1">Pregúntale a tu proyecto...</span>
-              <div className="w-6 h-6 rounded-lg bg-[#00C2FF]/20 flex items-center justify-center">
-                <ArrowRight className="w-3 h-3 text-[#00C2FF]/60" />
-              </div>
+    <section id="rag" className="bg-[#060e1c] px-6 py-10">
+      <div className="max-w-7xl mx-auto">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-[#00C2FF]/4 border border-[#00C2FF]/12 rounded-2xl px-7 py-5">
+          <div className="flex items-start gap-4">
+            <Sparkles className="w-5 h-5 text-[#00C2FF] flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-white/65 text-sm font-semibold mb-1">Agente RAG — En desarrollo</p>
+              <p className="text-white/30 text-xs font-light leading-relaxed max-w-xl">
+                Un consultor técnico que conoce todos tus documentos: planos, memorias, oficios, revisiones.
+                Pregunta y te dice la respuesta con la fuente exacta. Acceso anticipado gratis para clientes Pro y Contractor al lanzarse.
+              </p>
             </div>
           </div>
+          <span className="flex-shrink-0 text-[10px] bg-[#00C2FF]/10 text-[#00C2FF] border border-[#00C2FF]/20 px-3 py-1.5 rounded-full font-semibold whitespace-nowrap">
+            Próximamente
+          </span>
         </div>
       </div>
     </section>
@@ -641,8 +600,8 @@ function RAGFeature() {
 // ── Drive Feature ─────────────────────────────────────────────────────────────
 function DriveFeature() {
   return (
-    <section id="drive" className="bg-[#0D1729] py-24 px-6">
-      <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-16 items-center">
+    <section id="drive" className="bg-[#0D1729] py-14 md:py-24 px-4 md:px-6">
+      <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-10 lg:gap-16 items-center">
         {/* Drive Mock */}
         <div className="bg-[#1A2744]/60 border border-white/10 rounded-2xl overflow-hidden shadow-2xl order-2 lg:order-1">
           <div className="flex items-center gap-2 px-4 py-3 border-b border-white/5 bg-white/3">
@@ -692,7 +651,7 @@ function DriveFeature() {
             <span className="text-purple-400 text-xs font-medium">Builtek Drive</span>
           </div>
 
-          <h2 className="text-3xl md:text-5xl text-white leading-tight mb-6">
+          <h2 className="text-2xl md:text-4xl text-white leading-tight mb-5">
             <span className="font-light">Comparte planos</span><br />
             <span className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-[#00C2FF]">
               sin dar acceso a todo.
@@ -700,7 +659,7 @@ function DriveFeature() {
           </h2>
 
           <p className="text-white/40 text-lg leading-relaxed mb-8 font-light">
-            Genera un link público o un código QR para compartir cualquier archivo con subcontratistas, supervisores o clientes — sin que necesiten una cuenta en Builtek.
+            Un espacio compartido donde todo el equipo sube, organiza y accede a los archivos del proyecto. Genera links públicos o QR para compartir con subcontratistas, supervisores o clientes — sin que necesiten cuenta en Builtek.
           </p>
 
           <div className="space-y-4">
@@ -724,45 +683,304 @@ function DriveFeature() {
   )
 }
 
+// ── WhatsApp Feature ──────────────────────────────────────────────────────────
+function WhatsAppFeature() {
+  const messages = [
+    {
+      time: '09:14',
+      msg: '📋 *Builtek* — Nueva tarea asignada\n*Colado losa N+3.50 — Frente 3*\nProyecto: Viaducto Norte · EST\nVence: 12 oct\n→ Ver tarea: builtek.app/t/...',
+    },
+    {
+      time: '11:32',
+      msg: '📄 *Builtek* — Plano actualizado\n*Planos_Estructuras_Rev4.pdf* fue subido\nProyecto: Viaducto Norte\nPor: L. Celestin\n→ Ver archivo: builtek.app/drive/...',
+    },
+    {
+      time: '15:05',
+      msg: '⏰ *Builtek* — Aprobación pendiente\n*ET-003 Especificaciones Hid.* lleva 48h esperando tu firma.\n→ Aprobar ahora: builtek.app/doc/...',
+    },
+  ]
+
+  return (
+    <section id="whatsapp" className="bg-[#0a1220] py-14 md:py-24 px-4 md:px-6">
+      <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-10 lg:gap-16 items-center">
+        {/* Text */}
+        <div>
+          <div className="inline-flex items-center gap-2 bg-emerald-400/10 border border-emerald-400/20 rounded-full px-4 py-1.5 mb-8">
+            <MessageSquare className="w-3.5 h-3.5 text-emerald-400" />
+            <span className="text-emerald-400 text-xs font-medium">Notificaciones WhatsApp</span>
+          </div>
+
+          <h2 className="text-2xl md:text-4xl text-white leading-tight mb-5">
+            <span className="font-light">Tu equipo ya está</span><br />
+            <span className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-[#00C2FF]">
+              en WhatsApp.
+            </span>
+          </h2>
+
+          <div className="bg-white/3 border border-white/8 rounded-xl p-5 mb-6 space-y-2">
+            <p className="text-white/25 text-[10px] font-semibold uppercase tracking-widest mb-3">¿Te suena esto?</p>
+            {[
+              '¿Tu buzón está lleno de correos con "Rev del plano actualizada"?',
+              '¿Tienes que recordarle a tu equipo las tareas que ya ordenaste?',
+              '¿Nunca sabes si ya vieron el documento que subiste?',
+            ].map(q => (
+              <p key={q} className="text-white/40 text-sm italic font-light leading-relaxed">— {q}</p>
+            ))}
+          </div>
+
+          <p className="text-white/40 text-base leading-relaxed mb-8 font-light">
+            Builtek envía las notificaciones por WhatsApp automáticamente — donde ya trabaja tu equipo, en el momento exacto que necesitan saber.
+          </p>
+
+          <div className="space-y-4">
+            {[
+              'Alerta al responsable cuando le asignan una tarea',
+              'Aviso al equipo cuando se sube un plano nuevo o una revisión',
+              'Recordatorio cuando una tarea está próxima a vencer',
+              'Notificación al aprobador cuando un documento espera su firma',
+              'Ningún software de construcción en LATAM tiene esto integrado',
+            ].map(f => (
+              <div key={f} className="flex items-start gap-3">
+                <div className="w-5 h-5 rounded-full bg-emerald-400/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <div className="w-2 h-2 rounded-full bg-emerald-400" />
+                </div>
+                <p className="text-white/50 text-sm font-light">{f}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* WhatsApp Mock */}
+        <div className="bg-[#0b1a0b]/90 border border-emerald-400/15 rounded-2xl overflow-hidden shadow-2xl">
+          <div className="flex items-center gap-3 px-4 py-3 border-b border-white/5 bg-[#111f11]">
+            <div className="w-9 h-9 rounded-full bg-emerald-400/20 flex items-center justify-center flex-shrink-0">
+              <MessageSquare className="w-4 h-4 text-emerald-400" />
+            </div>
+            <div>
+              <p className="text-white/70 text-xs font-semibold">Builtek Notificaciones</p>
+              <p className="text-emerald-400/60 text-[10px]">En línea</p>
+            </div>
+          </div>
+          <div className="p-4 space-y-3 min-h-[280px] bg-[url('data:image/svg+xml;base64,')]">
+            {messages.map((m, i) => (
+              <div key={i} className="flex justify-start">
+                <div className="max-w-[88%] bg-[#1a3a1a] border border-emerald-400/10 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm">
+                  <p className="text-xs text-white/70 leading-relaxed whitespace-pre-line font-light">{m.msg}</p>
+                  <p className="text-[10px] text-white/20 mt-1.5 text-right">{m.time} ✓✓</p>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="px-4 pb-4 pt-2 bg-[#111f11] border-t border-white/5">
+            <div className="flex items-center gap-2 bg-white/5 border border-white/8 rounded-xl px-4 py-2.5">
+              <span className="text-xs text-white/15 font-light flex-1">Escribe un mensaje...</span>
+              <div className="w-6 h-6 rounded-full bg-emerald-400/20 flex items-center justify-center">
+                <ArrowRight className="w-3 h-3 text-emerald-400/60" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Inline CTA */}
+      <div className="max-w-7xl mx-auto mt-10 px-6">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-emerald-400/5 border border-emerald-400/15 rounded-2xl px-7 py-5">
+          <p className="text-white/55 text-sm font-light text-center sm:text-left">
+            ¿Quieres ver cómo llegan las notificaciones a tu equipo en campo?
+          </p>
+          <Link href="/demo" className="flex-shrink-0 flex items-center gap-2 bg-emerald-400 text-[#0a1220] px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-white transition-colors whitespace-nowrap">
+            Solicitar demo <ArrowRight className="w-4 h-4" />
+          </Link>
+        </div>
+        <p className="text-right mt-2 pr-1">
+          <a href="https://www.menvio.app/whatsapp" target="_blank" rel="noopener noreferrer" className="text-white/15 hover:text-white/35 text-[10px] font-light transition-colors">
+            Powered by Menvio
+          </a>
+        </p>
+      </div>
+    </section>
+  )
+}
+
+// ── Partner Section ────────────────────────────────────────────────────────────
+function PartnerSection() {
+  return (
+    <section id="partner" className="bg-[#0D1729] py-14 md:py-24 px-4 md:px-6 relative overflow-hidden">
+      <div className="absolute inset-0 bg-gradient-to-br from-[#00C2FF]/3 via-transparent to-transparent pointer-events-none" />
+      <div className="max-w-7xl mx-auto">
+        <div className="max-w-3xl mx-auto text-center mb-14">
+          <div className="inline-flex items-center gap-2 bg-white/5 border border-white/10 rounded-full px-4 py-1.5 mb-6">
+            <Wrench className="w-3.5 h-3.5 text-white/40" />
+            <span className="text-white/40 text-xs font-medium">Plan Partner</span>
+          </div>
+          <h2 className="text-2xl md:text-4xl text-white leading-tight mb-5">
+            <span className="font-light">Builtek se adapta</span><br />
+            <span className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#00C2FF] to-[#0077FF]">
+              a tu empresa.
+            </span>
+          </h2>
+          <p className="text-white/40 text-lg leading-relaxed font-light">
+            Otros softwares esperan que tú te adaptes a ellos. Con el Plan Partner, analizamos cómo trabaja tu empresa y programamos las funciones que necesitas — directamente en tu workspace, mes a mes con el fundador.
+          </p>
+        </div>
+
+        <div className="grid md:grid-cols-3 gap-5 mb-10">
+          {[
+            {
+              num: '01',
+              title: 'Analizamos tus procesos',
+              desc: '1 sesión mensual con el fundador para entender qué necesita tu empresa que el software estándar no tiene.',
+            },
+            {
+              num: '02',
+              title: 'Programamos a tu medida',
+              desc: '4 horas de desarrollo dedicado al mes: automatización de RFI y submittals, administración de precios unitarios, reportes ejecutivos, integraciones — lo que tu empresa necesite.',
+            },
+            {
+              num: '03',
+              title: 'Es tuyo, siempre',
+              desc: 'Todo lo desarrollado queda en tu cuenta. Si cambias de plan, lo conservas. Tus datos son tuyos y siempre exportables.',
+            },
+          ].map((s, i) => (
+            <AnimateIn key={s.num} delay={i * 100}>
+              <div className="bg-white/3 border border-white/8 rounded-2xl p-7 hover:border-[#00C2FF]/20 hover:scale-[1.02] transition-all duration-200">
+                <p className="text-[#00C2FF]/20 text-5xl font-black mb-5 tracking-tight leading-none">{s.num}</p>
+                <h3 className="text-white font-semibold text-lg mb-2">{s.title}</h3>
+                <p className="text-white/35 text-sm leading-relaxed font-light">{s.desc}</p>
+              </div>
+            </AnimateIn>
+          ))}
+        </div>
+
+        <div className="bg-gradient-to-r from-[#00C2FF]/6 to-transparent border border-[#00C2FF]/15 rounded-2xl px-8 py-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+          <div>
+            <p className="text-white font-semibold text-lg mb-1">Plan Partner — desde $8,000 MXN/mes</p>
+            <p className="text-white/35 text-sm font-light">
+              Sobre el plan base (Pro o Contractor) · Máximo 5 empresas simultáneas por la naturaleza del servicio.
+            </p>
+          </div>
+          <a
+            href="mailto:hola@menvio.app?subject=Plan Partner"
+            className="flex-shrink-0 flex items-center gap-2 border border-[#00C2FF]/30 text-[#00C2FF] px-6 py-3 rounded-xl text-sm font-semibold hover:bg-[#00C2FF]/10 transition-colors whitespace-nowrap"
+          >
+            Solicitar información
+            <ArrowRight className="w-4 h-4" />
+          </a>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+// ── Cost Callout ───────────────────────────────────────────────────────────────
+function CostCallout() {
+  return (
+    <section className="bg-[#060e1c] py-12 md:py-20 px-4 md:px-6 border-y border-white/5">
+      <div className="max-w-7xl mx-auto">
+
+        {/* Pain hook */}
+        <div className="bg-amber-400/4 border border-amber-400/12 rounded-2xl p-7 mb-14">
+          <p className="text-amber-400/60 text-[10px] font-semibold uppercase tracking-widest mb-5">¿Te ha pasado esto?</p>
+          <div className="grid md:grid-cols-3 gap-5 mb-5">
+            {[
+              '¿Recibiste un plano y no sabes si es la versión más actualizada?',
+              '¿No sabes quién lo emitió ni cuándo fue la última edición?',
+              '¿Tienes que llamar para saber qué especificaciones tiene ese documento?',
+            ].map(q => (
+              <p key={q} className="text-white/45 text-sm italic leading-relaxed font-light border-l-2 border-amber-400/25 pl-4">{q}</p>
+            ))}
+          </div>
+          <p className="text-white/30 text-sm font-light">
+            Sin control documental con trazabilidad de versiones, cada error en campo empieza exactamente aquí.{' '}
+            <span className="text-white/50 font-normal not-italic">Builtek es tu solución.</span>
+          </p>
+        </div>
+
+        {/* Trazabilidad */}
+        <div className="text-center mb-12">
+          <p className="text-[#00C2FF] text-xs font-semibold uppercase tracking-widest mb-4">Trazabilidad total</p>
+          <h2 className="text-2xl md:text-4xl text-white font-light leading-tight mb-4">
+            Sabe exactamente qué pasó, quién lo hizo<br className="hidden md:block" /> y cuándo — en cualquier momento.
+          </h2>
+          <p className="text-white/35 text-base font-light max-w-2xl mx-auto">
+            Cada acción en Builtek queda registrada. En caso de disputa, auditoría o entrega de proyecto,
+            tienes el historial completo con un clic.
+          </p>
+        </div>
+
+        <div className="grid md:grid-cols-3 gap-5 mb-14">
+          {[
+            {
+              icon: '📄',
+              title: 'Control de versiones',
+              desc: 'Cada plano o documento guarda todas sus revisiones anteriores. Nunca pierdas una versión ni trabajes con el archivo equivocado.',
+            },
+            {
+              icon: '✅',
+              title: 'Aprobaciones firmadas',
+              desc: 'Flujo Two-Person Rule: quién aprobó, quién rechazó, con fecha y hora exacta. Evidencia sólida en cualquier auditoría.',
+            },
+            {
+              icon: '🔍',
+              title: 'Log de accesos',
+              desc: 'Registro de quién descargó o consultó cada archivo. Sabe si el subcontratista ya tiene la última revisión del plano.',
+            },
+          ].map((c, i) => (
+            <AnimateIn key={c.title} delay={i * 100}>
+              <div className="bg-white/3 border border-white/8 rounded-2xl p-7 hover:border-[#00C2FF]/20 hover:scale-[1.02] transition-all duration-200">
+                <span className="text-3xl mb-4 block">{c.icon}</span>
+                <h3 className="text-white font-semibold text-base mb-2">{c.title}</h3>
+                <p className="text-white/35 text-sm leading-relaxed font-light">{c.desc}</p>
+              </div>
+            </AnimateIn>
+          ))}
+        </div>
+
+
+      </div>
+    </section>
+  )
+}
+
 // ── CTA / Contact ─────────────────────────────────────────────────────────────
 function CTA() {
   return (
-    <section id="contacto" className="bg-[#060e1c] py-24 px-6 relative overflow-hidden">
+    <section id="contacto" className="bg-[#060e1c] py-14 md:py-24 px-4 md:px-6 relative overflow-hidden">
       <div className="absolute inset-0 bg-gradient-to-t from-[#00C2FF]/8 via-transparent to-transparent pointer-events-none" />
       <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[800px] h-[300px] bg-[#00C2FF]/8 rounded-full blur-[100px] pointer-events-none" />
 
       <div className="max-w-3xl mx-auto text-center relative">
         <p className="text-[#00C2FF] text-xs font-semibold uppercase tracking-widest mb-5">¿Listo para digitalizar tu obra?</p>
-        <h2 className="text-4xl md:text-6xl text-white leading-tight mb-6">
-          <span className="font-light">Conoce nuestros</span><br />
-          <span className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#00C2FF] to-[#0077FF]">Builtek en acción</span>
+        <h2 className="text-3xl md:text-5xl text-white leading-tight mb-5">
+          <span className="font-light">Ve Builtek</span><br />
+          <span className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#00C2FF] to-[#0077FF]">funcionando en vivo.</span>
         </h2>
         <p className="text-white/40 text-lg mb-10 leading-relaxed font-light">
-          Desde equipos pequeños hasta grandes proyectos de infraestructura.<br />
-          Agenda una demo y te mostramos Builtek funcionando con tus propios datos.
+          Te mostramos la plataforma completa en 30 minutos.<br />
+          Sin compromiso. Sin tarjeta de crédito.
         </p>
 
         <div className="grid sm:grid-cols-2 gap-4 mb-10">
-          <div className="bg-white/3 border border-white/8 hover:border-[#00C2FF]/30 rounded-2xl p-6 text-left transition-all group cursor-pointer">
+          <Link href="/demo" className="bg-white/3 border border-white/8 hover:border-[#00C2FF]/30 rounded-2xl p-6 text-left transition-all group">
             <div className="w-10 h-10 bg-[#00C2FF]/10 rounded-xl flex items-center justify-center mb-4">
               <Users className="w-5 h-5 text-[#00C2FF]" />
             </div>
-            <h3 className="text-white font-semibold mb-1">Para equipos</h3>
-            <p className="text-white/35 text-sm font-light">Hasta 20 usuarios, proyectos ilimitados, todas las funciones.</p>
+            <h3 className="text-white font-semibold mb-1">Constructora o despacho</h3>
+            <p className="text-white/35 text-sm font-light">Residentes, ingenieros y directores. Un proyecto o varios. Queremos ver cómo trabajas hoy.</p>
             <p className="text-[#00C2FF] text-xs font-medium mt-3 flex items-center gap-1 group-hover:gap-2 transition-all">
-              Ver paquetes <ChevronRight className="w-3.5 h-3.5" />
+              Agendar demo <ChevronRight className="w-3.5 h-3.5" />
             </p>
-          </div>
-          <div className="bg-white/3 border border-white/8 hover:border-[#00C2FF]/30 rounded-2xl p-6 text-left transition-all group cursor-pointer">
+          </Link>
+          <Link href="/demo" className="bg-white/3 border border-white/8 hover:border-[#00C2FF]/30 rounded-2xl p-6 text-left transition-all group">
             <div className="w-10 h-10 bg-emerald-400/10 rounded-xl flex items-center justify-center mb-4">
               <TrendingUp className="w-5 h-5 text-emerald-400" />
             </div>
-            <h3 className="text-white font-semibold mb-1">Para empresas</h3>
-            <p className="text-white/35 text-sm font-light">Multi-proyecto, multi-frente. Con onboarding dedicado y soporte prioritario.</p>
+            <h3 className="text-white font-semibold mb-1">Proyecto de infraestructura</h3>
+            <p className="text-white/35 text-sm font-light">Obra grande, múltiples frentes, equipo distribuido. Hablemos del Plan Partner y personalizamos Builtek para ti.</p>
             <p className="text-emerald-400 text-xs font-medium mt-3 flex items-center gap-1 group-hover:gap-2 transition-all">
-              Solicitar cotización <ChevronRight className="w-3.5 h-3.5" />
+              Hablar con el fundador <ChevronRight className="w-3.5 h-3.5" />
             </p>
-          </div>
+          </Link>
         </div>
 
         <Link href="/demo"
@@ -770,7 +988,7 @@ function CTA() {
           Solicitar demo gratis
           <ArrowRight className="w-5 h-5" />
         </Link>
-        <p className="text-white/25 text-sm mt-4 font-light">Respuesta en menos de 24 horas · hola@builtek.app</p>
+        <p className="text-white/25 text-sm mt-4 font-light">Respuesta en menos de 24 horas · hola@menvio.app</p>
       </div>
     </section>
   )
@@ -792,12 +1010,15 @@ function Footer() {
         <div className="flex items-center gap-6 text-sm text-white/25 font-light">
           <a href="#modulos"  className="hover:text-white/50 transition-colors">Módulos</a>
           <a href="#ia"       className="hover:text-white/50 transition-colors">Agente AI</a>
-          <a href="#precios" className="hover:text-white/50 transition-colors">Precios</a>
-          <Link href="/blog/agente-rag" className="hover:text-white/50 transition-colors">Blog</Link>
+          <a href="#precios"  className="hover:text-white/50 transition-colors">Precios</a>
+          <Link href="/demo"  className="hover:text-white/50 transition-colors">Demo</Link>
           <Link href="/login" className="hover:text-white/50 transition-colors">Iniciar sesión</Link>
         </div>
 
-        <p className="text-white/20 text-sm font-light">© 2026 Builtek · builtek.app</p>
+        <div className="text-right">
+          <p className="text-white/20 text-sm font-light">© 2026 Builtek · builtek.app</p>
+          <p className="text-white/12 text-xs font-light mt-0.5">Powered by Ingenium Analytics · Empresa 100% mexicana · CDMX</p>
+        </div>
       </div>
     </footer>
   )
@@ -809,11 +1030,15 @@ export default function LandingPage() {
     <main className="bg-[#0D1729]">
       <Navbar />
       <Hero />
+      <Ticker />
       <Problem />
       <Modules />
       <AIFeature />
       <RAGFeature />
       <DriveFeature />
+      <WhatsAppFeature />
+      <PartnerSection />
+      <CostCallout />
       <PricingSection />
       <CTA />
       <Footer />

@@ -2,14 +2,14 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { addComment, deleteComment, linkDocument, unlinkDocument, reprogramTask, uploadEntregable, approveEntregable, rejectEntregable, linkOficioToTask, unlinkOficioFromTask, updateTaskName, updateTaskAssignees } from './actions'
+import { addComment, deleteComment, linkDocument, unlinkDocument, reprogramTask, uploadEntregable, approveEntregable, rejectEntregable, linkOficioToTask, unlinkOficioFromTask, updateTaskName, updateTaskAssignees, getOrCreateTempFolder, saveTempAndLink } from './actions'
 import { Task, Project } from '@/types'
 import {
   X, MessageSquare, Send, Trash2, Paperclip,
   FileText, HardDrive, ChevronDown, Calendar,
   AlertCircle, Clock, CheckCircle2, XCircle,
   Eye, Download, Plus, Loader2, User, Timer,
-  Upload, Package, ThumbsUp, ThumbsDown, Mail, Pencil, Check, ImageIcon,
+  Upload, Package, ThumbsUp, ThumbsDown, Mail, Pencil, Check, ImageIcon, FolderOpen,
 } from 'lucide-react'
 
 // ── Tipos ────────────────────────────────────────────────────────────────────
@@ -131,18 +131,54 @@ function Avatar({ name, size = 'md' }: { name: string | null | undefined; size?:
 // ── Link Document Modal ───────────────────────────────────────────────────────
 
 function LinkDocModal({
-  taskId, available, onClose
+  taskId, available, workspaceId, onClose
 }: {
-  taskId:    string
-  available: AvailableDoc[]
-  onClose:   () => void
+  taskId:       string
+  available:    AvailableDoc[]
+  workspaceId?: string
+  onClose:      () => void
 }) {
-  const [search,  setSearch]  = useState('')
-  const [linking, setLinking] = useState<string | null>(null)
+  const supabase  = createClient()
+  const [search,      setSearch]      = useState('')
+  const [linking,     setLinking]     = useState<string | null>(null)
+  const [tab,         setTab]         = useState<'all' | 'temp'>('all')
+  const [tempFiles,   setTempFiles]   = useState<AvailableDoc[]>([])
+  const [loadingTemp, setLoadingTemp] = useState(false)
+  const [tempLoaded,  setTempLoaded]  = useState(false)
 
-  const filtered = available.filter(d =>
+  async function loadTempFiles() {
+    if (!workspaceId || tempLoaded) return
+    setLoadingTemp(true)
+    const { data: folder } = await supabase
+      .from('drive_folders')
+      .select('id')
+      .eq('workspace_id', workspaceId)
+      .eq('name', 'temporal')
+      .is('parent_folder_id', null)
+      .maybeSingle()
+
+    if (folder?.id) {
+      const { data: files } = await supabase
+        .from('drive_files')
+        .select('id, name, file_type')
+        .eq('workspace_id', workspaceId)
+        .eq('folder_id', folder.id)
+        .order('name')
+      setTempFiles((files ?? []).map((f: any) => ({ id: f.id, name: f.name, file_type: f.file_type, source: 'drive' as const })))
+    }
+    setTempLoaded(true)
+    setLoadingTemp(false)
+  }
+
+  function handleTabChange(t: 'all' | 'temp') {
+    setTab(t)
+    if (t === 'temp') loadTempFiles()
+  }
+
+  const allFiltered = available.filter(d =>
     d.name.toLowerCase().includes(search.toLowerCase())
   )
+  const displayList = tab === 'temp' ? tempFiles : allFiltered
 
   async function handleLink(doc: AvailableDoc) {
     setLinking(doc.id)
@@ -164,22 +200,47 @@ function LinkDocModal({
             <X className="w-4 h-4 text-slate-400" />
           </button>
         </div>
+
+        {/* Tabs */}
+        <div className="flex border-b border-slate-100 px-5 pt-3 gap-4">
+          <button
+            onClick={() => handleTabChange('all')}
+            className={`pb-2.5 text-xs font-semibold border-b-2 transition-colors ${tab === 'all' ? 'border-[#00C2FF] text-[#00C2FF]' : 'border-transparent text-slate-400 hover:text-slate-600'}`}>
+            Todos ({available.length})
+          </button>
+          <button
+            onClick={() => handleTabChange('temp')}
+            className={`pb-2.5 text-xs font-semibold border-b-2 transition-colors flex items-center gap-1 ${tab === 'temp' ? 'border-[#00C2FF] text-[#00C2FF]' : 'border-transparent text-slate-400 hover:text-slate-600'}`}>
+            <FolderOpen className="w-3 h-3" />
+            Temporales
+          </button>
+        </div>
+
         <div className="p-4">
-          <input value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="Buscar documento..."
-            className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/40" />
+          {tab === 'all' && (
+            <input value={search} onChange={e => setSearch(e.target.value)}
+              placeholder="Buscar documento..."
+              className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/40" />
+          )}
 
           <div className="space-y-1 max-h-64 overflow-y-auto">
-            {filtered.length === 0 ? (
-              <p className="text-center text-sm text-slate-400 py-6">Sin resultados</p>
-            ) : filtered.map(doc => (
+            {loadingTemp ? (
+              <div className="flex justify-center py-8"><Loader2 className="w-4 h-4 text-slate-300 animate-spin" /></div>
+            ) : displayList.length === 0 ? (
+              <p className="text-center text-sm text-slate-400 py-6">
+                {tab === 'temp' ? 'Sin archivos temporales. Sube uno desde la tarea.' : 'Sin resultados'}
+              </p>
+            ) : displayList.map(doc => (
               <button key={doc.id} onClick={() => handleLink(doc)} disabled={linking === doc.id}
                 className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-50 text-left transition-colors">
                 <span className="text-lg">{FILE_ICONS[doc.file_type] || '📁'}</span>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-slate-700 truncate">{doc.name}</p>
                   <p className="text-xs text-slate-400">
-                    {doc.source === 'drive' ? 'Drive' : 'Documentos'} · {doc.file_type?.toUpperCase()}
+                    {tab === 'temp'
+                      ? <span className="flex items-center gap-1"><FolderOpen className="w-2.5 h-2.5 inline" /> Drive / temporal</span>
+                      : doc.source === 'drive' ? 'Drive' : 'Documentos'
+                    } · {doc.file_type?.toUpperCase()}
                   </p>
                 </div>
                 {linking === doc.id
@@ -249,10 +310,13 @@ export default function TaskSlideOver({
   const [commentImage,      setCommentImage]      = useState<File | null>(null)
   const [commentImagePreview, setCommentImagePreview] = useState<string | null>(null)
   const [uploadingImage,    setUploadingImage]    = useState(false)
+  const [uploadingTemp,     setUploadingTemp]     = useState(false)
+  const [tempError,         setTempError]         = useState<string | null>(null)
   const nameInputRef   = useRef<HTMLInputElement>(null)
   const commentsEndRef = useRef<HTMLDivElement>(null)
   const inputRef       = useRef<HTMLTextAreaElement>(null)
   const imageInputRef  = useRef<HTMLInputElement>(null)
+  const tempUploadRef  = useRef<HTMLInputElement>(null)
 
   const canEdit = !['viewer'].includes(currentUserRole || '')
 
@@ -517,6 +581,54 @@ export default function TaskSlideOver({
     await unlinkDocument(taskDocId)
     setTaskDocs(prev => prev.filter(d => d.id !== taskDocId))
     setUnlinking(null)
+  }
+
+  async function handleTempUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file || !workspaceId) return
+    setUploadingTemp(true)
+    setTempError(null)
+    try {
+      // 1. Obtener o crear carpeta temporal
+      const folderRes = await getOrCreateTempFolder(workspaceId)
+      if (folderRes.error || !folderRes.folderId) throw new Error(folderRes.error || 'No se pudo preparar la carpeta temporal')
+      const folderId = folderRes.folderId
+
+      // 2. Presign para Drive
+      const EXT_MIME: Record<string, string> = {
+        dwg: 'application/dwg', dxf: 'application/dxf',
+        pdf: 'application/pdf', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        zip: 'application/zip',
+      }
+      const ext         = file.name.split('.').pop()?.toLowerCase() ?? ''
+      const contentType = file.type || EXT_MIME[ext] || 'application/octet-stream'
+
+      const presignRes = await fetch('/api/drive/presign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ workspaceId, folderId, fileName: file.name, contentType, fileSize: file.size }),
+      })
+      if (!presignRes.ok) throw new Error('No se pudo preparar la subida')
+      const { uploadUrl, storageKey, fileType } = await presignRes.json()
+
+      // 3. Subir a R2
+      const r2Res = await fetch(uploadUrl, { method: 'PUT', body: file, headers: { 'Content-Type': contentType } })
+      if (!r2Res.ok) throw new Error('Error al subir el archivo')
+
+      // 4. Guardar en drive_files + vincular a tarea
+      const result = await saveTempAndLink({
+        workspaceId, taskId: task.id, storageKey,
+        fileName: file.name, fileType, fileSize: file.size, folderId,
+      })
+      if (result?.error) throw new Error(result.error)
+      await loadData()
+    } catch (err: any) {
+      setTempError(err.message || 'Error al subir temporal')
+    } finally {
+      setUploadingTemp(false)
+    }
   }
 
   async function handleOpenOficioSelector() {
@@ -885,11 +997,23 @@ export default function TaskSlideOver({
                   <span className="bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-full text-[10px]">{taskDocs.length}</span>
                 )}
               </h3>
-              <button onClick={() => setShowLinkModal(true)}
-                className="flex items-center gap-1 text-xs text-[#00C2FF] font-semibold hover:opacity-80">
-                <Plus className="w-3.5 h-3.5" /> Vincular
-              </button>
+              <div className="flex items-center gap-3">
+                {/* Subir temporal */}
+                {workspaceId && (
+                  <label className={`flex items-center gap-1 text-xs font-semibold cursor-pointer transition-opacity ${uploadingTemp ? 'opacity-50 pointer-events-none text-slate-400' : 'text-amber-500 hover:opacity-80'}`}>
+                    {uploadingTemp ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FolderOpen className="w-3.5 h-3.5" />}
+                    {uploadingTemp ? 'Subiendo...' : 'Temporal'}
+                    <input ref={tempUploadRef} type="file" className="hidden" onChange={handleTempUpload}
+                      accept=".pdf,.dwg,.dxf,.docx,.xlsx,.png,.jpg,.jpeg,.zip,.rar,.txt" />
+                  </label>
+                )}
+                <button onClick={() => setShowLinkModal(true)}
+                  className="flex items-center gap-1 text-xs text-[#00C2FF] font-semibold hover:opacity-80">
+                  <Plus className="w-3.5 h-3.5" /> Vincular
+                </button>
+              </div>
             </div>
+            {tempError && <p className="text-xs text-red-500 mb-2">{tempError}</p>}
 
             {loadingData ? (
               <div className="flex justify-center py-3"><Loader2 className="w-4 h-4 text-slate-300 animate-spin" /></div>
@@ -1126,6 +1250,7 @@ export default function TaskSlideOver({
         <LinkDocModal
           taskId={task.id}
           available={availableDocs}
+          workspaceId={workspaceId}
           onClose={() => { setShowLinkModal(false); loadData() }}
         />
       )}

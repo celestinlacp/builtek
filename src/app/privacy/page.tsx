@@ -93,7 +93,7 @@ export default function PrivacyPage() {
             <span><strong>Razón social:</strong> INGENIUM ANALYTICS, S. de R.L. de C.V.</span>
             <span><strong>Domicilio:</strong> Av. Armando Birlaing Shaf 2001, Int. 7-A, Col. Centro Sur, C.P. 76090, Querétaro, Qro.</span>
             <span><strong>Teléfono:</strong> +52 442 281 8834</span>
-            <span><strong>Correo:</strong> hola@builtek.app</span>
+            <span><strong>Correo:</strong> hola@menvio.app</span>
           </div>
         </div>
       </div>
@@ -136,8 +136,8 @@ export default function PrivacyPage() {
             <p>
               Para cualquier asunto relacionado con este Aviso o con el ejercicio de sus derechos,
               puede contactarnos en:{' '}
-              <a href="mailto:hola@builtek.app" className="text-[#00C2FF] underline">
-                hola@builtek.app
+              <a href="mailto:hola@menvio.app" className="text-[#00C2FF] underline">
+                hola@menvio.app
               </a>
             </p>
             <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-xs text-slate-500">
@@ -208,7 +208,7 @@ export default function PrivacyPage() {
             <p>
               Si no desea que sus datos sean utilizados para finalidades secundarias, puede
               comunicarlo en cualquier momento a{' '}
-              <a href="mailto:hola@builtek.app" className="text-[#00C2FF] underline">hola@builtek.app</a>.
+              <a href="mailto:hola@menvio.app" className="text-[#00C2FF] underline">hola@menvio.app</a>.
             </p>
           </Section>
 
@@ -341,7 +341,7 @@ export default function PrivacyPage() {
 
             <p className="font-semibold text-[#1A2744]">¿Cómo ejercer sus derechos?</p>
             <ol className="list-decimal list-inside space-y-1 text-sm text-slate-600">
-              <li>Envíe un correo a <a href="mailto:hola@builtek.app" className="text-[#00C2FF] underline">hola@builtek.app</a> con el asunto <em>"Solicitud ARCO"</em>.</li>
+              <li>Envíe un correo a <a href="mailto:hola@menvio.app" className="text-[#00C2FF] underline">hola@menvio.app</a> con el asunto <em>"Solicitud ARCO"</em>.</li>
               <li>Indique: nombre completo, correo electrónico asociado y descripción del derecho que desea ejercer.</li>
               <li>Adjunte una identificación oficial vigente para acreditar su identidad.</li>
               <li>Recibirá respuesta en un plazo máximo de <strong>20 días hábiles</strong>.</li>
@@ -414,7 +414,7 @@ export default function PrivacyPage() {
                 </li>
                 <li>
                   <span className="text-slate-400 w-32 inline-block">Correo:</span>
-                  <a href="mailto:hola@builtek.app" className="text-[#00C2FF] underline">hola@builtek.app</a>
+                  <a href="mailto:hola@menvio.app" className="text-[#00C2FF] underline">hola@menvio.app</a>
                 </li>
                 <li>
                   <span className="text-slate-400 w-32 inline-block">Teléfono:</span>

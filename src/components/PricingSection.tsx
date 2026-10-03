@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Check, Minus, Eye, HardDrive, ChevronDown, ArrowRight, Zap } from 'lucide-react'
+import { Check, Minus, Eye, HardDrive, ChevronDown, ArrowRight, Zap, Bot, MessageSquare, Sparkles } from 'lucide-react'
 import Link from 'next/link'
 
 // ─── Data ────────────────────────────────────────────────────────────────────
@@ -15,141 +15,160 @@ const plans = [
     billingNote: 'Para siempre',
     seats: '3 usuarios activos',
     storage: '1 GB',
+    aiExtractions: null as string | null,
+    whatsapp: null as string | null,
     desc: 'Para explorar Builtek sin compromiso.',
-    cta: 'Empezar gratis',
-    ctaHref: '/register',
+    cta: 'Solicitar demo',
+    ctaHref: '/demo',
     ctaVariant: 'ghost' as const,
     featured: false,
     features: [
       { text: '1 proyecto activo', ok: true },
       { text: 'TaskBoard básico', ok: true },
-      { text: 'Drive (1 GB)', ok: true },
+      { text: 'Drive (1 GB, carpetas básicas)', ok: true },
+      { text: 'Links públicos y QR', ok: false },
       { text: 'Agente AI', ok: false },
-      { text: 'Control documental completo', ok: false },
+      { text: 'Notificaciones WhatsApp', ok: false },
     ],
   },
   {
     id: 'starter',
     name: 'Starter',
-    monthly: 49,
-    annual: 39,
-    billingNote: 'por empresa / mes',
-    seats: 'Hasta 3 usuarios activos',
-    storage: '50 GB',
+    monthly: 1890,
+    annual: 1490,
+    billingNote: 'por empresa / mes + IVA',
+    seats: '5 usuarios activos',
+    storage: '100 GB',
+    aiExtractions: '10 extracciones AI/mes',
+    whatsapp: null,
     desc: 'Para equipos pequeños que quieren dejar el Excel.',
-    cta: 'Prueba 14 días gratis',
-    ctaHref: '/register',
+    cta: 'Solicitar demo',
+    ctaHref: '/demo',
     ctaVariant: 'outline' as const,
     featured: false,
     features: [
       { text: 'Proyectos ilimitados', ok: true },
       { text: 'TaskBoard por especialidad', ok: true },
-      { text: 'Control documental básico', ok: true },
-      { text: 'Drive + links públicos y QR', ok: true },
+      { text: 'Drive + links públicos y QR (100 GB)', ok: true },
+      { text: '10 extracciones AI/mes', ok: true, highlight: true },
       { text: 'Roles completos (5 niveles)', ok: true },
-      { text: 'Agente AI', ok: false },
+      { text: 'Notificaciones WhatsApp', ok: false },
+      { text: 'Versiones y flujo de aprobación', ok: false },
+    ],
+  },
+  {
+    id: 'obra',
+    name: 'Obra',
+    monthly: 3790,
+    annual: 2990,
+    billingNote: 'por empresa / mes + IVA',
+    seats: '8 usuarios activos',
+    storage: '500 GB',
+    aiExtractions: '25 extracciones AI/mes',
+    whatsapp: '100 mensajes WhatsApp/mes',
+    badge: 'Más popular',
+    desc: 'Para equipos activos en campo que necesitan IA y comunicación automática.',
+    cta: 'Solicitar demo',
+    ctaHref: '/demo',
+    ctaVariant: 'primary' as const,
+    featured: true,
+    features: [
+      { text: 'Proyectos ilimitados', ok: true },
+      { text: 'Todo Starter +', ok: true },
+      { text: '100 mensajes WhatsApp/mes', ok: true, highlight: true },
+      { text: '25 extracciones AI/mes', ok: true, highlight: true },
+      { text: 'Versiones de documentos', ok: true },
+      { text: 'Flujo de aprobación (Two-Person Rule)', ok: true },
+      { text: 'Calendario de obra', ok: true },
     ],
   },
   {
     id: 'pro',
     name: 'Pro',
-    monthly: 449,
-    annual: 359,
-    billingNote: 'por empresa / mes',
-    seats: 'Hasta 8 usuarios activos',
+    monthly: 8490,
+    annual: 6790,
+    billingNote: 'por empresa / mes + IVA',
+    seats: '15 usuarios activos',
     storage: '3 TB',
-    badge: 'Más popular',
-    desc: 'Para equipos activos en obra con AI, control documental completo y análisis avanzado.',
-    cta: 'Prueba 14 días gratis',
-    ctaHref: '/register',
-    ctaVariant: 'primary' as const,
-    featured: true,
+    aiExtractions: '100 extracciones AI/mes',
+    whatsapp: '500 mensajes WhatsApp/mes',
+    desc: 'Para constructoras con control documental completo y análisis avanzado.',
+    cta: 'Solicitar demo',
+    ctaHref: '/demo',
+    ctaVariant: 'outline' as const,
+    featured: false,
     features: [
       { text: 'Proyectos ilimitados', ok: true },
-      { text: 'Todo lo de Starter', ok: true },
-      { text: 'Agente AI: cuantificación de planos PDF', ok: true, highlight: true },
-      { text: 'Agente RAG: pregúntale a tu proyecto (próx.)', ok: true, highlight: true },
+      { text: 'Todo Obra +', ok: true },
+      { text: '500 mensajes WhatsApp/mes', ok: true, highlight: true },
+      { text: '100 extracciones AI/mes', ok: true, highlight: true },
+      { text: 'Módulo Oficios (correspondencia técnica)', ok: true },
       { text: 'Panel BI: base de datos documental', ok: true },
-      { text: 'Versiones de documentos', ok: true },
-      { text: 'Flujo de aprobaciones', ok: true },
       { text: 'Visor PDF en browser', ok: true },
-      { text: 'Comentarios en tareas', ok: true },
+      { text: 'Agente RAG: acceso anticipado gratis al lanzarse', ok: true, highlight: true },
     ],
   },
   {
     id: 'contractor',
     name: 'Contractor',
-    monthly: 699,
-    annual: 559,
-    billingNote: 'por empresa / mes',
-    seats: 'Hasta 20 usuarios activos',
-    storage: '4 TB',
-    desc: 'Para constructoras con múltiples frentes, equipos grandes y flujos especializados.',
-    cta: 'Hablar con ventas',
-    ctaHref: 'mailto:hola@builtek.app',
+    monthly: 12990,
+    annual: 10390,
+    billingNote: 'por empresa / mes + IVA',
+    seats: '30 usuarios activos',
+    storage: '5 TB',
+    aiExtractions: '300 extracciones AI/mes',
+    whatsapp: '1,000 mensajes WhatsApp/mes',
+    desc: 'Para constructoras con múltiples frentes y equipos grandes.',
+    cta: 'Solicitar demo',
+    ctaHref: '/demo',
     ctaVariant: 'outline' as const,
     featured: false,
     features: [
       { text: 'Proyectos ilimitados', ok: true },
-      { text: 'Todo lo de Pro', ok: true },
-      { text: 'Módulo Oficios (correspondencia técnica)', ok: true },
+      { text: 'Todo Pro +', ok: true },
+      { text: '1,000 mensajes WhatsApp/mes', ok: true, highlight: true },
+      { text: '300 extracciones AI/mes', ok: true, highlight: true },
       { text: 'Subproyectos y frentes de obra', ok: true },
-      { text: 'Migración asistida desde Dropbox', ok: true },
-      { text: 'AI sin límite de extracciones', ok: true },
-      { text: 'Agente RAG multiproyecto (próx.)', ok: true },
-      { text: 'Soporte prioritario', ok: true },
-      { text: 'Visor DWG en browser', ok: true },
-    ],
-  },
-  {
-    id: 'enterprise',
-    name: 'Enterprise',
-    monthly: null,
-    annual: null,
-    billingNote: '21+ usuarios · precio a medida',
-    seats: 'Usuarios ilimitados',
-    storage: 'Ilimitado',
-    desc: 'Para constructoras con grandes volúmenes de obra y requerimientos específicos.',
-    cta: 'Hablar con ventas',
-    ctaHref: 'mailto:hola@builtek.app',
-    ctaVariant: 'dark' as const,
-    featured: false,
-    features: [
-      { text: 'Todo lo de Contractor', ok: true },
-      { text: 'Onboarding dedicado', ok: true },
-      { text: 'SLA garantizado', ok: true },
-      { text: 'API pública', ok: true },
-      { text: 'CFDI (factura electrónica MX)', ok: true },
-      { text: 'Roles personalizados', ok: true },
+      { text: 'API básica', ok: true },
+      { text: 'RAG multiproyecto: acceso anticipado gratis', ok: true, highlight: true },
+      { text: 'Soporte dedicado (respuesta 4h)', ok: true },
     ],
   },
 ]
 
 const addonTiers = [
-  { gb: '+100 GB', price: 5 },
-  { gb: '+250 GB', price: 12.50 },
-  { gb: '+500 GB', price: 25 },
-  { gb: '+1 TB',   price: 51 },
-  { gb: '+2 TB',   price: 102 },
-  { gb: '+3 TB',   price: 154 },
+  { gb: '+100 GB',  price: 149 },
+  { gb: '+250 GB',  price: 349 },
+  { gb: '+500 GB',  price: 649 },
+  { gb: '+1 TB',    price: 1290 },
+  { gb: '+2 TB',    price: 2490 },
+  { gb: '+3 TB',    price: 3690 },
 ]
 
 const faqs = [
   {
     q: '¿Qué es un usuario activo?',
-    a: 'Es cualquier persona que crea, edita, aprueba o gestiona contenido en Builtek — un ingeniero actualizando tareas, un residente subiendo planos, un director aprobando documentos. Quien trabaja activamente en la plataforma.',
+    a: 'Es cualquier persona que crea, edita, aprueba o gestiona contenido en Builtek: un ingeniero actualizando tareas, un residente subiendo planos, un director aprobando documentos. Los Viewers (solo lectura) no cuentan como activos y son ilimitados en todos los planes.',
   },
   {
-    q: '¿Los Viewers son realmente gratis?',
-    a: 'Sí, ilimitados en todos los planes. Un Viewer puede ver tareas, consultar el dashboard y descargar documentos, pero no puede crear ni editar. Perfecto para subcontratistas, clientes, auditores o directivos que solo necesitan consultar el avance.',
+    q: '¿Cómo funciona la prueba de 14 días?',
+    a: 'Todo nuevo registro entra automáticamente al plan Obra completo durante 14 días, sin tarjeta de crédito. Al terminar, si no contratas un plan pagado, tu cuenta baja a Free conservando todos tus datos. Podrás subir de plan en cualquier momento.',
+  },
+  {
+    q: '¿Los precios incluyen IVA?',
+    a: 'No. Los precios mostrados son más IVA (16%). Todos los planes pagados incluyen factura CFDI 4.0. Si tu empresa puede deducir el IVA, el costo efectivo es el precio antes de impuestos.',
   },
   {
     q: '¿Puedo cambiar de plan en cualquier momento?',
-    a: 'Sí. Puedes subir o bajar de plan desde tu panel de configuración sin penalización. Los cambios aplican al siguiente ciclo. Si subes de plan a mitad del mes, cobramos solo la diferencia proporcional.',
+    a: 'Sí, sin penalización. Los cambios aplican al siguiente ciclo. Si subes de plan a mitad del mes, cobramos solo la diferencia proporcional. Si bajas, el cambio aplica al inicio del siguiente período.',
   },
   {
     q: '¿Qué pasa si necesito más almacenamiento?',
-    a: 'Puedes agregar bloques de almacenamiento adicional desde $5/mes directamente desde tu configuración. Solo pagas lo que agregas, sobre el storage ya incluido en tu plan. Sin contratos ni compromisos.',
+    a: 'Puedes agregar bloques adicionales desde $149 MXN/mes sin cambiar de plan. El almacenamiento se suma al incluido. Puedes agregar o quitar bloques cuando quieras desde tu configuración.',
+  },
+  {
+    q: '¿Qué es el Plan Partner?',
+    a: 'Es un servicio de desarrollo y consultoría a la medida: analizamos cómo trabaja tu empresa y programamos las funciones que necesitas en tu workspace, mes a mes con el fundador. Todo lo desarrollado se queda en tu cuenta aunque cambies de plan. Incluye 1 sesión mensual y 4 horas de desarrollo. Requiere un plan base (Pro o Contractor). Escríbenos a hola@menvio.app para cotizar.',
   },
 ]
 
@@ -189,51 +208,74 @@ function PlanCard({ plan, annual }: { plan: typeof plans[0]; annual: boolean }) 
       </p>
 
       {/* Price */}
-      {price !== null ? (
+      {price !== null && price > 0 ? (
         <div className="mb-1">
           <div className="flex items-baseline gap-1">
-            {price > 0 && <span className="text-white/40 text-lg font-light">$</span>}
+            <span className="text-white/40 text-lg font-light">$</span>
             <span className="text-4xl font-bold text-white tracking-tight">
-              {price === 0 ? '$0' : price}
+              {price.toLocaleString('es-MX')}
             </span>
-            {price > 0 && <span className="text-white/30 text-sm ml-1">/mes</span>}
+            <span className="text-white/30 text-sm ml-1">MXN/mes</span>
           </div>
           {savings && annual ? (
-            <p className="text-emerald-400 text-xs font-medium mt-1">Ahorras ${savings}/año</p>
+            <p className="text-emerald-400 text-xs font-medium mt-1">
+              Ahorras ${savings.toLocaleString('es-MX')}/año
+            </p>
           ) : (
             <p className="text-white/25 text-xs mt-1">{plan.billingNote}</p>
           )}
         </div>
-      ) : (
+      ) : price === 0 ? (
         <div className="mb-1">
-          <p className="text-2xl font-bold text-white mb-1">Cotización</p>
-          <p className="text-white/25 text-xs">{plan.billingNote}</p>
+          <span className="text-4xl font-bold text-white tracking-tight">$0</span>
+          <p className="text-white/25 text-xs mt-1">{plan.billingNote}</p>
         </div>
-      )}
+      ) : null}
 
-      {/* Usuarios + Viewers + Storage */}
+      {/* Metadata */}
       <div className="flex flex-col gap-1.5 mt-4 mb-5 pb-5 border-b border-white/8">
+        {/* Usuarios */}
         <div className="flex items-center gap-2">
           <span className="w-5 h-5 rounded-md bg-[#00C2FF]/10 flex items-center justify-center flex-shrink-0">
             <span className="text-[#00C2FF] text-[10px] font-bold">U</span>
           </span>
           <span className="text-white/55 text-xs">{plan.seats}</span>
         </div>
+        {/* Viewers */}
         <div className="flex items-center gap-2">
           <span className="w-5 h-5 rounded-md bg-emerald-400/10 flex items-center justify-center flex-shrink-0">
             <Eye className="w-2.5 h-2.5 text-emerald-400" />
           </span>
           <span className="text-emerald-400 text-xs font-medium">Viewers ilimitados gratis</span>
         </div>
+        {/* Storage */}
         <div className="flex items-center gap-2">
           <span className="w-5 h-5 rounded-md bg-white/5 flex items-center justify-center flex-shrink-0">
             <HardDrive className="w-2.5 h-2.5 text-white/30" />
           </span>
           <span className="text-white/35 text-xs">{plan.storage} incluido</span>
         </div>
+        {/* AI extractions */}
+        {plan.aiExtractions && (
+          <div className="flex items-center gap-2">
+            <span className="w-5 h-5 rounded-md bg-[#00C2FF]/10 flex items-center justify-center flex-shrink-0">
+              <Bot className="w-2.5 h-2.5 text-[#00C2FF]" />
+            </span>
+            <span className="text-[#00C2FF]/70 text-xs">{plan.aiExtractions}</span>
+          </div>
+        )}
+        {/* WhatsApp */}
+        {plan.whatsapp && (
+          <div className="flex items-center gap-2">
+            <span className="w-5 h-5 rounded-md bg-emerald-400/10 flex items-center justify-center flex-shrink-0">
+              <MessageSquare className="w-2.5 h-2.5 text-emerald-400" />
+            </span>
+            <span className="text-emerald-400/70 text-xs">{plan.whatsapp}</span>
+          </div>
+        )}
       </div>
 
-      {/* Features — flex-1 pushes CTA to bottom */}
+      {/* Features */}
       <ul className="flex-1 space-y-2.5 mb-6">
         {plan.features.map((f, i) => (
           <li key={i} className="flex items-start gap-2.5">
@@ -244,9 +286,7 @@ function PlanCard({ plan, annual }: { plan: typeof plans[0]; annual: boolean }) 
             )}
             <span className={`text-xs leading-relaxed ${
               f.ok
-                ? (f as any).highlight
-                  ? 'text-[#00C2FF] font-medium'
-                  : 'text-white/60'
+                ? (f as any).highlight ? 'text-[#00C2FF] font-medium' : 'text-white/60'
                 : 'text-white/20'
             }`}>{f.text}</span>
           </li>
@@ -254,17 +294,10 @@ function PlanCard({ plan, annual }: { plan: typeof plans[0]; annual: boolean }) 
       </ul>
 
       {/* CTA */}
-      {plan.ctaHref.startsWith('/') ? (
-        <Link href={plan.ctaHref}
-          className={`block w-full text-center py-2.5 rounded-xl text-sm font-semibold transition-all ${ctaClass}`}>
-          {plan.cta}
-        </Link>
-      ) : (
-        <a href={plan.ctaHref}
-          className={`block w-full text-center py-2.5 rounded-xl text-sm font-semibold transition-all ${ctaClass}`}>
-          {plan.cta}
-        </a>
-      )}
+      <Link href={plan.ctaHref}
+        className={`block w-full text-center py-2.5 rounded-xl text-sm font-semibold transition-all ${ctaClass}`}>
+        {plan.cta}
+      </Link>
     </div>
   )
 }
@@ -295,19 +328,18 @@ export default function PricingSection() {
   const [annual, setAnnual] = useState(false)
 
   return (
-    <section id="precios" className="bg-[#060e1c] py-24 px-6 relative overflow-hidden">
-      {/* Subtle glow */}
+    <section id="precios" className="bg-[#060e1c] py-14 md:py-24 px-4 md:px-6 relative overflow-hidden">
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[400px] bg-[#00C2FF]/4 rounded-full blur-[120px] pointer-events-none" />
 
       <div className="max-w-7xl mx-auto relative">
 
         {/* Header */}
-        <div className="text-center mb-12">
+        <div className="text-center mb-10">
           <div className="inline-flex items-center gap-2 bg-[#00C2FF]/10 border border-[#00C2FF]/20 rounded-full px-4 py-1.5 mb-6">
             <Zap className="w-3.5 h-3.5 text-[#00C2FF]" />
-            <span className="text-[#00C2FF] text-xs font-medium tracking-wide">Precios transparentes</span>
+            <span className="text-[#00C2FF] text-xs font-medium tracking-wide">Precios en pesos mexicanos</span>
           </div>
-          <h2 className="text-3xl md:text-5xl text-white leading-tight mb-4">
+          <h2 className="text-2xl md:text-4xl text-white leading-tight mb-4">
             <span className="font-light">Digitaliza toda tu obra.</span><br />
             <span className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#00C2FF] to-[#0077FF]">
               Una cuota fija mensual.
@@ -318,7 +350,18 @@ export default function PricingSection() {
           </p>
         </div>
 
-        {/* Toggle */}
+        {/* Prueba invertida banner */}
+        <div className="bg-[#00C2FF]/5 border border-[#00C2FF]/20 rounded-2xl px-6 py-4 flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-8">
+          <Sparkles className="w-5 h-5 text-[#00C2FF] flex-shrink-0" />
+          <div>
+            <span className="text-[#00C2FF] font-semibold text-sm">14 días con el plan Obra completo — gratis. </span>
+            <span className="text-white/40 text-sm font-light">
+              Todo registro nuevo entra al plan Obra (IA + WhatsApp incluidos). Sin tarjeta de crédito. Al terminar, eliges tu plan o bajas a Free conservando tus datos.
+            </span>
+          </div>
+        </div>
+
+        {/* Annual toggle */}
         <div className="flex items-center justify-center gap-4 mb-10">
           <span className={`text-sm font-medium transition-colors ${!annual ? 'text-white' : 'text-white/30'}`}>
             Mensual
@@ -340,10 +383,43 @@ export default function PricingSection() {
         </div>
 
         {/* Plans grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 items-stretch mb-10">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 items-stretch mb-6">
           {plans.map(plan => (
             <PlanCard key={plan.id} plan={plan} annual={annual} />
           ))}
+        </div>
+
+        {/* Partner + Enterprise callouts */}
+        <div className="grid md:grid-cols-2 gap-4 mb-10">
+          {/* Partner */}
+          <div className="bg-gradient-to-r from-[#00C2FF]/5 to-transparent border border-[#00C2FF]/15 rounded-2xl p-6 flex flex-col justify-between gap-4">
+            <div>
+              <p className="text-xs font-bold tracking-widest uppercase text-[#00C2FF]/60 mb-2">Partner</p>
+              <p className="text-white font-semibold text-xl mb-2">Desde $8,000 MXN/mes</p>
+              <p className="text-white/35 text-sm font-light leading-relaxed">
+                Sobre plan base Pro o Contractor. Incluye 1 sesión mensual con el fundador + 4 hrs de desarrollo a la medida. Todo lo desarrollado es tuyo, siempre.
+              </p>
+            </div>
+            <a href="mailto:hola@menvio.app?subject=Plan Partner"
+              className="inline-flex items-center gap-2 text-[#00C2FF] text-sm font-semibold hover:gap-3 transition-all">
+              Solicitar información <ArrowRight className="w-4 h-4" />
+            </a>
+          </div>
+
+          {/* Enterprise */}
+          <div className="bg-white/3 border border-white/8 rounded-2xl p-6 flex flex-col justify-between gap-4">
+            <div>
+              <p className="text-xs font-bold tracking-widest uppercase text-white/30 mb-2">Enterprise</p>
+              <p className="text-white font-semibold text-xl mb-2">Cotización</p>
+              <p className="text-white/35 text-sm font-light leading-relaxed">
+                31+ usuarios · Almacenamiento ilimitado · SLA garantizado · API completa · CFDI (facturación electrónica MX) · Onboarding dedicado · Roles personalizados.
+              </p>
+            </div>
+            <a href="mailto:hola@menvio.app?subject=Enterprise"
+              className="inline-flex items-center gap-2 text-white/40 text-sm font-semibold hover:text-white hover:gap-3 transition-all">
+              Hablar con ventas <ArrowRight className="w-4 h-4" />
+            </a>
+          </div>
         </div>
 
         {/* Viewer callout */}
@@ -352,7 +428,7 @@ export default function PricingSection() {
           <div>
             <span className="text-emerald-400 font-semibold text-sm">Viewers ilimitados, siempre gratis. </span>
             <span className="text-white/40 text-sm font-light">
-              Subcontratistas, clientes, auditores — todos pueden ver el avance, descargar planos y revisar tareas sin contar como usuario activo. Inspirado en el modelo de Procore y Figma.
+              Subcontratistas, clientes, auditores — todos pueden ver el avance, descargar planos y revisar tareas sin contar como usuario activo.
             </span>
           </div>
         </div>
@@ -363,7 +439,7 @@ export default function PricingSection() {
             <div>
               <h3 className="text-white font-semibold text-lg mb-1">¿Necesitas más almacenamiento?</h3>
               <p className="text-white/35 text-sm font-light">
-                Agrega storage adicional a cualquier plan. Solo pagas lo que agregas, sobre el incluido.
+                Agrega bloques adicionales a cualquier plan. Solo pagas lo que agregas.
               </p>
             </div>
             <div className="flex items-center gap-2 bg-white/5 rounded-xl px-4 py-2 flex-shrink-0">
@@ -376,7 +452,10 @@ export default function PricingSection() {
               <div key={t.gb}
                 className="bg-white/3 border border-white/8 hover:border-[#00C2FF]/30 hover:bg-[#00C2FF]/5 rounded-xl p-3 text-center cursor-pointer transition-all group">
                 <p className="text-white/70 text-xs font-semibold group-hover:text-[#00C2FF] transition-colors">{t.gb}</p>
-                <p className="text-[#00C2FF] text-sm font-bold mt-1">${t.price}<span className="text-white/30 text-[10px] font-normal">/mes</span></p>
+                <p className="text-[#00C2FF] text-sm font-bold mt-1">
+                  ${t.price.toLocaleString('es-MX')}
+                  <span className="text-white/30 text-[10px] font-normal"> MXN/mes</span>
+                </p>
               </div>
             ))}
           </div>
@@ -390,17 +469,17 @@ export default function PricingSection() {
           </div>
         </div>
 
-        {/* Trust bar + final CTA */}
+        {/* Final CTA */}
         <div className="text-center">
-          <a href="mailto:hola@builtek.app"
+          <Link href="/register"
             className="inline-flex items-center gap-3 bg-[#00C2FF] text-[#0D1729] px-8 py-4 rounded-xl font-bold text-base hover:bg-white transition-colors shadow-2xl shadow-[#00C2FF]/20 mb-6">
-            Solicitar demo gratis
+            Comenzar 14 días gratis
             <ArrowRight className="w-5 h-5" />
-          </a>
+          </Link>
           <div className="flex flex-wrap items-center justify-center gap-6 text-xs text-white/25 font-light">
             <span>✓ Sin tarjeta de crédito</span>
-            <span>✓ Sin contrato de permanencia</span>
-            <span>✓ 14 días gratis en planes pagados</span>
+            <span>✓ 14 días plan Obra completo</span>
+            <span>✓ Factura CFDI en todos los planes pagados</span>
             <span>✓ Cancela cuando quieras</span>
           </div>
         </div>

@@ -52,7 +52,7 @@ export async function createWorkspace(formData: FormData) {
 
   // Alerta silenciosa a Celestin
   await resend.emails.send({
-    from: 'Builtek <hola@builtek.app>',
+    from: 'Builtek <hola@menvio.app>',
     to: ['celestinlacp@gmail.com'],
     subject: `[Builtek] ⚠️ Nuevo workspace creado: ${name}`,
     html: `
