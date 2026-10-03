@@ -1,6 +1,6 @@
 import { createClient as createAdmin } from '@supabase/supabase-js'
 import { notFound } from 'next/navigation'
-import { Calendar, FileText, Download, Eye, GitBranch, Clock } from 'lucide-react'
+import { Calendar, FileText, Download, Eye, GitBranch, Clock, ArrowUpDown } from 'lucide-react'
 import type { Metadata } from 'next'
 
 export const dynamic = 'force-dynamic'
@@ -157,9 +157,9 @@ export default async function DocSharePage(
     }
   }
 
-  const vigente = versions.find(v => v.is_current) ?? versions[0]
+  const vigente  = versions.find(v => v.is_current) ?? versions[0]
   const historial = versions.filter(v => v.id !== vigente?.id)
-  const docName = docMeta.display_name || docMeta.name
+  const docName  = docMeta.display_name || docMeta.name
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -206,6 +206,11 @@ export default async function DocSharePage(
             <h1 className="text-xl font-black text-white leading-snug">{docName}</h1>
             {docMeta.project && (
               <p className="text-sm text-white/60 mt-1">{docMeta.project.name}</p>
+            )}
+            {docMeta.author && (
+              <p className="text-xs text-white/40 mt-0.5">
+                Autor: <span className="text-white/60 font-medium">{docMeta.author}</span>
+              </p>
             )}
           </div>
 
@@ -260,44 +265,58 @@ export default async function DocSharePage(
   )
 }
 
-// ── VersionCard component ──────────────────────────────────────────────────────
+// ── VersionCard ────────────────────────────────────────────────────────────────
 
 function VersionCard({ version, token, highlight = false }: {
   version: Version
   token: string
   highlight?: boolean
 }) {
-  const vLabel = version.version_number !== null
+  const vLabel  = version.version_number !== null
     ? `v${String(version.version_number).padStart(4, '0')}`
     : 'v0001'
   const viewUrl = `/api/documents/share/${token}/file/${version.id}`
   const dlUrl   = `/api/documents/share/${token}/file/${version.id}?dl=1`
   const isPdf   = version.file_type === 'pdf'
 
+  const dateStr = fmtDate(version.emission_date ?? version.created_at)
+  const sizeStr = fmtSize(version.file_size) ?? '—'
+
   return (
-    <div className={`rounded-xl border p-4 ${highlight ? 'bg-[#00C2FF]/5 border-[#00C2FF]/20' : 'bg-slate-50 border-slate-100'}`}>
-      <div className="flex items-center justify-between gap-3 flex-wrap mb-2">
-        <span className={`text-xs font-bold font-mono ${highlight ? 'text-[#00C2FF]' : 'text-slate-400'}`}>{vLabel}</span>
-        <div className="flex items-center gap-1.5 text-[10px] text-slate-400">
-          {version.uploader_name && <span>{version.uploader_name}</span>}
-          {version.emission_date && (
-            <>
-              {version.uploader_name && <span>·</span>}
-              <span>{fmtDate(version.emission_date)}</span>
-            </>
-          )}
-          {version.file_size && (
-            <>
-              <span>·</span>
-              <span>{fmtSize(version.file_size)}</span>
-            </>
-          )}
+    <div className={`rounded-xl border overflow-hidden ${highlight ? 'bg-[#00C2FF]/5 border-[#00C2FF]/20' : 'bg-slate-50 border-slate-100'}`}>
+
+      {/* Version label + uploader */}
+      <div className="flex items-center justify-between px-4 pt-3 pb-2">
+        <span className={`text-xs font-bold font-mono ${highlight ? 'text-[#00C2FF]' : 'text-slate-400'}`}>
+          {vLabel}
+        </span>
+        {version.uploader_name && (
+          <span className="text-[10px] text-slate-400">
+            Subido por <span className="font-medium text-slate-600">{version.uploader_name}</span>
+          </span>
+        )}
+      </div>
+
+      {/* Mini table: Archivo / Fecha / Tamaño */}
+      <div className={`mx-4 mb-3 rounded-lg border overflow-hidden ${highlight ? 'border-[#00C2FF]/20' : 'border-slate-200'}`}>
+        <div className="grid grid-cols-[1fr_70px] sm:grid-cols-[1fr_160px_80px] px-3 py-1.5 bg-white/60 border-b border-inherit text-[9px] font-semibold text-slate-400 uppercase tracking-wider">
+          <div className="flex items-center gap-1">
+            Archivo <ArrowUpDown className="w-2 h-2" />
+          </div>
+          <div className="hidden sm:block">Fecha</div>
+          <div>Tamaño</div>
+        </div>
+        <div className="grid grid-cols-[1fr_70px] sm:grid-cols-[1fr_160px_80px] items-center px-3 py-2.5">
+          <div className="text-[11px] text-slate-700 font-medium truncate pr-3">
+            {version.file_name ?? '—'}
+          </div>
+          <div className="hidden sm:block text-[11px] text-slate-500">{dateStr ?? '—'}</div>
+          <div className="text-[11px] text-slate-500">{sizeStr}</div>
         </div>
       </div>
-      {version.file_name && (
-        <p className="text-[11px] text-slate-500 mb-3 truncate">{version.file_name}</p>
-      )}
-      <div className="flex items-center gap-2">
+
+      {/* Action buttons */}
+      <div className="flex items-center gap-2 px-4 pb-3">
         {isPdf && (
           <a href={viewUrl} target="_blank" rel="noopener noreferrer"
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-600 hover:text-[#1A2744] hover:border-slate-300 transition-colors">

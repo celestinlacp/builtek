@@ -1,6 +1,6 @@
 import { createClient as createAdmin } from '@supabase/supabase-js'
 import { notFound } from 'next/navigation'
-import { Download, Eye, ArrowUpDown, Share2 } from 'lucide-react'
+import { Download, Eye, Clock, FileText, ArrowUpDown } from 'lucide-react'
 import { FileTypeIcon } from '@/components/ui/FileTypeIcon'
 import type { Metadata } from 'next'
 
@@ -11,16 +11,16 @@ export const dynamic = 'force-dynamic'
 function formatSize(bytes: number): string {
   if (!bytes) return '—'
   if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(2)} KB`
-  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(2)} MB`
-  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`
 }
 
 function relativeDate(d: string): string {
-  const diff = Date.now() - new Date(d).getTime()
-  const mins  = Math.floor(diff / 60000)
-  const hours = Math.floor(diff / 3600000)
-  const days  = Math.floor(diff / 86400000)
+  const diff   = Date.now() - new Date(d).getTime()
+  const mins   = Math.floor(diff / 60000)
+  const hours  = Math.floor(diff / 3600000)
+  const days   = Math.floor(diff / 86400000)
   const months = Math.floor(days / 30)
   const years  = Math.floor(days / 365)
   if (mins < 1)    return 'justo ahora'
@@ -53,7 +53,7 @@ export async function generateMetadata(
     title,
     description,
     openGraph: { title, description, siteName: 'Builtek', images: [{ url: '/api/og', width: 256, height: 256 }] },
-    twitter:   { card: 'summary', title, description, images: ['/api/og'] },
+    twitter: { card: 'summary', title, description, images: ['/api/og'] },
   }
 }
 
@@ -81,142 +81,153 @@ export default async function DriveSharePage(
     name: string; file_name: string; file_type: string; file_size: number; created_at: string
   }
 
-  // Workspace name
   const { data: ws } = await admin
     .from('workspaces')
     .select('name')
     .eq('id', share.workspace_id)
     .single()
 
-  const expired = share.expires_at && new Date(share.expires_at) < new Date()
-  const fileUrl  = `/api/drive/share/${token}`
-  const isPdf    = file?.file_type?.toLowerCase() === 'pdf'
-  const title    = (share.label || file?.name || file?.file_name || 'Archivo').toUpperCase()
+  const expired = share.expires_at ? new Date(share.expires_at) < new Date() : false
+  const expiresFormatted = share.expires_at
+    ? new Date(share.expires_at).toLocaleString('es-MX', {
+        day: 'numeric', month: 'long', year: 'numeric',
+        hour: '2-digit', minute: '2-digit',
+      })
+    : null
+
+  const fileUrl = `/api/drive/share/${token}`
+  const isPdf   = file?.file_type?.toLowerCase() === 'pdf'
+  const title   = (share.label || file?.name || file?.file_name || 'Archivo').toUpperCase()
+
+  // ── Link expirado ─────────────────────────────────────────────────────────────
+  if (expired) {
+    return (
+      <main className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-10 text-center max-w-sm w-full">
+          <div className="w-14 h-14 bg-amber-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <Clock className="w-7 h-7 text-amber-500" />
+          </div>
+          <h1 className="text-lg font-bold text-[#1A2744] mb-2">Este link expiró</h1>
+          <p className="text-sm text-slate-400">
+            El link venció el <strong className="text-slate-600">{expiresFormatted}</strong>.
+          </p>
+          <p className="text-xs text-slate-400 mt-3">Solicita un nuevo link al responsable del proyecto.</p>
+          <p className="text-[11px] text-slate-300 mt-6 font-medium">Builtek · Gestión de proyectos AEC</p>
+        </div>
+      </main>
+    )
+  }
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-slate-50">
 
-      {/* Topbar — minimal */}
-      <header className="border-b border-slate-100 bg-white">
-        <div className="max-w-4xl mx-auto px-6 h-12 flex items-center justify-between">
-          <span className="text-sm font-bold text-slate-800 tracking-tight">Builtek</span>
-          <span className="text-xs text-slate-400">Vista compartida</span>
+      {/* Navbar */}
+      <header className="bg-[#1A2744] text-white sticky top-0 z-30 shadow-lg">
+        <div className="max-w-3xl mx-auto px-4 h-14 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-[#00C2FF] rounded-lg flex items-center justify-center flex-shrink-0">
+              <FileText className="w-4 h-4 text-[#1A2744]" />
+            </div>
+            <span className="font-bold text-sm tracking-tight">Builtek</span>
+            <span className="hidden sm:block text-white/30 text-xs">·</span>
+            <span className="hidden sm:block text-white/60 text-xs">Archivo compartido</span>
+          </div>
+          {share.expires_at && (
+            <div className="flex items-center gap-1.5 text-xs text-white/50 flex-shrink-0">
+              <Clock className="w-3 h-3" />
+              <span className="hidden sm:block">Expira</span>
+              <span className="font-semibold text-white/80">
+                {new Date(share.expires_at).toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+              </span>
+            </div>
+          )}
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
+      <main className="max-w-3xl mx-auto px-4 py-8">
 
-        {expired ? (
+        {/* Hero card */}
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
 
-          /* ── Link expirado ─────────────────────────────────────────────────── */
-          <div className="flex flex-col items-center justify-center py-24 text-center">
-            <div className="w-14 h-14 bg-amber-50 border border-amber-100 rounded-2xl flex items-center justify-center mb-4">
-              <Share2 className="w-6 h-6 text-amber-400" />
+          {/* Dark gradient header */}
+          <div className="bg-gradient-to-r from-[#1A2744] to-[#243660] px-6 py-5">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-[10px] font-mono font-bold bg-white/10 text-white px-1.5 py-0.5 rounded border border-white/15">
+                {file?.file_type?.toUpperCase() ?? 'FILE'}
+              </span>
             </div>
-            <h1 className="text-lg font-bold text-slate-800 mb-1">Este link ha expirado</h1>
-            <p className="text-sm text-slate-400 max-w-xs">
-              Venció el{' '}
-              {new Date(share.expires_at!).toLocaleString('es-MX', {
-                day: 'numeric', month: 'long', year: 'numeric',
-                hour: '2-digit', minute: '2-digit',
-              })}.{' '}
-              Solicita un nuevo link al responsable del proyecto.
-            </p>
-            <p className="text-xs text-slate-300 mt-8 font-medium">Builtek · Gestión de proyectos AEC</p>
+            <h1 className="text-xl font-black text-white leading-snug">{title}</h1>
+            {ws?.name && (
+              <p className="text-sm text-white/60 mt-1">{ws.name}</p>
+            )}
           </div>
 
-        ) : (
-
-          /* ── Contenido ─────────────────────────────────────────────────────── */
-          <>
-            {/* Action buttons */}
-            <div className="flex flex-wrap gap-3 mb-8">
-              {isPdf && (
-                <a
-                  href={fileUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-700 text-white text-sm font-medium px-4 py-2.5 rounded-lg transition-colors"
-                >
-                  <Eye className="w-4 h-4" />
-                  Ver archivo
-                </a>
-              )}
-              <a
-                href={fileUrl}
-                download
-                className="flex-1 sm:flex-none flex items-center justify-center gap-2 border border-slate-200 hover:bg-slate-50 text-slate-700 text-sm font-medium px-4 py-2.5 rounded-lg transition-colors"
-              >
-                <Download className="w-4 h-4" />
-                Descargar
-              </a>
+          {/* File section */}
+          <div className="px-5 py-4">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Archivo</span>
+              <span className="flex-1 h-px bg-slate-100" />
             </div>
 
-            {/* Title */}
-            <h1 className="text-2xl font-black text-slate-900 tracking-tight mb-1 break-words">
-              {title}
-            </h1>
-            {ws?.name && (
-              <p className="text-sm text-slate-400 mb-8">
-                de <span className="text-slate-600 font-medium">{ws.name}</span>
-              </p>
-            )}
-
-            {/* File table */}
-            <div className="border border-slate-200 rounded-xl overflow-hidden">
-
-              {/* Table header */}
-              <div className="grid grid-cols-[1fr_80px] sm:grid-cols-[1fr_160px_120px] px-4 py-2.5 bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+            {/* Table */}
+            <div className="rounded-xl border border-slate-100 overflow-hidden mb-4">
+              <div className="grid grid-cols-[1fr_80px] sm:grid-cols-[1fr_150px_100px] px-4 py-2 bg-slate-50 border-b border-slate-100 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
                 <div className="flex items-center gap-1">
-                  Nombre <ArrowUpDown className="w-3 h-3 text-slate-400" />
+                  Nombre <ArrowUpDown className="w-2.5 h-2.5 ml-0.5" />
                 </div>
                 <div className="hidden sm:block">Modificado</div>
                 <div>Tamaño</div>
               </div>
-
-              {/* File row */}
-              <div className="grid grid-cols-[1fr_80px] sm:grid-cols-[1fr_160px_120px] items-center px-4 py-3 hover:bg-slate-50 transition-colors">
-                {/* Name */}
+              <div className="grid grid-cols-[1fr_80px] sm:grid-cols-[1fr_150px_100px] items-center px-4 py-3 hover:bg-slate-50 transition-colors">
                 <div className="flex items-center gap-3 min-w-0 pr-4">
-                  <FileTypeIcon fileType={file?.file_type ?? 'other'} size={40} />
+                  <FileTypeIcon fileType={file?.file_type ?? 'other'} size={36} />
                   <a
                     href={fileUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline truncate"
-                    title={file?.name || file?.file_name}
+                    className="text-sm font-medium text-[#00C2FF] hover:underline truncate"
                   >
                     {file?.name || file?.file_name}
                   </a>
                 </div>
-
-                {/* Modified — desktop only */}
                 <div className="hidden sm:block text-sm text-slate-500">
                   {file?.created_at ? relativeDate(file.created_at) : '—'}
                 </div>
-
-                {/* Size */}
                 <div className="text-sm text-slate-500">
                   {formatSize(file?.file_size ?? 0)}
                 </div>
               </div>
-
             </div>
 
-            {/* Expiry notice */}
-            {share.expires_at && (
-              <p className="text-xs text-slate-400 mt-4">
-                Link válido hasta el{' '}
-                {new Date(share.expires_at).toLocaleString('es-MX', {
-                  day: 'numeric', month: 'short', year: 'numeric',
-                  hour: '2-digit', minute: '2-digit',
-                })}
-              </p>
-            )}
-          </>
+            {/* Action buttons */}
+            <div className="flex items-center gap-2">
+              {isPdf && (
+                <a href={fileUrl} target="_blank" rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-600 hover:text-[#1A2744] hover:border-slate-300 transition-colors">
+                  <Eye className="w-3.5 h-3.5" />
+                  Ver PDF
+                </a>
+              )}
+              <a href={fileUrl} download
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1A2744] text-xs font-semibold text-white hover:bg-[#243660] transition-colors">
+                <Download className="w-3.5 h-3.5" />
+                Descargar
+              </a>
+            </div>
+          </div>
+        </div>
 
-        )}
       </main>
+
+      {/* Footer */}
+      <footer className="border-t border-slate-100 bg-white mt-10">
+        <div className="max-w-3xl mx-auto px-4 py-5 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-400">
+          <span><strong className="text-slate-600 font-semibold">Builtek</strong> · Gestión de proyectos AEC</span>
+          {expiresFormatted && (
+            <span>Solo lectura · Link expira el {expiresFormatted}</span>
+          )}
+        </div>
+      </footer>
     </div>
   )
 }
