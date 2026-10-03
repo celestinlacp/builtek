@@ -3,6 +3,59 @@
  * Docs: integración Builtek × Menvio
  */
 
+// ── API v2 — endpoint dedicado Builtek ───────────────────────────────────────
+
+const BUILTEK_ENDPOINT = 'https://api.menvio.app/api/builtek/send-template'
+
+export type MenvioTemplate = 'tarea_asignada' | 'tarea_por_vencer'
+
+/**
+ * Envía una plantilla WhatsApp vía el endpoint dedicado de Builtek.
+ * Nunca lanza excepción — retorna { ok: false, error } si falla.
+ *
+ * Plantillas:
+ *   tarea_asignada   → variables: [nombre_usuario, nombre_tarea, nombre_proyecto, fecha_limite]
+ *   tarea_por_vencer → variables: [nombre_usuario, nombre_tarea, nombre_proyecto, fecha_vencimiento]
+ */
+export async function sendMenvioWhatsApp(
+  template: MenvioTemplate,
+  phone: string,
+  variables: string[]
+): Promise<{ ok: boolean; messageSid?: string; error?: string }> {
+  const apiKey = process.env.MENVIO_BUILTEK_API_KEY
+  if (!apiKey) {
+    console.error('[menvio] MENVIO_BUILTEK_API_KEY no configurada')
+    return { ok: false, error: 'MENVIO_BUILTEK_API_KEY no configurada' }
+  }
+
+  try {
+    const res = await fetch(BUILTEK_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({ template, phone, variables }),
+    })
+
+    const body = await res.json().catch(() => ({}))
+
+    if (res.ok) {
+      console.log(`[menvio] ✅ ${template} → ${phone} | sid: ${body.messageSid}`)
+      return { ok: true, messageSid: body.messageSid }
+    }
+
+    const error = body.message ?? body.error ?? `HTTP ${res.status}`
+    console.error(`[menvio] ❌ ${template} → ${phone} | ${error}`)
+    return { ok: false, error }
+  } catch (err: any) {
+    console.error(`[menvio] ❌ network: ${err?.message}`)
+    return { ok: false, error: err?.message ?? 'Error de red' }
+  }
+}
+
+// ── API v1 (legacy) ───────────────────────────────────────────────────────────
+
 const MENVIO_ENDPOINT = 'https://api.menvio.app/api/send-template'
 
 export type MenvioContact = {

@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdmin } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import { sendMenvioTemplate, normalizePhone } from '@/lib/menvio'
+import { sendMenvioWhatsApp, normalizePhone } from '@/lib/menvio'
 
 function getAdminClient() {
   return createAdmin(
@@ -75,12 +75,7 @@ export async function createTask(formData: FormData) {
         ? new Date(dueDate + 'T00:00:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })
         : 'Sin fecha'
 
-      await sendMenvioTemplate({
-        contacts:      [{ name: assigneeName, phone }],
-        template_name: 'builtek_tarea_asignada',
-        variables:     [projectName, taskName, assigneeName, dueDateStr],
-        button_url:    `https://builtek.app/tasks/${task.id}`,
-      })
+      await sendMenvioWhatsApp('tarea_asignada', phone, [assigneeName, taskName, projectName, dueDateStr])
     }
   }
 
@@ -412,9 +407,91 @@ export async function updateTaskAssignees(taskId: string, userIds: string[]) {
   if (capped.length > 0) {
     await admin.from('task_assignees').insert(capped.map(uid => ({ task_id: taskId, user_id: uid })))
   }
-  // Mantener assignee_id sincronizado con el primer asignado
-  await admin.from('tasks').update({ assignee_id: capped[0] ?? null }).eq('id', taskId)
+  const primaryAssigneeId = capped[0] ?? null
+  await admin.from('tasks').update({ assignee_id: primaryAssigneeId }).eq('id', taskId)
+
+  // Notificar al nuevo asignado principal por WhatsApp
+  if (primaryAssigneeId) {
+    const [taskRes, assigneeRes] = await Promise.all([
+      admin.from('tasks').select('name, due_date, projects(name)').eq('id', taskId).single(),
+      admin.from('profiles').select('full_name, phone').eq('id', primaryAssigneeId).single(),
+    ])
+
+    const phone = normalizePhone(assigneeRes.data?.phone)
+    if (phone) {
+      const assigneeName = assigneeRes.data?.full_name ?? 'Responsable'
+      const taskName     = taskRes.data?.name ?? 'Tarea'
+      const projectName  = (taskRes.data?.projects as any)?.name ?? 'Proyecto'
+      const dueDateStr   = taskRes.data?.due_date
+        ? new Date(taskRes.data.due_date + 'T00:00:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })
+        : 'Sin fecha'
+      await sendMenvioWhatsApp('tarea_asignada', phone, [assigneeName, taskName, projectName, dueDateStr])
+    }
+  }
+
   revalidatePath('/tasks')
+  return { success: true }
+}
+
+// ── Drive Temporal ────────────────────────────────────────────────────────────
+
+export async function getOrCreateTempFolder(workspaceId: string): Promise<{ folderId?: string; error?: string }> {
+  const { userId } = await getWorkspaceId()
+  const admin = getAdminClient()
+
+  const { data: existing } = await admin
+    .from('drive_folders')
+    .select('id')
+    .eq('workspace_id', workspaceId)
+    .eq('name', 'temporal')
+    .is('parent_folder_id', null)
+    .maybeSingle()
+
+  if (existing?.id) return { folderId: existing.id }
+
+  const { data: created, error } = await admin
+    .from('drive_folders')
+    .insert({ workspace_id: workspaceId, name: 'temporal', parent_folder_id: null, created_by: userId })
+    .select('id')
+    .single()
+
+  if (error) return { error: error.message }
+  return { folderId: created.id }
+}
+
+export async function saveTempAndLink(data: {
+  workspaceId: string
+  taskId:      string
+  storageKey:  string
+  fileName:    string
+  fileType:    string
+  fileSize:    number
+  folderId:    string
+}) {
+  const { userId } = await getWorkspaceId()
+  const admin = getAdminClient()
+
+  const { data: file, error } = await admin.from('drive_files').insert({
+    workspace_id: data.workspaceId,
+    folder_id:    data.folderId,
+    name:         data.fileName,
+    file_name:    data.fileName,
+    storage_key:  data.storageKey,
+    file_type:    data.fileType,
+    file_size:    data.fileSize,
+    uploaded_by:  userId,
+  }).select('id').single()
+
+  if (error) return { error: error.message }
+
+  await admin.from('task_documents').insert({
+    task_id:       data.taskId,
+    drive_file_id: file.id,
+    linked_by:     userId,
+  })
+
+  revalidatePath('/tasks')
+  revalidatePath('/drive')
   return { success: true }
 }
 
