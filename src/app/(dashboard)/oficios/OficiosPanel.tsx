@@ -1166,10 +1166,13 @@ function OficioRow({
   }
 
   return (
-    <tr className={`hover:bg-slate-50 transition-colors group ${isSelected ? 'bg-red-50/50' : ''}`}>
+    <tr
+      className={`hover:bg-slate-50 transition-colors group ${isSelected ? 'bg-red-50/50' : ''} ${canEdit ? 'cursor-pointer' : ''}`}
+      onClick={() => canEdit && onEdit(oficio)}
+    >
       {/* Checkbox selección */}
       {canDelete && (
-        <td className="pl-4 pr-2 py-3 w-8">
+        <td className="pl-4 pr-2 py-3 w-8" onClick={e => e.stopPropagation()}>
           <input
             type="checkbox"
             checked={isSelected}
@@ -1201,6 +1204,7 @@ function OficioRow({
               target="_blank"
               rel="noopener noreferrer"
               title={oficio.file_name || 'Ver archivo'}
+              onClick={e => e.stopPropagation()}
               className="flex-shrink-0 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
             >
               <FileChip fileType={oficio.file_type} fileName={oficio.file_name} />
@@ -1209,7 +1213,7 @@ function OficioRow({
           {rowAnexos.length > 0 && (
             <button
               type="button"
-              onClick={() => onEdit(oficio)}
+              onClick={e => e.stopPropagation()}
               title={`${rowAnexos.length} anexo${rowAnexos.length > 1 ? 's' : ''}: ${rowAnexos.map(a => a.nombre).join(', ')}`}
               className="flex-shrink-0 mt-0.5 flex items-center gap-0.5 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded px-1.5 py-0.5 transition-colors"
             >
@@ -1258,7 +1262,7 @@ function OficioRow({
       </td>
 
       {/* Estado (entrada) / Subido por (salida) */}
-      <td className="px-4 py-3">
+      <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
         {oficio.tipo === 'entrada'
           ? <EstadoDropdown oficio={oficio} workspaceId={workspaceId} />
           : creatorName
@@ -1278,7 +1282,7 @@ function OficioRow({
       </td>
 
       {/* Acciones */}
-      <td className="px-4 py-3">
+      <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
           {oficio.storage_key && (
             <>
@@ -1696,8 +1700,8 @@ export default function OficiosPanel({
       )}
 
       {/* Tabla */}
-      <div className="bg-white rounded-xl border border-slate-100 overflow-hidden">
-        {sorted.length === 0 ? (
+      {sorted.length === 0 ? (
+        <div className="bg-white rounded-xl border border-slate-100 overflow-hidden">
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <div className="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center mb-3">
               {tab === 'entrada'
@@ -1724,7 +1728,9 @@ export default function OficiosPanel({
               </button>
             )}
           </div>
-        ) : (
+        </div>
+      ) : viewMode === 'lista' ? (
+        <div className="bg-white rounded-xl border border-slate-100 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>
@@ -1760,40 +1766,74 @@ export default function OficiosPanel({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {viewMode === 'lista'
-                  ? sorted.map(o => (
-                      <OficioRow
-                        key={o.id} oficio={o} projects={projects} members={members}
-                        especialidades={especialidades} mesas={mesas} workspaceId={workspaceId}
-                        canEdit={canEdit} canDelete={canDelete}
-                        isSelected={selected.has(o.id)} onToggleSelect={toggleSelect}
-                        onEdit={openEdit} respuesta={respuestasMap[o.id] ?? null}
-                        rowAnexos={anexos.filter(a => a.oficio_id === o.id)}
-                      />
-                    ))
-                  : (grouped ?? []).map(([key, items]) => {
-                      const label = viewMode === 'semana' ? weekLabel(key) : dayLabel(key)
-                      const collapsed = collapsedWeeks.has(key)
-                      const colSpan = canDelete ? 9 : 8
-                      return [
-                        <tr key={`hdr-${key}`} className="bg-slate-50 border-y border-slate-200">
-                          <td colSpan={colSpan} className="px-4 py-2">
-                            <button
-                              onClick={() => toggleWeek(key)}
-                              className="flex items-center gap-2 text-xs font-bold text-slate-600 hover:text-[#1A2744] transition-colors"
-                            >
-                              {collapsed
-                                ? <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
-                                : <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
-                              }
-                              {label}
-                              <span className="ml-1 bg-slate-200 text-slate-500 text-[10px] font-semibold px-1.5 py-0.5 rounded-full">
-                                {items.length}
-                              </span>
-                            </button>
-                          </td>
-                        </tr>,
-                        ...(!collapsed ? items.map(o => (
+                {sorted.map(o => (
+                  <OficioRow
+                    key={o.id} oficio={o} projects={projects} members={members}
+                    especialidades={especialidades} mesas={mesas} workspaceId={workspaceId}
+                    canEdit={canEdit} canDelete={canDelete}
+                    isSelected={selected.has(o.id)} onToggleSelect={toggleSelect}
+                    onEdit={openEdit} respuesta={respuestasMap[o.id] ?? null}
+                    rowAnexos={anexos.filter(a => a.oficio_id === o.id)}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="px-4 py-2 border-t border-slate-50 bg-slate-50/30">
+            <p className="text-xs text-slate-400">
+              {sorted.length} oficio{sorted.length !== 1 ? 's' : ''} · ordenado por {sortBy.replace('_', ' ')} {sortDir === 'desc' ? '↓' : '↑'}
+            </p>
+          </div>
+        </div>
+      ) : (
+        /* Vista agrupada: cada grupo es su propio card con overflow-x independiente */
+        <div className="space-y-2">
+          {(grouped ?? []).map(([key, items]) => {
+            const label = viewMode === 'semana' ? weekLabel(key) : dayLabel(key)
+            const collapsed = collapsedWeeks.has(key)
+            return (
+              <div key={key} className="bg-white rounded-xl border border-slate-100 overflow-hidden">
+                <button
+                  onClick={() => toggleWeek(key)}
+                  className="w-full flex items-center gap-2 px-4 py-2.5 bg-slate-50 hover:bg-slate-100 transition-colors border-b border-slate-100 text-left"
+                >
+                  {collapsed
+                    ? <ChevronRight className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                    : <ChevronDown className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                  }
+                  <span className="text-xs font-bold text-slate-700">{label}</span>
+                  <span className="ml-1 bg-slate-200 text-slate-500 text-[10px] font-semibold px-1.5 py-0.5 rounded-full">
+                    {items.length}
+                  </span>
+                </button>
+                {!collapsed && (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left">
+                      <thead>
+                        <tr className="border-b border-slate-100 bg-slate-50/50">
+                          {canDelete && <th className="pl-4 pr-2 py-2 w-8" />}
+                          <th className="px-4 py-2 text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
+                            <SortHeader label="Asunto" col="asunto" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
+                          </th>
+                          <th className="px-4 py-2 text-[10px] font-semibold text-slate-400 uppercase tracking-wide whitespace-nowrap">
+                            <SortHeader label="Fecha doc." col="fecha_documento" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
+                          </th>
+                          <th className="px-4 py-2 text-[10px] font-semibold text-slate-400 uppercase tracking-wide whitespace-nowrap">
+                            <SortHeader label="Recepción" col="fecha_recepcion" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
+                          </th>
+                          <th className="px-4 py-2 text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Proyecto / Especialidad</th>
+                          <th className="px-4 py-2 text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
+                            <SortHeader label={tab === 'salida' ? 'Subido por' : 'Estado'} col="estado" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
+                          </th>
+                          <th className="px-4 py-2 text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Asignado</th>
+                          <th className="px-4 py-2 text-[10px] font-semibold text-slate-400 uppercase tracking-wide whitespace-nowrap">
+                            <SortHeader label="No. oficio" col="no_oficio" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
+                          </th>
+                          <th className="px-4 py-2 w-24" />
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-50">
+                        {items.map(o => (
                           <OficioRow
                             key={o.id} oficio={o} projects={projects} members={members}
                             especialidades={especialidades} mesas={mesas} workspaceId={workspaceId}
@@ -1802,20 +1842,21 @@ export default function OficiosPanel({
                             onEdit={openEdit} respuesta={respuestasMap[o.id] ?? null}
                             rowAnexos={anexos.filter(a => a.oficio_id === o.id)}
                           />
-                        )) : []),
-                      ]
-                    })
-                }
-              </tbody>
-            </table>
-            <div className="px-4 py-2 border-t border-slate-50 bg-slate-50/30">
-              <p className="text-xs text-slate-400">
-                {sorted.length} oficio{sorted.length !== 1 ? 's' : ''} · ordenado por {sortBy.replace('_', ' ')} {sortDir === 'desc' ? '↓' : '↑'}
-              </p>
-            </div>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )
+          })}
+          <div className="px-4 py-2 bg-white rounded-xl border border-slate-100">
+            <p className="text-xs text-slate-400">
+              {sorted.length} oficio{sorted.length !== 1 ? 's' : ''} · ordenado por {sortBy.replace('_', ' ')} {sortDir === 'desc' ? '↓' : '↑'}
+            </p>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Modal */}
       {showModal && (

@@ -1,6 +1,6 @@
 import { createClient as createAdmin } from '@supabase/supabase-js'
 import { notFound } from 'next/navigation'
-import { Calendar, FileText, Download, Eye, GitBranch, Clock, ArrowUpDown } from 'lucide-react'
+import { Calendar, FileText, Download, Eye, GitBranch, Clock } from 'lucide-react'
 import type { Metadata } from 'next'
 
 export const dynamic = 'force-dynamic'
@@ -297,21 +297,18 @@ function VersionCard({ version, token, highlight = false }: {
         )}
       </div>
 
-      {/* Mini table: Archivo / Fecha / Tamaño */}
-      <div className={`mx-4 mb-3 rounded-lg border overflow-hidden ${highlight ? 'border-[#00C2FF]/20' : 'border-slate-200'}`}>
-        <div className="grid grid-cols-[1fr_70px] sm:grid-cols-[1fr_160px_80px] px-3 py-1.5 bg-white/60 border-b border-inherit text-[9px] font-semibold text-slate-400 uppercase tracking-wider">
-          <div className="flex items-center gap-1">
-            Archivo <ArrowUpDown className="w-2 h-2" />
-          </div>
-          <div className="hidden sm:block">Fecha</div>
-          <div>Tamaño</div>
+      {/* File info row */}
+      <div className={`mx-4 mb-3 rounded-xl px-3 py-2.5 flex items-center gap-3 ${highlight ? 'bg-[#00C2FF]/8 border border-[#00C2FF]/15' : 'bg-slate-50 border border-slate-100'}`}>
+        <div className="flex-1 min-w-0">
+          <p className="text-[12px] font-semibold text-slate-700 truncate">{version.file_name ?? '—'}</p>
         </div>
-        <div className="grid grid-cols-[1fr_70px] sm:grid-cols-[1fr_160px_80px] items-center px-3 py-2.5">
-          <div className="text-[11px] text-slate-700 font-medium truncate pr-3">
-            {version.file_name ?? '—'}
-          </div>
-          <div className="hidden sm:block text-[11px] text-slate-500">{dateStr ?? '—'}</div>
-          <div className="text-[11px] text-slate-500">{sizeStr}</div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {dateStr && <span className="text-[11px] text-slate-400 hidden sm:block">{dateStr}</span>}
+          {sizeStr !== '—' && (
+            <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${highlight ? 'bg-[#00C2FF]/15 text-[#00C2FF]' : 'bg-slate-200 text-slate-500'}`}>
+              {sizeStr}
+            </span>
+          )}
         </div>
       </div>
 
