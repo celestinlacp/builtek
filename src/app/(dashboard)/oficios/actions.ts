@@ -50,6 +50,7 @@ export async function createOficio(data: {
   para_conocimiento?: string | null
   antecedentes?:    Array<{ ref_texto: string; antecedente_oficio_id?: string | null }>
   anexos?:          Array<{ tipo: 'link' | 'archivo'; nombre: string; url?: string | null; storage_key?: string | null; file_name?: string | null; file_size?: number | null }>
+  auto_task?:       { name: string; priority: string; due_date?: string | null } | null
 }) {
   const { user, workspaceId } = await getUser()
   const admin = getAdminClient()
@@ -108,6 +109,28 @@ export async function createOficio(data: {
         created_by:  user.id,
       }))
     )
+  }
+
+  // Crear tarea automáticamente si se solicitó
+  if (data.auto_task && data.proyecto_id && created) {
+    const { data: task } = await admin.from('tasks').insert({
+      project_id:  data.proyecto_id,
+      name:        data.auto_task.name,
+      specialty:   data.especialidad ?? null,
+      assignee_id: data.assignee_id ?? null,
+      priority:    data.auto_task.priority || 'medium',
+      due_date:    data.auto_task.due_date || null,
+      status:      'pending',
+    }).select('id').single()
+
+    if (task?.id) {
+      // Registrar en task_assignees si hay asignado
+      if (data.assignee_id) {
+        await admin.from('task_assignees').insert({ task_id: task.id, user_id: data.assignee_id })
+      }
+      // Vincular oficio ↔ tarea
+      await admin.from('oficios').update({ task_id: task.id }).eq('id', created.id)
+    }
   }
 
   // Notificar al asignado si se especificó uno

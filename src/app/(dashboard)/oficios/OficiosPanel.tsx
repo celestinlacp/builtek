@@ -285,6 +285,12 @@ function OficioModal({
   const [copiaA,         setCopiaA]         = useState(oficio?.copia_a || '')
   const [paraConocimiento, setParaConocimiento] = useState(oficio?.para_conocimiento || '')
 
+  // Auto-tarea
+  const [autoTask,       setAutoTask]       = useState(false)
+  const [taskName,       setTaskName]       = useState('')
+  const [taskPriority,   setTaskPriority]   = useState('medium')
+  const [taskDueDate,    setTaskDueDate]    = useState('')
+
   // Antecedentes
   const [antecedentes,    setAntecedentes]    = useState<Antecedente[]>(initialAntecedentes)
   const [anteInput,       setAnteInput]       = useState('')
@@ -441,7 +447,14 @@ function OficioModal({
         const newAnexosLink = anexos
           .filter(a => a.id.startsWith('tmp-') && a.tipo === 'link')
           .map(a => ({ tipo: 'link' as const, nombre: a.nombre, url: a.url }))
-        result = await createOficio({ ...payload, antecedentes: newAntecedentes, anexos: newAnexosLink } as any)
+        result = await createOficio({
+          ...payload,
+          antecedentes: newAntecedentes,
+          anexos: newAnexosLink,
+          auto_task: autoTask && proyectoId && assigneeId && taskName.trim()
+            ? { name: taskName.trim(), priority: taskPriority, due_date: taskDueDate || null }
+            : null,
+        } as any)
       }
 
       if (result?.error) { setError(result.error); return }
@@ -670,6 +683,57 @@ function OficioModal({
                   </option>
                 ))}
               </select>
+            </div>
+          )}
+
+          {/* Auto-tarea (solo entrada nueva con proyecto y asignado) */}
+          {tipo === 'entrada' && !isEdit && proyectoId && assigneeId && (
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3">
+              <label className="flex items-center gap-3 cursor-pointer select-none">
+                <div
+                  onClick={() => {
+                    const next = !autoTask
+                    setAutoTask(next)
+                    if (next && !taskName) setTaskName(asunto)
+                  }}
+                  className={`relative w-9 h-5 rounded-full transition-colors flex-shrink-0 ${autoTask ? 'bg-[#00C2FF]' : 'bg-slate-300'}`}
+                >
+                  <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${autoTask ? 'translate-x-4' : ''}`} />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-slate-700">Generar tarea automáticamente</p>
+                  <p className="text-xs text-slate-400">Crea una tarea en el proyecto y la vincula a este oficio</p>
+                </div>
+              </label>
+
+              {autoTask && (
+                <div className="space-y-3 pt-1">
+                  <div>
+                    <label className={labelCls}>Nombre de la tarea</label>
+                    <input
+                      value={taskName}
+                      onChange={e => setTaskName(e.target.value)}
+                      placeholder="Nombre de la tarea..."
+                      className={inputCls}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className={labelCls}>Prioridad</label>
+                      <select value={taskPriority} onChange={e => setTaskPriority(e.target.value)} className={inputCls}>
+                        <option value="low">Baja</option>
+                        <option value="medium">Media</option>
+                        <option value="high">Alta</option>
+                        <option value="urgent">Urgente</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className={labelCls}>Fecha límite <span className="font-normal text-slate-400">(opcional)</span></label>
+                      <input type="date" value={taskDueDate} onChange={e => setTaskDueDate(e.target.value)} className={inputCls} />
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

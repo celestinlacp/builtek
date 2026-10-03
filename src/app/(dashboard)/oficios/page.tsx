@@ -50,7 +50,7 @@ export default async function OficiosPage() {
       .order('name'),
     supabase
       .from('workspace_members')
-      .select('user_id, role, user:profiles(id, full_name, initials, avatar_url)')
+      .select('user_id, role, user:profiles(id, full_name, avatar_url)')
       .eq('workspace_id', wsId),
     supabase
       .from('oficios')
@@ -62,7 +62,7 @@ export default async function OficiosPage() {
         notas, link_entrega, created_by, created_at, updated_at, responde_a_id,
         mesa_id, copia_a, para_conocimiento,
         proyecto:projects(id, name),
-        assignee:profiles!oficios_assignee_id_fkey(id, full_name, initials)
+        assignee:profiles!oficios_assignee_id_fkey(id, full_name)
       `)
       .eq('workspace_id', wsId)
       .order('created_at', { ascending: false }),
