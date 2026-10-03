@@ -38,15 +38,31 @@ export async function generateMetadata(
   )
   const { data: share } = await admin
     .from('document_shares')
-    .select('document_id, documents(name, display_name)')
+    .select('expires_at, documents(name, display_name, file_type, specialty:specialties(name), project:projects(name))')
     .eq('token', token)
     .single()
 
   const doc = (share as any)?.documents
-  const name = doc?.display_name || doc?.name || 'Documento'
+  const docName   = doc?.display_name || doc?.name || 'Documento'
+  const project   = doc?.project?.name ? ` · ${doc.project.name}` : ''
+  const specialty = doc?.specialty?.name ? ` [${doc.specialty.name}]` : ''
+  const fileType  = doc?.file_type?.toUpperCase() ?? 'DOC'
+  const description = `${fileType}${specialty}${project} — Accede y descarga este documento técnico en Builtek.`
+
   return {
-    title: `${name} — Builtek`,
-    description: 'Accede y descarga este documento técnico.',
+    title: `${docName} — Builtek`,
+    description,
+    openGraph: {
+      title:       docName,
+      description,
+      siteName:    'Builtek',
+      type:        'website',
+    },
+    twitter: {
+      card:        'summary',
+      title:       docName,
+      description,
+    },
   }
 }
 
@@ -118,8 +134,8 @@ export default async function DocSharePage(
     const uploaderIds = [...new Set((rawVers ?? []).map((v: any) => v.uploaded_by).filter(Boolean))]
     const nameById: Record<string, string> = {}
     if (uploaderIds.length) {
-      const { data: users } = await admin.from('users').select('id, full_name').in('id', uploaderIds)
-      for (const u of (users ?? [])) if (u.id && u.full_name) nameById[u.id] = u.full_name
+      const { data: profiles } = await admin.from('profiles').select('id, full_name').in('id', uploaderIds)
+      for (const u of (profiles ?? [])) if (u.id && u.full_name) nameById[u.id] = u.full_name
     }
 
     versions = (rawVers ?? []).map((v: any) => ({
@@ -134,7 +150,7 @@ export default async function DocSharePage(
       .eq('id', share.document_id)
       .single()
     if (single) {
-      const { data: u } = await admin.from('users').select('full_name').eq('id', (single as any).uploaded_by).single()
+      const { data: u } = await admin.from('profiles').select('full_name').eq('id', (single as any).uploaded_by).single()
       versions = [{ ...(single as any), uploader_name: u?.full_name ?? null }]
     }
   }
