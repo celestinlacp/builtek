@@ -30,7 +30,7 @@ export default async function TeamPage() {
       .order('created_at', { ascending: false }),
     supabase
       .from('workspace_members')
-      .select('user_id, role, profiles(full_name, initials)')
+      .select('user_id, role, profiles(full_name)')
       .eq('workspace_id', wsId),
   ])
 
@@ -40,6 +40,13 @@ export default async function TeamPage() {
   const teamStats: TeamMemberStats[] = (membersRes.data ?? []).map((m: any) => {
     const uid = m.user_id
     const profile = m.profiles
+    const fullName: string = (profile as any)?.full_name ?? ''
+    const initials = fullName
+      .split(' ')
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((w: string) => w[0].toUpperCase())
+      .join('') || null
     const userTasks = allTasks.filter((t: any) => t.assignee_id === uid)
     const done       = userTasks.filter((t: any) => t.status === 'done').length
     const inProgress = userTasks.filter((t: any) => t.status === 'in_progress').length
@@ -54,8 +61,8 @@ export default async function TeamPage() {
       : null
     return {
       user_id:     uid,
-      full_name:   profile?.full_name ?? null,
-      initials:    profile?.initials ?? null,
+      full_name:   fullName || null,
+      initials,
       role:        m.role,
       total:       userTasks.length,
       done,
