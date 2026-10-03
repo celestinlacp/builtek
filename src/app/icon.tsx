@@ -11,7 +11,8 @@ export default function Icon() {
   return new ImageResponse(
     (
       <div style={{ width: 64, height: 64, display: 'flex' }}>
-        <svg width="64" height="64" viewBox="0 0 1200 1200" xmlns="http://www.w3.org/2000/svg">
+        {/* viewBox recortado al área del BT con padding — rellena el cuadro */}
+        <svg width="64" height="64" viewBox="84 54 960 960" xmlns="http://www.w3.org/2000/svg">
           <defs>
             <radialGradient id="g" cx="50%" cy="50%" r="70%">
               <stop offset="0" stopColor="#1A2C4E" />
@@ -23,8 +24,8 @@ export default function Icon() {
             </mask>
           </defs>
 
-          {/* Fondo */}
-          <rect width="1200" height="1200" fill="url(#g)" />
+          {/* Fondo con esquinas redondeadas */}
+          <rect x="84" y="54" width="960" height="960" rx="160" fill="url(#g)" />
 
           {/* B — blanco con máscara */}
           <path
