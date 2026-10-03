@@ -440,17 +440,20 @@ function OficioModal({
       if (isEdit) {
         result = await updateOficio(oficio!.id, payload)
       } else {
-        // Pasar antecedentes y anexos de link al crear (archivos se suben después por separado)
+        // Pasar antecedentes y todos los anexos (links y archivos pre-subidos) al crear
         const newAntecedentes = antecedentes
           .filter(a => a.id.startsWith('tmp-'))
           .map(a => ({ ref_texto: a.ref_texto, antecedente_oficio_id: a.antecedente_oficio_id }))
-        const newAnexosLink = anexos
-          .filter(a => a.id.startsWith('tmp-') && a.tipo === 'link')
-          .map(a => ({ tipo: 'link' as const, nombre: a.nombre, url: a.url }))
+        const newAnexos = anexos
+          .filter(a => a.id.startsWith('tmp-'))
+          .map(a => a.tipo === 'link'
+            ? { tipo: 'link' as const, nombre: a.nombre, url: a.url }
+            : { tipo: 'archivo' as const, nombre: a.nombre, storage_key: a.storage_key, file_name: a.file_name, file_size: a.file_size }
+          )
         result = await createOficio({
           ...payload,
           antecedentes: newAntecedentes,
-          anexos: newAnexosLink,
+          anexos: newAnexos,
           auto_task: autoTask && proyectoId && assigneeId && taskName.trim()
             ? { name: taskName.trim(), priority: taskPriority, due_date: taskDueDate || null }
             : null,
@@ -1107,7 +1110,7 @@ function CopyLinkButton({ oficioId }: { oficioId: string }) {
 
 function OficioRow({
   oficio, projects, members, especialidades, mesas, workspaceId, canEdit, canDelete,
-  isSelected, onToggleSelect, onEdit, respuesta,
+  isSelected, onToggleSelect, onEdit, respuesta, rowAnexos,
 }: {
   oficio: Oficio
   projects: Project[]
@@ -1121,6 +1124,7 @@ function OficioRow({
   onToggleSelect: (id: string) => void
   onEdit: (o: Oficio) => void
   respuesta?: string | null
+  rowAnexos: Anexo[]
 }) {
   const creatorName = oficio.created_by
     ? members.find(m => m.user_id === oficio.created_by)?.user?.full_name ?? null
@@ -1173,6 +1177,17 @@ function OficioRow({
             >
               <FileChip fileType={oficio.file_type} fileName={oficio.file_name} />
             </a>
+          )}
+          {rowAnexos.length > 0 && (
+            <button
+              type="button"
+              onClick={() => onEdit(oficio)}
+              title={`${rowAnexos.length} anexo${rowAnexos.length > 1 ? 's' : ''}: ${rowAnexos.map(a => a.nombre).join(', ')}`}
+              className="flex-shrink-0 mt-0.5 flex items-center gap-0.5 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded px-1.5 py-0.5 transition-colors"
+            >
+              <Paperclip className="w-3 h-3" />
+              <span className="text-[10px] font-semibold">{rowAnexos.length}</span>
+            </button>
           )}
         </div>
       </td>
@@ -1628,6 +1643,7 @@ export default function OficiosPanel({
                     onToggleSelect={toggleSelect}
                     onEdit={openEdit}
                     respuesta={respuestasMap[o.id] ?? null}
+                    rowAnexos={anexos.filter(a => a.oficio_id === o.id)}
                   />
                 ))}
               </tbody>
