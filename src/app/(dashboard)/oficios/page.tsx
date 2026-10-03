@@ -50,7 +50,7 @@ export default async function OficiosPage() {
       .order('name'),
     supabase
       .from('workspace_members')
-      .select('user_id, role, user:profiles(id, full_name, avatar_url)')
+      .select('user_id, role')
       .eq('workspace_id', wsId),
     supabase
       .from('oficios')
@@ -82,6 +82,22 @@ export default async function OficiosPage() {
       .order('sort_order')
       .order('nombre'),
   ])
+
+  // Fetch profiles separately (workspace_members.user_id → auth.users, no direct FK to profiles)
+  const rawMembers = membersRes.data ?? []
+  const memberIds = rawMembers.map((m: any) => m.user_id).filter(Boolean)
+  const { data: profilesData } = memberIds.length
+    ? await supabase.from('profiles').select('id, full_name, avatar_url').in('id', memberIds)
+    : { data: [] }
+  const profileById: Record<string, { id: string; full_name: string; avatar_url: string | null }> = {}
+  for (const p of (profilesData ?? [])) if (p.id) profileById[p.id] = p as any
+
+  const members = rawMembers.map((m: any) => {
+    const p = profileById[m.user_id]
+    const fullName = p?.full_name ?? ''
+    const initials = fullName.split(' ').filter(Boolean).slice(0, 2).map((w: string) => w[0].toUpperCase()).join('') || null
+    return { user_id: m.user_id, role: m.role, user: p ? { id: p.id, full_name: fullName, initials, avatar_url: p.avatar_url } : null }
+  })
 
   const oficios = oficiosRes.data || []
   const oficioIds = oficios.map(o => o.id)
@@ -118,7 +134,7 @@ export default async function OficiosPage() {
       <OficiosPanel
         oficios={oficios as any}
         projects={projectsRes.data || []}
-        members={(membersRes.data || []) as any}
+        members={members as any}
         especialidades={(especialidadesRes.data || []) as any}
         antecedentes={(antecedentesRes.data || []) as any}
         anexos={(anexosRes.data || []) as any}

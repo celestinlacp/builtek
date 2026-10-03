@@ -30,17 +30,24 @@ export default async function TeamPage() {
       .order('created_at', { ascending: false }),
     supabase
       .from('workspace_members')
-      .select('user_id, role, profiles(full_name)')
+      .select('user_id, role')
       .eq('workspace_id', wsId),
   ])
+
+  // Fetch profiles separately (no direct FK workspace_members → profiles)
+  const memberIds = (membersRes.data ?? []).map((m: any) => m.user_id).filter(Boolean)
+  const { data: profilesData } = memberIds.length
+    ? await supabase.from('profiles').select('id, full_name').in('id', memberIds)
+    : { data: [] }
+  const profileById: Record<string, string> = {}
+  for (const p of (profilesData ?? [])) if (p.id && p.full_name) profileById[p.id] = p.full_name
 
   const allTasks = tasksRes.data ?? []
   const now = new Date()
 
   const teamStats: TeamMemberStats[] = (membersRes.data ?? []).map((m: any) => {
     const uid = m.user_id
-    const profile = m.profiles
-    const fullName: string = (profile as any)?.full_name ?? ''
+    const fullName: string = profileById[uid] ?? ''
     const initials = fullName
       .split(' ')
       .filter(Boolean)
