@@ -36,9 +36,13 @@ export async function generateMetadata(
     .eq('id', share.project_id)
     .single()
 
+  const title       = project?.name ? `${project.name} — Builtek` : 'Archivos compartidos — Builtek'
+  const description = 'Accede y descarga los archivos actualizados de este proyecto.'
   return {
-    title: project?.name ? `${project.name} — Builtek` : 'Archivos compartidos — Builtek',
-    description: 'Accede y descarga los archivos actualizados de este proyecto.',
+    title,
+    description,
+    openGraph: { title, description, siteName: 'Builtek', images: [{ url: '/api/og', width: 1200, height: 1200 }] },
+    twitter:   { card: 'summary', title, description, images: ['/api/og'] },
   }
 }
 

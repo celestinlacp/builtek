@@ -57,11 +57,13 @@ export async function generateMetadata(
       description,
       siteName:    'Builtek',
       type:        'website',
+      images: [{ url: '/api/og', width: 1200, height: 1200 }],
     },
     twitter: {
       card:        'summary',
       title:       docName,
       description,
+      images:      ['/api/og'],
     },
   }
 }
