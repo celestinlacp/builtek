@@ -443,7 +443,7 @@ export async function getOrCreateTempFolder(workspaceId: string): Promise<{ fold
     .from('drive_folders')
     .select('id')
     .eq('workspace_id', workspaceId)
-    .eq('name', 'temporal')
+    .eq('is_system', true)
     .is('parent_folder_id', null)
     .maybeSingle()
 
@@ -451,7 +451,7 @@ export async function getOrCreateTempFolder(workspaceId: string): Promise<{ fold
 
   const { data: created, error } = await admin
     .from('drive_folders')
-    .insert({ workspace_id: workspaceId, name: 'temporal', parent_folder_id: null, created_by: userId })
+    .insert({ workspace_id: workspaceId, name: 'Archivos Temporales', parent_folder_id: null, created_by: userId, is_system: true })
     .select('id')
     .single()
 

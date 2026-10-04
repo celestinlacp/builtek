@@ -21,6 +21,7 @@ type DriveFolder = {
   parent_folder_id: string | null
   created_by: string
   created_at: string
+  is_system: boolean
 }
 
 type DriveFile = {
@@ -1241,6 +1242,8 @@ export default function DrivePanel({ workspaceId, userRole, currentUserId }: {
 
   const currentFolder = breadcrumb[breadcrumb.length - 1]
   const isRoot = currentFolder.id === null
+  const currentFolderObj = folders.find(f => f.id === currentFolder.id)
+  const isSystemFolder = currentFolderObj?.is_system ?? false
 
   // Load workspace member names for folder grouping
   useEffect(() => {
@@ -1590,7 +1593,7 @@ export default function DrivePanel({ workspaceId, userRole, currentUserId }: {
                         onShare={() => setSharingFile({ id: f.id, name: f.name })}
                         onReplace={() => setReplacingFile({ id: f.id, name: f.name })}
                         uploaderName={memberNames[f.uploaded_by] || 'Usuario'}
-                        isAdmin={f.uploaded_by === currentUserId || isAdmin} />
+                        isAdmin={isSystemFolder ? isAdmin : (f.uploaded_by === currentUserId || isAdmin)} />
                     ))}
                   </div>
                 )

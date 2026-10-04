@@ -4,6 +4,17 @@ import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdmin } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { DeleteObjectCommand } from '@aws-sdk/client-s3'
+import { getR2Client, R2_BUCKET, r2IsConfigured } from '@/lib/r2/client'
+
+async function deleteFromR2(storageKey: string | null) {
+  if (!storageKey || !r2IsConfigured()) return
+  try {
+    await getR2Client().send(new DeleteObjectCommand({ Bucket: R2_BUCKET(), Key: storageKey }))
+  } catch (e) {
+    console.error('[R2] Error al eliminar:', storageKey, e)
+  }
+}
 
 function getAdminClient() {
   return createAdmin(
@@ -124,8 +135,10 @@ export async function deleteFolder(folderId: string) {
 export async function deleteDriveFile(fileId: string) {
   await getUser()
   const admin = getAdminClient()
+  const { data: file } = await admin.from('drive_files').select('storage_key').eq('id', fileId).single()
   const { error } = await admin.from('drive_files').delete().eq('id', fileId)
   if (error) return { error: error.message }
+  await deleteFromR2(file?.storage_key ?? null)
   revalidatePath('/drive')
   return { success: true }
 }
