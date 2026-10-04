@@ -599,7 +599,7 @@ function ProjectModal({
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">Identificador MIC</label>
+                <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">ID Builtek</label>
                 <input name="mic_identifier" defaultValue={project?.mic_identifier || ''}
                   placeholder="Ej: 0001 o 0001.02"
                   className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50 focus:border-[#00C2FF]" />
@@ -618,7 +618,7 @@ function ProjectModal({
                   <option key={p.id} value={p.id}>{p.mic_identifier ? `${p.mic_identifier} — ` : ''}{p.name}</option>
                 ))}
               </select>
-              <p className="text-[10px] text-slate-400 mt-1">Si es subproyecto, el identificador MIC se hereda automáticamente.</p>
+              <p className="text-[10px] text-slate-400 mt-1">Si es subproyecto, el ID Builtek se hereda automáticamente.</p>
             </div>
           )}
 
@@ -2201,7 +2201,7 @@ function NomenclaturasPanel({ nomenclatures, workspaceId }: { nomenclatures: Mic
             {activeSegment === 'IDENTIFICADOR' && (
               <>
                 <button onClick={handleBackfill} disabled={backfilling}
-                  title="Asigna un identificador MIC a todos los proyectos que aún no tienen uno"
+                  title="Asigna un ID Builtek a todos los proyectos que aún no tienen uno"
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-amber-200 text-amber-700 text-xs font-semibold hover:bg-amber-50 disabled:opacity-60">
                   {backfilling ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
                   Asignar pendientes
