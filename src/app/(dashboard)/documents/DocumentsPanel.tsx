@@ -313,7 +313,11 @@ function UploadModal({
 
   // Catálogo ESPECIALIDAD desde mic_nomenclatures (fuente de verdad del workspace)
   const especialidadOptions  = micNomenclatures.filter(n => n.segment === 'ESPECIALIDAD')
-  const identificadorOptions = micNomenclatures.filter(n => n.segment === 'IDENTIFICADOR')
+  // IDENTIFICADOR: derivado directo de projects para no depender del sync de mic_nomenclatures
+  const identificadorOptions = projects
+    .filter(p => p.mic_identifier)
+    .map(p => ({ code: p.mic_identifier!, name: p.name }))
+    .sort((a, b) => a.code.localeCompare(b.code))
 
   // Decodificar selección de autor
   let authorText   = ''
