@@ -483,9 +483,10 @@ const STATUS_CONFIG = {
 }
 
 function ProjectModal({
-  project, onClose
+  project, projects, onClose
 }: {
   project?: Project | null
+  projects: Project[]
   onClose: () => void
 }) {
   const [loading, setLoading] = useState(false)
@@ -603,6 +604,21 @@ function ProjectModal({
                   placeholder="Ej: 0001 o 0001.02"
                   className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50 focus:border-[#00C2FF]" />
               </div>
+            </div>
+          )}
+
+          {/* Proyecto padre (subproyecto) */}
+          {!isEdit && (
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">Proyecto padre (opcional)</label>
+              <select name="parent_project_id"
+                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50 focus:border-[#00C2FF]">
+                <option value="">Ninguno (proyecto raíz)</option>
+                {projects.filter(p => !p.parent_project_id && p.status === 'active').map(p => (
+                  <option key={p.id} value={p.id}>{p.mic_identifier ? `${p.mic_identifier} — ` : ''}{p.name}</option>
+                ))}
+              </select>
+              <p className="text-[10px] text-slate-400 mt-1">Si es subproyecto, el identificador MIC se hereda automáticamente.</p>
             </div>
           )}
 
@@ -2646,6 +2662,7 @@ export default function AdminPanel({
       {(showModal || editProject) && (
         <ProjectModal
           project={editProject}
+          projects={projects}
           onClose={() => { setShowModal(false); setEditProject(null) }}
         />
       )}
