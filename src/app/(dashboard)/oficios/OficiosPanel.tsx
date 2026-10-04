@@ -17,6 +17,7 @@ import TrazabilidadView from './TrazabilidadView'
 type Oficio = {
   id: string
   tipo: 'entrada' | 'salida'
+  tipo_documento: 'oficio' | 'tarjeta' | null
   no_oficio: string | null
   asunto: string
   fecha_documento: string | null
@@ -311,6 +312,7 @@ function OficioModal({
   const [notas,          setNotas]          = useState(oficio?.notas || '')
   const [mesaId,         setMesaId]         = useState(oficio?.mesa_id || '')
   const [copiaA,         setCopiaA]         = useState(oficio?.copia_a || '')
+  const [tipoDoc,        setTipoDoc]        = useState<'oficio' | 'tarjeta'>(oficio?.tipo_documento === 'tarjeta' ? 'tarjeta' : 'oficio')
   const [paraConocimiento, setParaConocimiento] = useState(oficio?.para_conocimiento || '')
 
   // Auto-tarea
@@ -389,6 +391,7 @@ function OficioModal({
           if (ext.fecha_documento) setFechaDoc(ext.fecha_documento)
           if (ext.especialidad)    setEspecialidad(ext.especialidad)
           if (ext.remitente && tipo === 'entrada') setRemitente(ext.remitente)
+          if (ext.tipo_documento === 'tarjeta') setTipoDoc('tarjeta')
           if (ext.copia_a)           setCopiaA(ext.copia_a)
           if (ext.para_conocimiento) setParaConocimiento(ext.para_conocimiento)
           // Pre-cargar antecedentes extraídos por IA como refs de texto
@@ -444,6 +447,7 @@ function OficioModal({
 
       const payload = {
         tipo,
+        tipo_documento:  tipoDoc,
         asunto:          asunto.trim(),
         no_oficio:       noOficio       || null,
         tema:            tema.trim()    || null,
@@ -606,6 +610,23 @@ function OficioModal({
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
+
+          {/* Tipo de documento */}
+          <div>
+            <label className={labelCls}>Tipo de documento</label>
+            <div className="flex gap-2">
+              {(['oficio', 'tarjeta'] as const).map(t => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => setTipoDoc(t)}
+                  className={`flex-1 py-2 rounded-lg text-sm font-semibold border transition-colors ${tipoDoc === t ? 'bg-[#1A2744] text-white border-[#1A2744]' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'}`}
+                >
+                  {t === 'oficio' ? 'Oficio' : 'Tarjeta informativa'}
+                </button>
+              ))}
+            </div>
+          </div>
 
           {/* Archivo adjunto — va primero para auto-rellenar campos */}
           <div>
@@ -1185,7 +1206,12 @@ function OficioRow({
       <td className="px-4 py-3">
         <div className="flex items-start gap-2 min-w-0">
           <div className="min-w-0">
-            <p title={oficio.asunto} className="text-sm font-medium text-[#1A2744] leading-snug line-clamp-2 cursor-default">{oficio.asunto}</p>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <p title={oficio.asunto} className="text-sm font-medium text-[#1A2744] leading-snug line-clamp-2 cursor-default">{oficio.asunto}</p>
+              {oficio.tipo_documento === 'tarjeta' && (
+                <span className="inline-flex items-center text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700 whitespace-nowrap flex-shrink-0">Tarjeta</span>
+              )}
+            </div>
             {respuesta && (
               <p className="text-[10px] text-emerald-600 font-medium mt-0.5 flex items-center gap-1">
                 <ArrowUpFromLine className="w-3 h-3" />

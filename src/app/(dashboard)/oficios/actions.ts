@@ -29,6 +29,7 @@ async function getUser() {
 
 export async function createOficio(data: {
   tipo:            'entrada' | 'salida'
+  tipo_documento?: 'oficio' | 'tarjeta' | null
   asunto:          string
   no_oficio?:       string | null
   fecha_documento?: string | null
@@ -58,6 +59,7 @@ export async function createOficio(data: {
   const { data: created, error } = await admin.from('oficios').insert({
     workspace_id:    workspaceId,
     tipo:            data.tipo,
+    tipo_documento:  data.tipo_documento || 'oficio',
     asunto:          data.asunto,
     no_oficio:       data.no_oficio       || null,
     fecha_documento: data.fecha_documento || null,
@@ -152,6 +154,7 @@ export async function createOficio(data: {
 
 export async function updateOficio(id: string, data: {
   asunto?:            string
+  tipo_documento?:    'oficio' | 'tarjeta' | null
   no_oficio?:         string | null
   fecha_documento?:   string | null
   fecha_recepcion?:   string | null

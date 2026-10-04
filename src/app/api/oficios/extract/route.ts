@@ -105,6 +105,7 @@ export async function POST(req: NextRequest) {
 Extrae del documento los siguientes campos y responde ÚNICAMENTE con JSON válido (sin texto extra):
 
 {
+  "tipo_documento": "El tipo de documento: 'tarjeta' si el encabezado dice 'Tarjeta Informativa', 'Tarjeta', 'Nota Informativa' o similar; 'oficio' en cualquier otro caso",
   "asunto": "El asunto del oficio tal como aparece en el documento",
   "no_oficio": "El número o clave del oficio (ej: ARQ-1040/AIFA, LFMQ-F12-074)",
   "fecha_documento": "La fecha del documento en formato YYYY-MM-DD",
