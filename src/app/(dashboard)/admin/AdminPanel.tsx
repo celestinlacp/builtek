@@ -2434,8 +2434,8 @@ export default function AdminPanel({
           <div>
             <div className="flex items-center justify-between mb-3">
               <p className="text-sm text-slate-500">
-                {rootProjects.length} proyecto{rootProjects.length !== 1 ? 's' : ''} ·{' '}
-                {rootProjects.filter(p => p.status === 'active').length} activos
+                {projects.length} proyecto{projects.length !== 1 ? 's' : ''} · {rootProjects.length} raíz · {projects.length - rootProjects.length} subproyectos ·{' '}
+                {projects.filter(p => p.status === 'active').length} activos
               </p>
               {['owner', 'admin', 'manager'].includes(currentUserRole) && (
                 <button onClick={() => setShowModal(true)}
