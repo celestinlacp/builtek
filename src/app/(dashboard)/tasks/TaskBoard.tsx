@@ -207,6 +207,64 @@ function TaskRow({ task, members, currentUserRole, onEdit, onOpen }: { task: Tas
   )
 }
 
+function PersonGroup({
+  member, tasks, members, currentUserRole, onEdit, onOpen
+}: {
+  member: { user_id: string | null; full_name: string | null; initials: string | null }
+  tasks: (Task & { project?: { name: string } } & { assignees?: any[] })[]
+  members: Member[]
+  currentUserRole: string
+  onEdit: (t: Task) => void
+  onOpen: (t: Task) => void
+}) {
+  const [open, setOpen] = useState(true)
+  const initials = member.initials || member.full_name?.split(' ').map(w => w[0]).toUpperCase().slice(0, 2).join('') || '?'
+
+  const counts = {
+    pending:     tasks.filter(t => t.status === 'pending').length,
+    in_progress: tasks.filter(t => t.status === 'in_progress').length,
+    blocked:     tasks.filter(t => t.status === 'blocked').length,
+    review:      tasks.filter(t => t.status === 'review').length,
+    done:        tasks.filter(t => t.status === 'done').length,
+  }
+
+  return (
+    <div className="bg-white rounded-xl border border-slate-100 overflow-hidden mb-4">
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors"
+      >
+        {member.user_id ? (
+          <div className="w-9 h-9 rounded-full bg-[#1A2744] text-white text-xs font-bold flex items-center justify-center flex-shrink-0">
+            {initials}
+          </div>
+        ) : (
+          <div className="w-9 h-9 rounded-full bg-slate-200 text-slate-400 text-xs font-bold flex items-center justify-center flex-shrink-0">—</div>
+        )}
+        <div className="flex-1 text-left">
+          <p className="text-sm font-bold text-[#1A2744]">{member.full_name || 'Sin asignar'}</p>
+          <p className="text-xs text-slate-400">{tasks.length} tarea{tasks.length !== 1 ? 's' : ''}</p>
+        </div>
+        <div className="flex items-center gap-1.5 flex-wrap justify-end">
+          {counts.in_progress > 0 && <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-semibold">{counts.in_progress} en curso</span>}
+          {counts.blocked     > 0 && <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-100 text-red-600 font-semibold">{counts.blocked} bloq.</span>}
+          {counts.review      > 0 && <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-semibold">{counts.review} rev.</span>}
+          {counts.pending     > 0 && <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 font-semibold">{counts.pending} pend.</span>}
+          {counts.done        > 0 && <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-semibold">{counts.done} hechas</span>}
+        </div>
+        {open ? <ChevronDown className="w-4 h-4 text-slate-400 flex-shrink-0" /> : <ChevronRight className="w-4 h-4 text-slate-400 flex-shrink-0" />}
+      </button>
+      {open && (
+        <div className="border-t border-slate-100">
+          {tasks.map(task => (
+            <TaskRow key={task.id} task={task} members={members} currentUserRole={currentUserRole} onEdit={onEdit} onOpen={onOpen} />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function SpecialtyGroup({
   specialty, tasks, members, currentUserRole, onEdit, onOpen
 }: {
@@ -266,7 +324,7 @@ export default function TaskBoard({
   workspaceId: string
   defaultTaskId?: string
 }) {
-  const [view, setView] = useState<'board' | 'list'>('board')
+  const [view, setView] = useState<'board' | 'list' | 'person'>('board')
   const [filter, setFilter] = useState<string>('all')
   const [userFilter, setUserFilter] = useState<string>('all')
   const [showNew, setShowNew] = useState(false)
@@ -302,6 +360,41 @@ export default function TaskBoard({
   Object.keys(groups)
     .filter(k => !SPECIALTIES.includes(k))
     .forEach(k => orderedGroups.push({ specialty: k, tasks: groups[k] }))
+
+  // Agrupar por usuario (vista persona)
+  const personGroups: { member: { user_id: string | null; full_name: string | null; initials: string | null }; tasks: ExtendedTask[] }[] = []
+  const seenUsers = new Set<string>()
+  filtered.forEach(task => {
+    const assignees = task.assignees && task.assignees.length > 0
+      ? task.assignees
+      : task.assignee_id
+        ? [members.find(m => m.user_id === task.assignee_id) ?? { user_id: task.assignee_id, full_name: null, initials: null }]
+        : []
+    if (assignees.length === 0) {
+      let group = personGroups.find(g => g.member.user_id === null)
+      if (!group) { group = { member: { user_id: null, full_name: 'Sin asignar', initials: null }, tasks: [] }; personGroups.push(group) }
+      group.tasks.push(task)
+    } else {
+      assignees.forEach((a: any) => {
+        if (!seenUsers.has(a.user_id + task.id)) {
+          seenUsers.add(a.user_id + task.id)
+          let group = personGroups.find(g => g.member.user_id === a.user_id)
+          if (!group) {
+            const m = members.find(m => m.user_id === a.user_id)
+            group = { member: { user_id: a.user_id, full_name: m?.full_name ?? a.full_name, initials: m?.initials ?? a.initials }, tasks: [] }
+            personGroups.push(group)
+          }
+          group.tasks.push(task)
+        }
+      })
+    }
+  })
+  // Ordenar: sin asignar al final
+  personGroups.sort((a, b) => {
+    if (a.member.user_id === null) return 1
+    if (b.member.user_id === null) return -1
+    return (a.member.full_name ?? '').localeCompare(b.member.full_name ?? '')
+  })
 
   return (
     <div>
@@ -356,15 +449,19 @@ export default function TaskBoard({
           )}
           {/* View toggle */}
           <div className="flex bg-slate-100 rounded-lg p-0.5">
-            {(['board', 'list'] as const).map(v => (
+            {([
+              { value: 'board', label: '⊞ Tablero' },
+              { value: 'list', label: '☰ Lista' },
+              { value: 'person', label: '👤 Usuarios' },
+            ] as const).map(v => (
               <button
-                key={v}
-                onClick={() => setView(v)}
+                key={v.value}
+                onClick={() => setView(v.value)}
                 className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
-                  view === v ? 'bg-white text-[#1A2744] shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                  view === v.value ? 'bg-white text-[#1A2744] shadow-sm' : 'text-slate-500 hover:text-slate-700'
                 }`}
               >
-                {v === 'board' ? '⊞ Tablero' : '☰ Lista'}
+                {v.label}
               </button>
             ))}
           </div>
@@ -379,7 +476,28 @@ export default function TaskBoard({
       </div>
 
       {/* Content */}
-      {view === 'board' ? (
+      {view === 'person' ? (
+        personGroups.length === 0 ? (
+          <div className="text-center py-20 bg-white rounded-xl border border-slate-100">
+            <Circle className="w-12 h-12 text-slate-200 mx-auto mb-3" />
+            <p className="text-slate-400 text-sm">No hay tareas{filter !== 'all' ? ' con este filtro' : ' aún'}</p>
+          </div>
+        ) : (
+          <div>
+            {personGroups.map(({ member, tasks: groupTasks }) => (
+              <PersonGroup
+                key={member.user_id ?? '__unassigned__'}
+                member={member}
+                tasks={groupTasks}
+                members={members}
+                currentUserRole={currentUserRole}
+                onEdit={setEditTask}
+                onOpen={setSlideTask}
+              />
+            ))}
+          </div>
+        )
+      ) : view === 'board' ? (
         orderedGroups.length === 0 ? (
           <div className="text-center py-20 bg-white rounded-xl border border-slate-100">
             <Circle className="w-12 h-12 text-slate-200 mx-auto mb-3" />
@@ -422,7 +540,8 @@ export default function TaskBoard({
             ))
           }
         </div>
-      )}
+      )
+      }
 
       {showNew && (
         <NewTaskModal
