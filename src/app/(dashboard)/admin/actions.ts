@@ -109,7 +109,13 @@ export async function updateProject(projectId: string, formData: FormData) {
   await getWorkspaceId()
   const admin = getAdminClient()
 
-  const micIdentifier = (formData.get('mic_identifier') as string)?.trim() || null
+  const micIdentifierRaw = (formData.get('mic_identifier') as string)?.trim() || null
+  // Si el campo vino vacío, leer el valor actual para no borrar un identificador existente
+  let micIdentifier = micIdentifierRaw
+  if (!micIdentifier) {
+    const { data: current } = await admin.from('projects').select('mic_identifier').eq('id', projectId).single()
+    micIdentifier = current?.mic_identifier ?? null
+  }
 
   const { error } = await admin.from('projects').update({
     name: formData.get('name') as string,

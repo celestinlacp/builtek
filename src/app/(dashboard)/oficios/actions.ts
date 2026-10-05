@@ -35,11 +35,13 @@ export async function createOficio(data: {
   fecha_documento?: string | null
   fecha_recepcion?: string | null
   proyecto_id?:     string | null
+  proyecto2_id?:    string | null
   especialidad?:    string | null
   tema?:            string | null
   remitente?:       string | null
   destinatario?:    string | null
   assignee_id?:     string | null
+  assignee2_id?:    string | null
   responde_a_id?:   string | null
   storage_key?:     string | null
   file_name?:       string | null
@@ -65,12 +67,14 @@ export async function createOficio(data: {
     fecha_documento: data.fecha_documento || null,
     fecha_recepcion: data.fecha_recepcion || null,
     proyecto_id:     data.proyecto_id     || null,
+    proyecto2_id:    data.proyecto2_id    || null,
     especialidad:    data.especialidad    || null,
     tema:            data.tema            || null,
     estado:          'pendiente',
     remitente:       data.remitente       || null,
     destinatario:    data.destinatario    || null,
     assignee_id:     data.assignee_id     || null,
+    assignee2_id:    data.assignee2_id    || null,
     responde_a_id:   data.responde_a_id   || null,
     storage_key:     data.storage_key     || null,
     file_name:       data.file_name       || null,
@@ -126,25 +130,26 @@ export async function createOficio(data: {
     }).select('id').single()
 
     if (task?.id) {
-      // Registrar en task_assignees si hay asignado
-      if (data.assignee_id) {
-        await admin.from('task_assignees').insert({ task_id: task.id, user_id: data.assignee_id })
-      }
+      const assigneeInserts = []
+      if (data.assignee_id)  assigneeInserts.push({ task_id: task.id, user_id: data.assignee_id })
+      if (data.assignee2_id) assigneeInserts.push({ task_id: task.id, user_id: data.assignee2_id })
+      if (assigneeInserts.length) await admin.from('task_assignees').insert(assigneeInserts)
       // Vincular oficio ↔ tarea
       await admin.from('oficios').update({ task_id: task.id }).eq('id', created.id)
     }
   }
 
-  // Notificar al asignado si se especificó uno
-  if (data.assignee_id && data.assignee_id !== user.id && workspaceId) {
-    const { data: assignerProfile } = await admin.from('profiles').select('full_name').eq('id', user.id).single()
-    const assignerName = assignerProfile?.full_name ?? 'Un manager'
+  // Notificar a los asignados
+  const { data: assignerProfile } = await admin.from('profiles').select('full_name').eq('id', user.id).single()
+  const assignerName = assignerProfile?.full_name ?? 'Un manager'
+  const notifyIds = [data.assignee_id, data.assignee2_id].filter((id): id is string => !!id && id !== user.id)
+  for (const mentionId of notifyIds) {
     await admin.from('workspace_messages').insert({
       workspace_id: workspaceId,
       sender_id:    null,
       type:         'system',
       content:      `📋 ${assignerName} te asignó el oficio "${data.asunto}"${data.no_oficio ? ` (${data.no_oficio})` : ''}`,
-      metadata:     { action: 'oficio_assigned', mention_to: data.assignee_id, from_user: user.id },
+      metadata:     { action: 'oficio_assigned', mention_to: mentionId, from_user: user.id },
     })
   }
 
@@ -159,12 +164,14 @@ export async function updateOficio(id: string, data: {
   fecha_documento?:   string | null
   fecha_recepcion?:   string | null
   proyecto_id?:       string | null
+  proyecto2_id?:      string | null
   especialidad?:      string | null
   tema?:              string | null
   estado?:            string
   remitente?:         string | null
   destinatario?:      string | null
   assignee_id?:       string | null
+  assignee2_id?:      string | null
   notas?:             string | null
   mesa_id?:           string | null
   copia_a?:           string | null
@@ -175,14 +182,73 @@ export async function updateOficio(id: string, data: {
 
   const { error } = await admin.from('oficios').update({
     ...data,
-    proyecto_id:  data.proyecto_id  ?? undefined,
-    assignee_id:  data.assignee_id  ?? undefined,
+    proyecto_id:   data.proyecto_id   ?? undefined,
+    proyecto2_id:  data.proyecto2_id  ?? undefined,
+    assignee_id:   data.assignee_id   ?? undefined,
+    assignee2_id:  data.assignee2_id  ?? undefined,
   }).eq('id', id)
 
   if (error) return { error: error.message }
   revalidatePath('/oficios')
   revalidatePath('/especificaciones')
   return { success: true }
+}
+
+export async function createTaskFromOficio(oficioId: string, data: {
+  proyecto_id: string
+  name: string
+  priority: string
+  due_date?: string | null
+}) {
+  const { user, workspaceId } = await getUser()
+  const admin = getAdminClient()
+
+  const { data: oficio } = await admin
+    .from('oficios')
+    .select('especialidad, assignee_id, assignee2_id, task_id')
+    .eq('id', oficioId)
+    .single()
+
+  if (!oficio) return { error: 'Oficio no encontrado' }
+  if (oficio.task_id)  return { error: 'Este oficio ya tiene una tarea vinculada' }
+
+  const { data: task, error } = await admin.from('tasks').insert({
+    project_id:  data.proyecto_id,
+    name:        data.name,
+    specialty:   oficio.especialidad ?? null,
+    assignee_id: oficio.assignee_id  ?? null,
+    priority:    data.priority || 'medium',
+    due_date:    data.due_date || null,
+    status:      'pending',
+  }).select('id').single()
+
+  if (error) return { error: error.message }
+
+  const assigneeInserts = []
+  if (oficio.assignee_id)  assigneeInserts.push({ task_id: task.id, user_id: oficio.assignee_id })
+  if (oficio.assignee2_id) assigneeInserts.push({ task_id: task.id, user_id: oficio.assignee2_id })
+  if (assigneeInserts.length) await admin.from('task_assignees').insert(assigneeInserts)
+
+  await admin.from('oficios').update({ task_id: task.id }).eq('id', oficioId)
+
+  // Notificar a los asignados
+  const { data: assignerProfile } = await admin.from('profiles').select('full_name').eq('id', user.id).single()
+  const assignerName = assignerProfile?.full_name ?? 'Un manager'
+  const { data: oficioFull } = await admin.from('oficios').select('asunto, no_oficio').eq('id', oficioId).single()
+  const notifyIds = [oficio.assignee_id, oficio.assignee2_id].filter((id): id is string => !!id && id !== user.id)
+  for (const mentionId of notifyIds) {
+    await admin.from('workspace_messages').insert({
+      workspace_id: workspaceId,
+      sender_id:    null,
+      type:         'system',
+      content:      `📋 ${assignerName} creó una tarea para el oficio "${oficioFull?.asunto ?? ''}"${oficioFull?.no_oficio ? ` (${oficioFull.no_oficio})` : ''}`,
+      metadata:     { action: 'task_created', mention_to: mentionId, from_user: user.id },
+    })
+  }
+
+  revalidatePath('/oficios')
+  revalidatePath('/tasks')
+  return { success: true, task_id: task.id }
 }
 
 export async function updateOficioStatus(id: string, estado: string) {

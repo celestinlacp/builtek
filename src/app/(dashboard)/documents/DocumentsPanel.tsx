@@ -197,8 +197,21 @@ function WorkflowBadge({ doc, userRole }: { doc: Doc; userRole: string }) {
 
 type Member = { user_id: string; full_name: string | null; initials: string | null }
 
+type LastUploadConfig = {
+  projectId:     string
+  specialtyCode: string
+  emissionDate:  string
+  authorSel:     string
+  docType:       string
+  docView:       string
+  docViewNum:    string
+  docElement:    string
+  micVersion:    'V0' | 'V1'
+  identificador: string
+}
+
 function UploadModal({
-  projects, workspaceId, defaultProjectId, existingDocs, companies, members, micNomenclatures, userRole, workspaceOficios, mesasTecnicas, onClose
+  projects, workspaceId, defaultProjectId, existingDocs, companies, members, micNomenclatures, userRole, workspaceOficios, mesasTecnicas, lastConfig, onClose, onSaved
 }: {
   projects: Project[]
   workspaceId: string
@@ -210,13 +223,15 @@ function UploadModal({
   userRole: string
   workspaceOficios: OfiEntry[]
   mesasTecnicas: MesaTecnica[]
+  lastConfig: LastUploadConfig | null
   onClose: () => void
+  onSaved: (config: LastUploadConfig) => void
 }) {
-  const [projectId,      setProjectId]      = useState(defaultProjectId || '')
-  const [specialtyCode,  setSpecialtyCode]  = useState('')
+  const [projectId,      setProjectId]      = useState(lastConfig?.projectId || defaultProjectId || '')
+  const [specialtyCode,  setSpecialtyCode]  = useState(lastConfig?.specialtyCode || '')
   const [displayName,    setDisplayName]    = useState('')
-  const [emissionDate,   setEmissionDate]   = useState('')
-  const [authorSel,      setAuthorSel]      = useState('')
+  const [emissionDate,   setEmissionDate]   = useState(lastConfig?.emissionDate || '')
+  const [authorSel,      setAuthorSel]      = useState(lastConfig?.authorSel || '')
   const [notes,          setNotes]          = useState('')
   const [file,           setFile]           = useState<File | null>(null)
   const [uploading,      setUploading]      = useState(false)
@@ -224,16 +239,22 @@ function UploadModal({
   const [step,           setStep]           = useState('')
   const [uploadPct,      setUploadPct]      = useState(0)
   const [versionWarning, setVersionWarning] = useState<{ prevVersion: number; newVersion: number } | null>(null)
-  const [docView,        setDocView]        = useState('')
-  const [docViewNum,     setDocViewNum]     = useState('')
-  const [docElement,     setDocElement]     = useState('')
-  const [docType,        setDocType]        = useState('')
-  const [micVersion,     setMicVersion]     = useState<'V0' | 'V1'>('V0')
+  const [docView,        setDocView]        = useState(lastConfig?.docView || '')
+  const [docViewNum,     setDocViewNum]     = useState(lastConfig?.docViewNum || '')
+  const [docElement,     setDocElement]     = useState(lastConfig?.docElement || '')
+  const [docType,        setDocType]        = useState(lastConfig?.docType || '')
+  const [micVersion,     setMicVersion]     = useState<'V0' | 'V1'>(lastConfig?.micVersion || 'V0')
   const [fileFormat,     setFileFormat]     = useState<string | null>(null)
   const [identificador,  setIdentificador]  = useState(() => {
-    const proj   = projects.find(p => p.id === defaultProjectId)
-    const parent = proj?.parent_project_id ? projects.find(p => p.id === proj.parent_project_id) : null
-    return proj?.mic_identifier || parent?.mic_identifier || ''
+    // Siempre priorizar el proyecto actual de la página
+    if (defaultProjectId) {
+      const proj   = projects.find(p => p.id === defaultProjectId)
+      const parent = proj?.parent_project_id ? projects.find(p => p.id === proj.parent_project_id) : null
+      const derived = proj?.mic_identifier || parent?.mic_identifier || ''
+      if (derived) return derived
+    }
+    // Solo usar lastConfig si no hay proyecto de contexto
+    return lastConfig?.identificador || ''
   })
   const [registrarOficio,    setRegistrarOficio]    = useState(false)
   const [oficioTipo,         setOficioTipo]         = useState<'entrada' | 'salida'>('salida')
@@ -402,6 +423,8 @@ function UploadModal({
     })
 
     if (result?.error) { setError(result.error); setUploading(false); setStep(''); return }
+
+    onSaved({ projectId, specialtyCode, emissionDate, authorSel, docType, docView, docViewNum, docElement, micVersion, identificador })
 
     if (registrarOficio && oficioAsunto.trim()) {
       setStep('Registrando oficio...')
@@ -2424,6 +2447,7 @@ export default function DocumentsPanel({
   const searchParams = useSearchParams()
   const selectedProjectId = searchParams.get('project')
   const [showUpload, setShowUpload] = useState(false)
+  const [lastUploadConfig, setLastUploadConfig] = useState<LastUploadConfig | null>(null)
   const isAdmin = userRole === 'owner' || userRole === 'admin'
 
   const selectedProject  = projects.find(p => p.id === selectedProjectId) ?? null
@@ -2509,7 +2533,9 @@ export default function DocumentsPanel({
           userRole={userRole}
           workspaceOficios={workspaceOficios}
           mesasTecnicas={mesasTecnicas}
+          lastConfig={lastUploadConfig}
           onClose={() => setShowUpload(false)}
+          onSaved={(config) => setLastUploadConfig(config)}
         />
       )}
     </div>

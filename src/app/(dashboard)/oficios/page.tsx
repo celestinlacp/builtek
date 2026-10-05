@@ -56,13 +56,15 @@ export default async function OficiosPage() {
       .from('oficios')
       .select(`
         id, tipo, no_oficio, asunto, fecha_documento, fecha_recepcion,
-        proyecto_id, especialidad, tema, estado,
-        remitente, destinatario, assignee_id,
+        proyecto_id, proyecto2_id, especialidad, tema, estado,
+        remitente, destinatario, assignee_id, assignee2_id, task_id,
         storage_key, file_name, file_type, file_size,
         notas, link_entrega, created_by, created_at, updated_at, responde_a_id,
         mesa_id, copia_a, para_conocimiento,
-        proyecto:projects(id, name),
-        assignee:profiles!oficios_assignee_id_fkey(id, full_name)
+        proyecto:projects!oficios_proyecto_id_fkey(id, name),
+        proyecto2:projects!oficios_proyecto2_id_fkey(id, name),
+        assignee:profiles!oficios_assignee_id_fkey(id, full_name),
+        assignee2:profiles!oficios_assignee2_id_fkey(id, full_name)
       `)
       .eq('workspace_id', wsId)
       .order('created_at', { ascending: false }),

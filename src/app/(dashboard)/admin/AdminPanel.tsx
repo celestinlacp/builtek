@@ -1905,7 +1905,7 @@ function MesasTecnicasPanel({
                 className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[#00C2FF]" />
             </div>
             <div>
-              <label className="text-xs font-medium text-slate-600 block mb-1">Especialidad (MIC)</label>
+              <label className="text-xs font-medium text-slate-600 block mb-1">Especialidad</label>
               <select value={formEsp} onChange={e => setFormEsp(e.target.value)}
                 className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]">
                 <option value="">Sin especialidad</option>
@@ -2062,11 +2062,13 @@ function NomenclaturasPanel({ nomenclatures, workspaceId }: { nomenclatures: Mic
     setSaving(false)
     if (result?.error) { setError(result.error); return }
     setShowForm(false)
+    router.refresh()
   }
 
   async function handleDelete(item: MicNomenclature) {
     if (!confirm(`¿Eliminar [${item.code}] ${item.name}?`)) return
     await deleteMicNomenclature(item.id)
+    router.refresh()
   }
 
   async function handleSeedAll() {
@@ -2106,7 +2108,7 @@ function NomenclaturasPanel({ nomenclatures, workspaceId }: { nomenclatures: Mic
       <div className="flex items-start justify-between mb-4 flex-wrap gap-3">
         <div>
           <p className="text-sm text-slate-500 max-w-lg">
-            Catálogo de segmentos del Código MIC (Metodología de Información para la Construcción).<br />
+            Catálogo de segmentos del ID Builtek.<br />
             <span className="font-mono text-[#00C2FF] text-xs">TRONCAL-IDENTIFICADOR-TIPO_DOC-ESPECIALIDAD-TIPO_PLANO-0001</span>
           </p>
         </div>
@@ -2346,7 +2348,7 @@ export default function AdminPanel({
   const mainTabsBefore: { id: Tab; label: string; icon: React.ElementType }[] = [
     { id: 'projects',      label: 'Proyectos',     icon: FolderOpen },
     { id: 'empresas',      label: 'Empresas',       icon: Factory    },
-    { id: 'nomenclaturas', label: 'Nomenclaturas',  icon: BookOpen   },
+    { id: 'nomenclaturas', label: 'ID Builtek',      icon: BookOpen   },
   ]
   const mainTabsAfter: { id: Tab; label: string; icon: React.ElementType }[] = [
     { id: 'team',      label: 'Equipo',         icon: Users     },
@@ -2577,7 +2579,7 @@ export default function AdminPanel({
         />
       )}
 
-      {/* Nomenclaturas MIC tab */}
+      {/* Nomenclaturas ID Builtek tab */}
       {tab === 'nomenclaturas' && (
         <NomenclaturasPanel
           nomenclatures={micNomenclatures}
