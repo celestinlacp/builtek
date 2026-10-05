@@ -1551,14 +1551,21 @@ function ProjectsView({
   const pkOptions    = [...new Set(rootProjects.map(p => p.chainage_start).filter(v => v != null))] as number[]
   pkOptions.sort((a, b) => a - b)
 
+  function projectMatchesFilter(p: Project) {
+    if (filterFrente !== 'all' && p.frente !== filterFrente) return false
+    if (filterType   !== 'all' && p.project_type !== filterType) return false
+    if (filterBadge  === 'inah'   && !p.is_inah) return false
+    if (filterBadge  === 'cauces' && !p.cauces_federales) return false
+    if (filterPK !== 'all' && p.chainage_start !== Number(filterPK)) return false
+    return true
+  }
+
   const filtered = rootProjects
     .filter(p => {
-      if (filterFrente !== 'all' && p.frente !== filterFrente) return false
-      if (filterType   !== 'all' && p.project_type !== filterType) return false
-      if (filterBadge  === 'inah'   && !p.is_inah) return false
-      if (filterBadge  === 'cauces' && !p.cauces_federales) return false
-      if (filterPK !== 'all' && p.chainage_start !== Number(filterPK)) return false
-      return true
+      if (projectMatchesFilter(p)) return true
+      // Incluir si algún subproyecto cumple el filtro
+      const subs = projects.filter(s => s.parent_project_id === p.id)
+      return subs.some(s => projectMatchesFilter(s))
     })
     .sort((a, b) => {
       if (!sortByPK) return 0
