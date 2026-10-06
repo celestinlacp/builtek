@@ -38,10 +38,42 @@ export async function GET(
     return new NextResponse('Link expirado', { status: 410 })
   }
 
+  // BFS: collect all subfolder IDs + build folder name map
+  type FolderInfo = { id: string; name: string; parent_folder_id: string | null }
+  const folderMap: Record<string, FolderInfo> = {
+    [share.folder_id]: { id: share.folder_id, name: '', parent_folder_id: null },
+  }
+  const queue: string[] = [share.folder_id]
+  while (queue.length > 0) {
+    const parentId = queue.shift()!
+    const { data: children } = await admin
+      .from('drive_folders')
+      .select('id, name, parent_folder_id')
+      .eq('parent_folder_id', parentId)
+    for (const child of (children ?? [])) {
+      folderMap[child.id] = child
+      queue.push(child.id)
+    }
+  }
+
+  // Build relative path for a folder_id (from root)
+  const buildPath = (folderId: string): string => {
+    const parts: string[] = []
+    let current: string | null = folderId
+    while (current && current !== share.folder_id) {
+      const f: FolderInfo | undefined = folderMap[current]
+      if (!f) break
+      parts.unshift(f.name)
+      current = f.parent_folder_id
+    }
+    return parts.join('/')
+  }
+
+  const allFolderIds = Object.keys(folderMap)
   const { data: files } = await admin
     .from('drive_files')
-    .select('storage_key, file_name, name')
-    .eq('folder_id', share.folder_id)
+    .select('storage_key, file_name, name, folder_id')
+    .in('folder_id', allFolderIds)
     .order('name')
 
   if (!files || files.length === 0) {
@@ -58,9 +90,11 @@ export async function GET(
         const obj = await r2.send(cmd)
         if (!obj.Body) return
         const bytes = await (obj.Body as any).transformToByteArray()
-        zip.file(file.name || file.file_name, bytes)
+        const dir   = file.folder_id ? buildPath(file.folder_id) : ''
+        const entry = dir ? `${dir}/${file.name || file.file_name}` : (file.name || file.file_name)
+        zip.file(entry, bytes)
       } catch {
-        // Skip files that can't be fetched — don't fail the whole ZIP
+        // Skip files that can't be fetched
       }
     })
   )

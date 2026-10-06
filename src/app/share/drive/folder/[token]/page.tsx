@@ -82,53 +82,25 @@ export default async function FolderSharePage(
     }
   }
 
-  // Build relative path from shared root for a given folder_id
-  const buildPath = (folderId: string | null): string | undefined => {
-    if (!folderId || folderId === share.folder_id) return undefined
-    const parts: string[] = []
-    let current: string | null = folderId
-    while (current && current !== share.folder_id) {
-      const f: FolderInfo | undefined = folderMap[current]
-      if (!f) break
-      parts.unshift(f.name)
-      current = f.parent_folder_id
-    }
-    return parts.length > 0 ? parts.join(' / ') : undefined
-  }
-
   // Files in folder + all subfolders
   const allFolderIds = Object.keys(folderMap)
   const { data: rawFiles } = await admin
     .from('drive_files')
-    .select('id, name, file_name, file_type, file_size, created_at, uploaded_by, folder_id')
+    .select('id, name, file_name, file_type, file_size, created_at, folder_id')
     .in('folder_id', allFolderIds)
     .order('name')
 
-  const files = rawFiles ?? []
-
-  // Resolve uploader names
-  const uploaderIds = [...new Set(files.map(f => f.uploaded_by).filter(Boolean))]
-  const uploaderMap: Record<string, string> = {}
-  if (uploaderIds.length > 0) {
-    const { data: users } = await admin
-      .from('users')
-      .select('id, full_name')
-      .in('id', uploaderIds)
-    for (const u of (users ?? [])) {
-      if (u.id && u.full_name) uploaderMap[u.id] = u.full_name
-    }
-  }
-
-  const enrichedFiles = files.map(f => ({
-    id:             f.id,
-    name:           f.name,
-    file_name:      f.file_name,
-    file_type:      f.file_type,
-    file_size:      f.file_size,
-    created_at:     f.created_at,
-    uploader:       f.uploaded_by ? uploaderMap[f.uploaded_by] : undefined,
-    subfolder_name: buildPath(f.folder_id),
+  const enrichedFiles = (rawFiles ?? []).map(f => ({
+    id:         f.id,
+    name:       f.name,
+    file_name:  f.file_name,
+    file_type:  f.file_type,
+    file_size:  f.file_size,
+    created_at: f.created_at,
+    folder_id:  f.folder_id ?? share.folder_id,
   }))
+
+  const allFolders = Object.values(folderMap)
 
   const expiresFormatted = share.expires_at
     ? new Date(share.expires_at).toLocaleString('es-MX', {
@@ -183,6 +155,8 @@ export default async function FolderSharePage(
         ) : (
           /* ── Content ─────────────────────────────────────────────────────── */
           <FolderShareContent
+            allFolders={allFolders}
+            rootFolderId={share.folder_id}
             files={enrichedFiles}
             token={token}
             folderName={folderName}

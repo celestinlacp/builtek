@@ -4,6 +4,12 @@ import { useState, useCallback, useMemo } from 'react'
 import { Download, Grid3X3, List, Link2, Check, Eye, FolderOpen, Folder, ChevronRight } from 'lucide-react'
 import { FileTypeIcon } from '@/components/ui/FileTypeIcon'
 
+export type SubFolder = {
+  id: string
+  name: string
+  parent_folder_id: string | null
+}
+
 export type SharedFile = {
   id: string
   name: string
@@ -11,11 +17,12 @@ export type SharedFile = {
   file_type: string
   file_size: number
   created_at: string
-  uploader?: string
-  subfolder_name?: string
+  folder_id: string
 }
 
 type Props = {
+  allFolders: SubFolder[]
+  rootFolderId: string
   files: SharedFile[]
   token: string
   folderName: string
@@ -23,15 +30,14 @@ type Props = {
   expiresFormatted?: string | null
 }
 
-// Soft background tints per file type for grid cards
 const TYPE_BG: Record<string, string> = {
-  pdf:   'bg-red-50',
-  pptx:  'bg-orange-50', ppt:  'bg-orange-50',
-  xlsx:  'bg-emerald-50', xls: 'bg-emerald-50',
-  docx:  'bg-blue-50',   doc:  'bg-blue-50',
-  dwg:   'bg-sky-50',    dxf:  'bg-sky-50',
-  img:   'bg-purple-50',
-  zip:   'bg-yellow-50', rar:  'bg-amber-50',
+  pdf:  'bg-red-50',
+  pptx: 'bg-orange-50', ppt: 'bg-orange-50',
+  xlsx: 'bg-emerald-50', xls: 'bg-emerald-50',
+  docx: 'bg-blue-50',   doc: 'bg-blue-50',
+  dwg:  'bg-sky-50',    dxf: 'bg-sky-50',
+  img:  'bg-purple-50',
+  zip:  'bg-yellow-50', rar: 'bg-amber-50',
 }
 
 function formatSize(bytes: number): string {
@@ -57,45 +63,67 @@ function relativeDate(d: string): string {
   return `${years}a`
 }
 
-export function FolderShareContent({ files, token, folderName, wsName, expiresFormatted }: Props) {
-  const [view, setView] = useState<'list' | 'grid'>('list')
-  const [copied, setCopied] = useState(false)
-  const [expanded, setExpanded] = useState<Set<string>>(new Set())
-
-  const toggleGroup = (label: string) => {
-    setExpanded(prev => {
-      const next = new Set(prev)
-      if (next.has(label)) next.delete(label)
-      else next.add(label)
-      return next
-    })
-  }
+export function FolderShareContent({ allFolders, rootFolderId, files, token, folderName, wsName, expiresFormatted }: Props) {
+  const [view, setView]               = useState<'list' | 'grid'>('list')
+  const [copied, setCopied]           = useState(false)
+  const [currentFolderId, setCurrentFolderId] = useState(rootFolderId)
 
   const zipUrl   = `/api/drive/share/folder/${token}/zip`
   const shareUrl = `https://builtek.app/share/drive/folder/${token}`
   const totalSize = files.reduce((s, f) => s + (f.file_size ?? 0), 0)
-
-  // Group files: root first (no subfolder), then by subfolder path
-  const groups = useMemo(() => {
-    const map = new Map<string | undefined, SharedFile[]>()
-    for (const f of files) {
-      const key = f.subfolder_name
-      if (!map.has(key)) map.set(key, [])
-      map.get(key)!.push(f)
-    }
-    // Root first, then subfolders sorted alphabetically
-    const result: Array<{ label: string | undefined; items: SharedFile[] }> = []
-    if (map.has(undefined)) result.push({ label: undefined, items: map.get(undefined)! })
-    const subKeys = [...map.keys()].filter(k => k !== undefined).sort() as string[]
-    for (const k of subKeys) result.push({ label: k, items: map.get(k)! })
-    return result
-  }, [files])
 
   const copyLink = useCallback(async () => {
     await navigator.clipboard.writeText(shareUrl)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }, [shareUrl])
+
+  // Quick lookup: folder id → folder
+  const folderById = useMemo(() => {
+    const map: Record<string, SubFolder> = {}
+    for (const f of allFolders) map[f.id] = f
+    return map
+  }, [allFolders])
+
+  // Direct subfolders of current folder
+  const currentSubfolders = useMemo(
+    () => allFolders.filter(f => f.parent_folder_id === currentFolderId).sort((a, b) => a.name.localeCompare(b.name)),
+    [allFolders, currentFolderId]
+  )
+
+  // Direct files of current folder
+  const currentFiles = useMemo(
+    () => files.filter(f => f.folder_id === currentFolderId).sort((a, b) => a.name.localeCompare(b.name)),
+    [files, currentFolderId]
+  )
+
+  // Total files recursively under a folder
+  const getFileCount = useCallback((folderId: string): number => {
+    const ids: string[] = []
+    const q = [folderId]
+    while (q.length > 0) {
+      const id = q.shift()!
+      ids.push(id)
+      allFolders.filter(f => f.parent_folder_id === id).forEach(f => q.push(f.id))
+    }
+    return files.filter(f => ids.includes(f.folder_id)).length
+  }, [allFolders, files])
+
+  // Breadcrumb from root to current folder
+  const breadcrumb = useMemo(() => {
+    const path: Array<{ id: string; name: string }> = []
+    let current: string | null = currentFolderId
+    while (current && current !== rootFolderId) {
+      const f: SubFolder | undefined = folderById[current]
+      if (!f) break
+      path.unshift({ id: f.id, name: f.name })
+      current = f.parent_folder_id
+    }
+    path.unshift({ id: rootFolderId, name: folderName })
+    return path
+  }, [currentFolderId, rootFolderId, folderName, folderById])
+
+  const isRoot = currentFolderId === rootFolderId
 
   return (
     <>
@@ -112,7 +140,6 @@ export function FolderShareContent({ files, token, folderName, wsName, expiresFo
           )}
         </div>
 
-        {/* View toggle */}
         <div className="flex items-center border border-slate-200 rounded-lg overflow-hidden shrink-0 mt-0.5">
           <button
             onClick={() => setView('list')}
@@ -152,21 +179,39 @@ export function FolderShareContent({ files, token, folderName, wsName, expiresFo
           onClick={copyLink}
           className="flex-1 sm:flex-none flex items-center justify-center gap-2 border border-slate-200 hover:bg-slate-50 text-slate-700 text-sm font-medium px-4 py-2.5 rounded-lg transition-colors"
         >
-          {copied
-            ? <Check className="w-4 h-4 text-green-500" />
-            : <Link2 className="w-4 h-4" />
-          }
+          {copied ? <Check className="w-4 h-4 text-green-500" /> : <Link2 className="w-4 h-4" />}
           {copied ? 'Copiado' : 'Copiar link'}
         </button>
       </div>
 
-      {/* ── File count summary ─────────────────────────────────────────────── */}
+      {/* ── Summary ────────────────────────────────────────────────────────── */}
       <p className="text-xs text-slate-400 mb-4">
         {files.length} archivo{files.length !== 1 ? 's' : ''} · {formatSize(totalSize)} en total
       </p>
 
+      {/* ── Breadcrumb ─────────────────────────────────────────────────────── */}
+      {!isRoot && (
+        <div className="flex items-center gap-1 mb-4 flex-wrap">
+          {breadcrumb.map((crumb, i) => (
+            <span key={crumb.id} className="flex items-center gap-1">
+              {i > 0 && <ChevronRight className="w-3 h-3 text-slate-300" />}
+              {i < breadcrumb.length - 1 ? (
+                <button
+                  onClick={() => setCurrentFolderId(crumb.id)}
+                  className="text-xs text-blue-500 hover:underline"
+                >
+                  {crumb.name}
+                </button>
+              ) : (
+                <span className="text-xs font-semibold text-slate-700">{crumb.name}</span>
+              )}
+            </span>
+          ))}
+        </div>
+      )}
+
       {/* ── Empty state ────────────────────────────────────────────────────── */}
-      {files.length === 0 ? (
+      {currentSubfolders.length === 0 && currentFiles.length === 0 ? (
         <div className="border border-slate-200 rounded-xl p-12 text-center">
           <FolderOpen className="w-10 h-10 text-slate-200 mx-auto mb-3" />
           <p className="text-sm text-slate-400">Esta carpeta no tiene archivos aún.</p>
@@ -175,195 +220,179 @@ export function FolderShareContent({ files, token, folderName, wsName, expiresFo
       ) : view === 'list' ? (
         /* ── LIST VIEW ──────────────────────────────────────────────────── */
         <div className="border border-slate-200 rounded-xl overflow-hidden">
-          {/* Header */}
-          <div className="grid grid-cols-[1fr_80px] sm:grid-cols-[1fr_110px_80px_100px] px-4 py-2.5 bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+          <div className="grid grid-cols-[1fr_72px_88px] px-4 py-2.5 bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider">
             <div>Nombre</div>
-            <div className="hidden sm:block">Subido por</div>
-            <div className="hidden sm:block">Fecha</div>
+            <div>Fecha</div>
             <div className="text-right">Tamaño</div>
           </div>
 
-          {/* Groups */}
-          {groups.map((group) => {
-            const key = group.label ?? '__root__'
-            const isOpen = !group.label || expanded.has(key)
+          {/* Subfolder rows */}
+          {currentSubfolders.map(folder => (
+            <button
+              key={folder.id}
+              onClick={() => setCurrentFolderId(folder.id)}
+              className="w-full grid grid-cols-[1fr_72px_88px] items-center px-4 py-2.5 border-b border-slate-50 hover:bg-slate-50 transition-colors text-left"
+            >
+              <div className="flex items-center gap-3 min-w-0 pr-4">
+                <Folder className="w-5 h-5 text-blue-400 shrink-0" />
+                <span className="text-sm font-medium text-slate-800 truncate">{folder.name}</span>
+              </div>
+              <div className="text-xs text-slate-400">—</div>
+              <div className="text-xs text-slate-500 text-right">
+                {getFileCount(folder.id)} arch.
+              </div>
+            </button>
+          ))}
+
+          {/* File rows */}
+          {currentFiles.map(file => {
+            const isPdf   = file.file_type?.toLowerCase() === 'pdf'
+            const fileUrl = `/api/drive/share/folder/${token}/file/${file.id}`
             return (
-              <div key={key}>
-                {/* Subfolder section header (clickeable) */}
-                {group.label ? (
-                  <button
-                    onClick={() => toggleGroup(key)}
-                    className="w-full flex items-center gap-2 px-4 py-2.5 bg-slate-50 border-b border-slate-100 hover:bg-slate-100 transition-colors text-left"
-                  >
-                    <ChevronRight
-                      className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-90' : ''}`}
-                    />
-                    <Folder className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                    <span className="text-xs font-semibold text-slate-600 truncate flex-1">{group.label}</span>
-                    <span className="text-xs text-slate-400 shrink-0">
-                      {group.items.length} archivo{group.items.length !== 1 ? 's' : ''}
-                    </span>
-                  </button>
-                ) : null}
-
-                {/* Files — only when expanded */}
-                {isOpen && group.items.map(file => {
-                  const isPdf   = file.file_type?.toLowerCase() === 'pdf'
-                  const fileUrl = `/api/drive/share/folder/${token}/file/${file.id}`
-                  return (
-                    <div
-                      key={file.id}
-                      className="grid grid-cols-[1fr_80px] sm:grid-cols-[1fr_110px_80px_100px] items-center px-4 py-2.5 border-b border-slate-50 last:border-b-0 hover:bg-slate-50 transition-colors group"
+              <div
+                key={file.id}
+                className="grid grid-cols-[1fr_72px_88px] items-center px-4 py-2.5 border-b border-slate-50 last:border-b-0 hover:bg-slate-50 transition-colors group"
+              >
+                <div className="flex items-center gap-3 min-w-0 pr-4">
+                  <FileTypeIcon fileType={file.file_type ?? 'other'} size={26} />
+                  <div className="min-w-0">
+                    <a
+                      href={fileUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm font-medium text-slate-800 hover:text-blue-600 hover:underline truncate block"
+                      title={file.name}
                     >
-                      {/* Name */}
-                      <div className="flex items-center gap-3 min-w-0 pr-4">
-                        <FileTypeIcon fileType={file.file_type ?? 'other'} size={26} />
-                        <div className="min-w-0">
-                          <a
-                            href={fileUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-sm font-medium text-slate-800 hover:text-blue-600 hover:underline truncate block"
-                            title={file.name}
-                          >
-                            {file.name}
-                          </a>
-                          <span className="text-[10px] text-slate-400 uppercase font-semibold tracking-wide">
-                            {file.file_type}
-                          </span>
-                        </div>
-                      </div>
+                      {file.name}
+                    </a>
+                    <span className="text-[10px] text-slate-400 uppercase font-semibold tracking-wide">
+                      {file.file_type}
+                    </span>
+                  </div>
+                </div>
 
-                      {/* Uploader — desktop only */}
-                      <div className="hidden sm:block text-xs text-slate-500 truncate pr-2">{file.uploader ?? '—'}</div>
+                <div className="text-xs text-slate-500">
+                  {file.created_at ? relativeDate(file.created_at) : '—'}
+                </div>
 
-                      {/* Date — desktop only */}
-                      <div className="hidden sm:block text-xs text-slate-500">
-                        {file.created_at ? relativeDate(file.created_at) : '—'}
-                      </div>
-
-                      {/* Size + actions */}
-                      <div className="flex items-center justify-end gap-1">
-                        <span className="text-xs text-slate-500">{formatSize(file.file_size ?? 0)}</span>
-                        {isPdf && (
-                          <a
-                            href={fileUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="ml-0.5 w-6 h-6 flex items-center justify-center rounded hover:bg-slate-200 text-slate-400 hover:text-slate-700 opacity-0 group-hover:opacity-100 sm:transition-opacity"
-                            title="Ver"
-                          >
-                            <Eye className="w-3 h-3" />
-                          </a>
-                        )}
-                        <a
-                          href={fileUrl}
-                          download
-                          className="w-6 h-6 flex items-center justify-center rounded hover:bg-slate-200 text-slate-400 hover:text-slate-700 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity"
-                          title="Descargar"
-                        >
-                          <Download className="w-3 h-3" />
-                        </a>
-                      </div>
-                    </div>
-                  )
-                })}
+                <div className="flex items-center justify-end gap-1">
+                  <span className="text-xs text-slate-500">{formatSize(file.file_size ?? 0)}</span>
+                  {isPdf && (
+                    <a
+                      href={fileUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="ml-0.5 w-6 h-6 flex items-center justify-center rounded hover:bg-slate-200 text-slate-400 hover:text-slate-700 opacity-0 group-hover:opacity-100 transition-opacity"
+                      title="Ver"
+                    >
+                      <Eye className="w-3 h-3" />
+                    </a>
+                  )}
+                  <a
+                    href={fileUrl}
+                    download
+                    className="w-6 h-6 flex items-center justify-center rounded hover:bg-slate-200 text-slate-400 hover:text-slate-700 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity"
+                    title="Descargar"
+                  >
+                    <Download className="w-3 h-3" />
+                  </a>
+                </div>
               </div>
             )
           })}
 
-          {/* Footer totals */}
-          <div className="grid grid-cols-[1fr_80px] sm:grid-cols-[1fr_110px_80px_100px] px-4 py-2 bg-slate-50 border-t border-slate-200">
+          {/* Footer */}
+          <div className="grid grid-cols-[1fr_72px_88px] px-4 py-2 bg-slate-50 border-t border-slate-200">
             <span className="text-xs text-slate-500 font-medium">
-              {files.length} archivo{files.length !== 1 ? 's' : ''}
+              {currentSubfolders.length > 0 && `${currentSubfolders.length} carpeta${currentSubfolders.length !== 1 ? 's' : ''}`}
+              {currentSubfolders.length > 0 && currentFiles.length > 0 && ' · '}
+              {currentFiles.length > 0 && `${currentFiles.length} archivo${currentFiles.length !== 1 ? 's' : ''}`}
             </span>
-            <span className="hidden sm:block" /><span className="hidden sm:block" />
-            <span className="text-xs text-slate-500 font-medium text-right">{formatSize(totalSize)}</span>
+            <span />
+            <span className="text-xs text-slate-500 font-medium text-right">
+              {formatSize(currentFiles.reduce((s, f) => s + (f.file_size ?? 0), 0))}
+            </span>
           </div>
         </div>
 
       ) : (
         /* ── GRID VIEW ──────────────────────────────────────────────────── */
-        <div className="space-y-2">
-          {groups.map(group => {
-            const key = group.label ?? '__root__'
-            const isOpen = !group.label || expanded.has(key)
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+          {/* Folder cards */}
+          {currentSubfolders.map(folder => {
+            const count = getFileCount(folder.id)
             return (
-            <div key={key}>
-              {group.label && (
-                <button
-                  onClick={() => toggleGroup(key)}
-                  className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg hover:bg-slate-100 transition-colors text-left mb-1"
-                >
-                  <ChevronRight
-                    className={`w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-90' : ''}`}
-                  />
-                  <Folder className="w-4 h-4 text-slate-400 shrink-0" />
-                  <span className="text-sm font-semibold text-slate-600 flex-1">{group.label}</span>
-                  <span className="text-xs text-slate-400">· {group.items.length} archivo{group.items.length !== 1 ? 's' : ''}</span>
-                </button>
-              )}
-              {isOpen && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 mb-2">
-                {group.items.map(file => {
-                  const isPdf   = file.file_type?.toLowerCase() === 'pdf'
-                  const fileUrl = `/api/drive/share/folder/${token}/file/${file.id}`
-                  const bgClass = TYPE_BG[file.file_type?.toLowerCase() ?? ''] ?? 'bg-slate-50'
+              <button
+                key={folder.id}
+                onClick={() => setCurrentFolderId(folder.id)}
+                className="group text-left border border-slate-200 rounded-xl overflow-hidden hover:border-blue-200 hover:shadow-md transition-all"
+              >
+                <div className="flex items-center justify-center h-28 bg-slate-50 group-hover:bg-blue-50 transition-colors">
+                  <Folder className="w-16 h-16 text-blue-300 group-hover:text-blue-400 transition-colors" strokeWidth={1} fill="currentColor" />
+                </div>
+                <div className="p-2.5">
+                  <p className="text-xs font-semibold text-slate-800 truncate leading-snug" title={folder.name}>
+                    {folder.name}
+                  </p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">
+                    Carpeta · {count} elemento{count !== 1 ? 's' : ''}
+                  </p>
+                </div>
+              </button>
+            )
+          })}
 
-                  return (
-                    <div
-                      key={file.id}
-                      className="group border border-slate-200 rounded-xl overflow-hidden hover:border-slate-300 hover:shadow-md transition-all cursor-pointer"
-                    >
-                      {/* Preview tile */}
-                      <div className={`relative flex items-center justify-center h-28 ${bgClass}`}>
-                        <FileTypeIcon fileType={file.file_type ?? 'other'} size={52} />
-
-                        {/* Hover overlay with actions */}
-                        <div className="absolute inset-0 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity bg-black/5">
-                          {isPdf && (
-                            <a
-                              href={fileUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              onClick={e => e.stopPropagation()}
-                              className="w-8 h-8 flex items-center justify-center rounded-lg bg-white shadow text-slate-600 hover:text-slate-900 hover:shadow-md transition-all"
-                              title="Ver"
-                            >
-                              <Eye className="w-3.5 h-3.5" />
-                            </a>
-                          )}
-                          <a
-                            href={fileUrl}
-                            download
-                            onClick={e => e.stopPropagation()}
-                            className="w-8 h-8 flex items-center justify-center rounded-lg bg-white shadow text-slate-600 hover:text-slate-900 hover:shadow-md transition-all"
-                            title="Descargar"
-                          >
-                            <Download className="w-3.5 h-3.5" />
-                          </a>
-                        </div>
-                      </div>
-
-                      {/* Card info */}
+          {/* File cards */}
+          {currentFiles.map(file => {
+            const isPdf   = file.file_type?.toLowerCase() === 'pdf'
+            const fileUrl = `/api/drive/share/folder/${token}/file/${file.id}`
+            const bgClass = TYPE_BG[file.file_type?.toLowerCase() ?? ''] ?? 'bg-slate-50'
+            return (
+              <div
+                key={file.id}
+                className="group border border-slate-200 rounded-xl overflow-hidden hover:border-slate-300 hover:shadow-md transition-all"
+              >
+                <div className={`relative flex items-center justify-center h-28 ${bgClass}`}>
+                  <FileTypeIcon fileType={file.file_type ?? 'other'} size={52} />
+                  <div className="absolute inset-0 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity bg-black/5">
+                    {isPdf && (
                       <a
                         href={fileUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="block p-2.5 hover:bg-slate-50 transition-colors"
+                        onClick={e => e.stopPropagation()}
+                        className="w-8 h-8 flex items-center justify-center rounded-lg bg-white shadow text-slate-600 hover:text-slate-900 hover:shadow-md transition-all"
+                        title="Ver"
                       >
-                        <p className="text-xs font-semibold text-slate-800 truncate leading-snug" title={file.name}>
-                          {file.name}
-                        </p>
-                        <p className="text-[10px] text-slate-400 mt-0.5">{formatSize(file.file_size ?? 0)}</p>
+                        <Eye className="w-3.5 h-3.5" />
                       </a>
-                    </div>
-                  )
-                })}
+                    )}
+                    <a
+                      href={fileUrl}
+                      download
+                      onClick={e => e.stopPropagation()}
+                      className="w-8 h-8 flex items-center justify-center rounded-lg bg-white shadow text-slate-600 hover:text-slate-900 hover:shadow-md transition-all"
+                      title="Descargar"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                    </a>
+                  </div>
+                </div>
+                <a
+                  href={fileUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block p-2.5 hover:bg-slate-50 transition-colors"
+                >
+                  <p className="text-xs font-semibold text-slate-800 truncate leading-snug" title={file.name}>
+                    {file.name}
+                  </p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">
+                    {file.file_type?.toUpperCase()} · {formatSize(file.file_size ?? 0)}
+                  </p>
+                </a>
               </div>
-              )}
-            </div>
-          )
+            )
           })}
         </div>
       )}
