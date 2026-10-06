@@ -1,6 +1,6 @@
 import { createClient as createAdmin } from '@supabase/supabase-js'
 import { notFound } from 'next/navigation'
-import { FolderOpen, Calendar, MapPin } from 'lucide-react'
+import { Calendar, MapPin } from 'lucide-react'
 import type { Metadata } from 'next'
 import ShareContent from './ShareContent'
 import type { ShareDoc, ShareSubproject } from './ShareContent'
@@ -152,13 +152,19 @@ export default async function SharePage(
       {/* Navbar */}
       <header className="bg-[#1A2744] text-white sticky top-0 z-30 shadow-lg">
         <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-[#00C2FF] rounded-lg flex items-center justify-center flex-shrink-0">
-              <FolderOpen className="w-4 h-4 text-[#1A2744]" />
+          <div className="flex items-center gap-2.5">
+            <div
+              className="flex items-center justify-center w-7 h-7 rounded-[6px] flex-shrink-0"
+              style={{ background: '#00C2FF' }}
+            >
+              <span className="text-[13px] font-black leading-none" style={{ letterSpacing: '-0.5px' }}>
+                <span style={{ color: '#1A2744' }}>B</span>
+                <span style={{ color: '#1A2744' }}>T</span>
+              </span>
             </div>
-            <span className="font-bold text-sm tracking-tight">Builtek</span>
+            <span className="font-bold text-sm tracking-tight text-white">Builtek</span>
             <span className="hidden sm:block text-white/30 text-xs">·</span>
-            <span className="hidden sm:block text-white/60 text-xs">Vista compartida de archivos</span>
+            <span className="hidden sm:block text-white/60 text-xs">Vista compartida</span>
           </div>
           <div className="flex items-center gap-2 text-xs text-white/50 flex-shrink-0">
             <Calendar className="w-3 h-3" />
