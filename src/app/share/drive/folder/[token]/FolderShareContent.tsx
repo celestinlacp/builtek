@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback, useMemo } from 'react'
-import { Download, Grid3X3, List, Link2, Check, Eye, FolderOpen, Folder, ChevronRight } from 'lucide-react'
+import { Download, Grid3X3, List, Link2, Check, Eye, FolderOpen, Folder, ChevronRight, ChevronDown } from 'lucide-react'
 import { FileTypeIcon } from '@/components/ui/FileTypeIcon'
 
 export type SubFolder = {
@@ -67,6 +67,16 @@ export function FolderShareContent({ allFolders, rootFolderId, files, token, fol
   const [view, setView]               = useState<'list' | 'grid'>('list')
   const [copied, setCopied]           = useState(false)
   const [currentFolderId, setCurrentFolderId] = useState(rootFolderId)
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
+
+  const toggleExpand = (folderId: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setExpandedFolders(prev => {
+      const next = new Set(prev)
+      next.has(folderId) ? next.delete(folderId) : next.add(folderId)
+      return next
+    })
+  }
 
   const zipUrl   = `/api/drive/share/folder/${token}/zip`
   const shareUrl = `https://builtek.app/share/drive/folder/${token}`
@@ -227,22 +237,87 @@ export function FolderShareContent({ allFolders, rootFolderId, files, token, fol
           </div>
 
           {/* Subfolder rows */}
-          {currentSubfolders.map(folder => (
-            <button
-              key={folder.id}
-              onClick={() => setCurrentFolderId(folder.id)}
-              className="w-full grid grid-cols-[1fr_72px_88px] items-center px-4 py-2.5 border-b border-slate-50 hover:bg-slate-50 transition-colors text-left"
-            >
-              <div className="flex items-center gap-3 min-w-0 pr-4">
-                <Folder className="w-5 h-5 text-blue-400 shrink-0" />
-                <span className="text-sm font-medium text-slate-800 truncate">{folder.name}</span>
+          {currentSubfolders.map(folder => {
+            const isExpanded = expandedFolders.has(folder.id)
+            const folderFiles = files.filter(f => f.folder_id === folder.id)
+            return (
+              <div key={folder.id}>
+                {/* Folder row */}
+                <div className="grid grid-cols-[1fr_72px_88px] items-center border-b border-slate-50 hover:bg-slate-50 transition-colors group">
+                  {/* Name — click navigates */}
+                  <button
+                    onClick={() => setCurrentFolderId(folder.id)}
+                    className="flex items-center gap-3 min-w-0 px-4 py-2.5 text-left"
+                  >
+                    <Folder className="w-5 h-5 text-blue-400 shrink-0" />
+                    <span className="text-sm font-medium text-slate-800 truncate">{folder.name}</span>
+                  </button>
+                  <div className="text-xs text-slate-400 py-2.5">—</div>
+                  {/* Count + chevron expand */}
+                  <div className="flex items-center justify-end gap-1 px-4 py-2.5">
+                    <span className="text-xs text-slate-500">{getFileCount(folder.id)} arch.</span>
+                    <button
+                      onClick={(e) => toggleExpand(folder.id, e)}
+                      className="w-6 h-6 flex items-center justify-center rounded hover:bg-slate-200 text-slate-400 hover:text-slate-600 transition-colors ml-1"
+                      title={isExpanded ? 'Colapsar' : 'Ver archivos'}
+                    >
+                      <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Inline expanded files */}
+                {isExpanded && folderFiles.map(file => {
+                  const isPdf   = file.file_type?.toLowerCase() === 'pdf'
+                  const fileUrl = `/api/drive/share/folder/${token}/file/${file.id}`
+                  return (
+                    <div
+                      key={file.id}
+                      className="grid grid-cols-[1fr_72px_88px] items-center pl-12 pr-4 py-2 border-b border-slate-50 last:border-b-0 bg-slate-50/60 hover:bg-slate-50 transition-colors group"
+                    >
+                      <div className="flex items-center gap-3 min-w-0 pr-4">
+                        <FileTypeIcon fileType={file.file_type ?? 'other'} size={22} />
+                        <div className="min-w-0">
+                          <a
+                            href={fileUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm font-medium text-slate-700 hover:text-blue-600 hover:underline truncate block"
+                            title={file.name}
+                          >
+                            {file.name}
+                          </a>
+                          <span className="text-[10px] text-slate-400 uppercase font-semibold tracking-wide">
+                            {file.file_type}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="text-xs text-slate-500">
+                        {file.created_at ? relativeDate(file.created_at) : '—'}
+                      </div>
+                      <div className="flex items-center justify-end gap-1">
+                        <span className="text-xs text-slate-500">{formatSize(file.file_size ?? 0)}</span>
+                        {isPdf && (
+                          <a href={fileUrl} target="_blank" rel="noopener noreferrer"
+                            className="ml-0.5 w-6 h-6 flex items-center justify-center rounded hover:bg-slate-200 text-slate-400 hover:text-slate-700 opacity-0 group-hover:opacity-100 transition-opacity"
+                            title="Ver"
+                          >
+                            <Eye className="w-3 h-3" />
+                          </a>
+                        )}
+                        <a href={fileUrl} download
+                          className="w-6 h-6 flex items-center justify-center rounded hover:bg-slate-200 text-slate-400 hover:text-slate-700 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity"
+                          title="Descargar"
+                        >
+                          <Download className="w-3 h-3" />
+                        </a>
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
-              <div className="text-xs text-slate-400">—</div>
-              <div className="text-xs text-slate-500 text-right">
-                {getFileCount(folder.id)} arch.
-              </div>
-            </button>
-          ))}
+            )
+          })}
 
           {/* File rows */}
           {currentFiles.map(file => {
