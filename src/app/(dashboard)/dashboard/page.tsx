@@ -27,8 +27,16 @@ async function getWorkspaceData(userId: string) {
     supabase.from('documents').select('id, name, status, created_at, project_id, uploaded_by').eq('workspace_id', wsId).neq('doc_status', 'deleted').order('created_at', { ascending: false }).limit(5),
     supabase.from('documents').select('id, project_id, created_at').eq('workspace_id', wsId).eq('file_type', 'img').order('created_at', { ascending: false }),
     supabase.from('documents').select('project_id, created_at').eq('workspace_id', wsId).neq('doc_status', 'deleted').neq('is_current', false),
-    supabase.from('workspace_members').select('user_id, profiles(full_name, initials)').eq('workspace_id', wsId),
+    supabase.from('workspace_members').select('user_id').eq('workspace_id', wsId),
   ])
+
+  // Fetch profiles separately (workspace_members FK apunta a auth.users, no a profiles — join directo falla en PostgREST)
+  const memberIds = (members.data ?? []).map((m: any) => m.user_id).filter(Boolean)
+  const profileMap: Record<string, { full_name: string | null; initials: string | null }> = {}
+  if (memberIds.length > 0) {
+    const { data: profileRows } = await supabase.from('profiles').select('id, full_name, initials').in('id', memberIds)
+    for (const p of (profileRows ?? [])) profileMap[p.id] = { full_name: p.full_name, initials: p.initials }
+  }
 
   // Última foto por proyecto (fallback si no tiene cover_image_url)
   const latestImageByProject: Record<string, string> = {}
@@ -87,7 +95,7 @@ async function getWorkspaceData(userId: string) {
   const allTasks = tasks.data ?? []
   const nowStats = new Date()
   const teamStats: TeamMemberStats[] = (members.data ?? []).map((m: any) => {
-    const profile = m.profiles
+    const profile = profileMap[m.user_id] ?? { full_name: null, initials: null }
     const uid = m.user_id
     const userTasks = allTasks.filter((t: any) => t.assignee_id === uid)
     const done       = userTasks.filter((t: any) => t.status === 'done').length
@@ -102,8 +110,8 @@ async function getWorkspaceData(userId: string) {
       : null
     return {
       user_id:     uid,
-      full_name:   profile?.full_name ?? null,
-      initials:    profile?.initials ?? null,
+      full_name:   profile.full_name ?? null,
+      initials:    profile.initials ?? null,
       total:       userTasks.length,
       done,
       in_progress: inProgress,
