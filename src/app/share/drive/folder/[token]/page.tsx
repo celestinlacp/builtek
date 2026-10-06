@@ -63,11 +63,45 @@ export default async function FolderSharePage(
     .eq('id', share.workspace_id)
     .single()
 
-  // Files in folder
+  // Collect all subfolder IDs recursively (BFS)
+  type FolderInfo = { id: string; name: string; parent_folder_id: string | null }
+  const folderMap: Record<string, FolderInfo> = {
+    [share.folder_id]: { id: share.folder_id, name: folderName, parent_folder_id: null },
+  }
+  const queue: string[] = [share.folder_id]
+  while (queue.length > 0) {
+    const parentId = queue.shift()!
+    const { data: children } = await admin
+      .from('drive_folders')
+      .select('id, name, parent_folder_id')
+      .eq('parent_folder_id', parentId)
+      .eq('workspace_id', share.workspace_id)
+    for (const child of (children ?? [])) {
+      folderMap[child.id] = child
+      queue.push(child.id)
+    }
+  }
+
+  // Build relative path from shared root for a given folder_id
+  const buildPath = (folderId: string | null): string | undefined => {
+    if (!folderId || folderId === share.folder_id) return undefined
+    const parts: string[] = []
+    let current: string | null = folderId
+    while (current && current !== share.folder_id) {
+      const f: FolderInfo | undefined = folderMap[current]
+      if (!f) break
+      parts.unshift(f.name)
+      current = f.parent_folder_id
+    }
+    return parts.length > 0 ? parts.join(' / ') : undefined
+  }
+
+  // Files in folder + all subfolders
+  const allFolderIds = Object.keys(folderMap)
   const { data: rawFiles } = await admin
     .from('drive_files')
-    .select('id, name, file_name, file_type, file_size, created_at, uploaded_by')
-    .eq('folder_id', share.folder_id)
+    .select('id, name, file_name, file_type, file_size, created_at, uploaded_by, folder_id')
+    .in('folder_id', allFolderIds)
     .order('name')
 
   const files = rawFiles ?? []
@@ -86,13 +120,14 @@ export default async function FolderSharePage(
   }
 
   const enrichedFiles = files.map(f => ({
-    id:          f.id,
-    name:        f.name,
-    file_name:   f.file_name,
-    file_type:   f.file_type,
-    file_size:   f.file_size,
-    created_at:  f.created_at,
-    uploader:    f.uploaded_by ? uploaderMap[f.uploaded_by] : undefined,
+    id:             f.id,
+    name:           f.name,
+    file_name:      f.file_name,
+    file_type:      f.file_type,
+    file_size:      f.file_size,
+    created_at:     f.created_at,
+    uploader:       f.uploaded_by ? uploaderMap[f.uploaded_by] : undefined,
+    subfolder_name: buildPath(f.folder_id),
   }))
 
   const expiresFormatted = share.expires_at

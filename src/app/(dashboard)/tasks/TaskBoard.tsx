@@ -218,7 +218,7 @@ function PersonGroup({
   onOpen: (t: Task) => void
 }) {
   const [open, setOpen] = useState(true)
-  const initials = member.initials || member.full_name?.split(' ').map(w => w[0]).toUpperCase().slice(0, 2).join('') || '?'
+  const initials = member.initials || member.full_name?.split(' ').map(w => w[0]?.toUpperCase() ?? '').slice(0, 2).join('') || '?'
 
   const counts = {
     pending:     tasks.filter(t => t.status === 'pending').length,
