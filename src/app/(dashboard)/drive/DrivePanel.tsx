@@ -948,6 +948,7 @@ function LinksPanel({ workspaceId, isAdmin }: { workspaceId: string; isAdmin: bo
       <div className="flex items-center gap-3 px-4 py-2.5 bg-slate-50 border-b border-slate-100 text-xs font-bold text-slate-500 uppercase tracking-wide">
         <span className="flex-1">Archivo</span>
         <span className="hidden md:block w-20 text-center">Accesos</span>
+        <span className="hidden lg:block w-28">Por</span>
         <span className="hidden lg:block w-32">Creado</span>
         <span className="hidden lg:block w-28">Expira</span>
         <span className="w-32 text-right">Acciones</span>
@@ -1008,6 +1009,9 @@ function LinksPanel({ workspaceId, isAdmin }: { workspaceId: string; isAdmin: bo
                 </div>
               </div>
               <span className="hidden md:block w-16 text-center text-sm text-slate-500 flex-shrink-0">{share.access_count}</span>
+              <span className="hidden lg:block w-28 text-xs text-slate-600 font-medium flex-shrink-0 truncate">
+                {share.created_by_name || '—'}
+              </span>
               <span className="hidden lg:block w-32 text-xs text-slate-400 flex-shrink-0">
                 {new Date(share.created_at).toLocaleString('es-MX', {
                   day: '2-digit', month: 'short', year: 'numeric',
