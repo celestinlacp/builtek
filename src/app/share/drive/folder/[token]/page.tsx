@@ -54,12 +54,18 @@ export default async function FolderSharePage(
 
   const { data: share } = await admin
     .from('drive_shares')
-    .select('id, is_active, expires_at, label, workspace_id, folder_id, drive_folders(name)')
+    .select('id, is_active, expires_at, label, workspace_id, folder_id, access_count, drive_folders(name)')
     .eq('token', token)
     .not('folder_id', 'is', null)
     .single()
 
   if (!share || !share.is_active) return notFound()
+
+  // Incrementar contador de accesos
+  await admin.from('drive_shares').update({
+    access_count:  (share as any).access_count + 1,
+    last_accessed: new Date().toISOString(),
+  }).eq('id', share.id)
 
   const folderName = share.label || (share.drive_folders as any)?.name || 'Carpeta compartida'
   const expired    = share.expires_at && new Date(share.expires_at) < new Date()

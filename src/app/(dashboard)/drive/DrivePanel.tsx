@@ -1008,7 +1008,14 @@ function LinksPanel({ workspaceId, isAdmin }: { workspaceId: string; isAdmin: bo
                   )}
                 </div>
               </div>
-              <span className="hidden md:block w-16 text-center text-sm text-slate-500 flex-shrink-0">{share.access_count}</span>
+              <div className="hidden md:flex flex-col items-center w-16 flex-shrink-0">
+                <span className="text-sm text-slate-500">{share.access_count}</span>
+                {share.last_accessed && (
+                  <span className="text-[10px] text-slate-400 leading-tight text-center">
+                    {new Date(share.last_accessed).toLocaleString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                )}
+              </div>
               <span className="hidden lg:block w-28 text-xs text-slate-600 font-medium flex-shrink-0 truncate">
                 {share.created_by_name || '—'}
               </span>
