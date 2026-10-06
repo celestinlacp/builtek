@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback, useMemo } from 'react'
-import { Download, Grid3X3, List, Link2, Check, Eye, FolderOpen, Folder } from 'lucide-react'
+import { Download, Grid3X3, List, Link2, Check, Eye, FolderOpen, Folder, ChevronRight } from 'lucide-react'
 import { FileTypeIcon } from '@/components/ui/FileTypeIcon'
 
 export type SharedFile = {
@@ -59,7 +59,17 @@ function relativeDate(d: string): string {
 
 export function FolderShareContent({ files, token, folderName, wsName, expiresFormatted }: Props) {
   const [view, setView] = useState<'list' | 'grid'>('list')
-  const [copied, setCopied]    = useState(false)
+  const [copied, setCopied] = useState(false)
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
+
+  const toggleGroup = (label: string) => {
+    setExpanded(prev => {
+      const next = new Set(prev)
+      if (next.has(label)) next.delete(label)
+      else next.add(label)
+      return next
+    })
+  }
 
   const zipUrl   = `/api/drive/share/folder/${token}/zip`
   const shareUrl = `https://builtek.app/share/drive/folder/${token}`
@@ -174,81 +184,93 @@ export function FolderShareContent({ files, token, folderName, wsName, expiresFo
           </div>
 
           {/* Groups */}
-          {groups.map((group, gi) => (
-            <div key={group.label ?? '__root__'}>
-              {/* Subfolder section header */}
-              {group.label && (
-                <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 border-b border-slate-100">
-                  <Folder className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                  <span className="text-xs font-semibold text-slate-500 truncate">{group.label}</span>
-                  <span className="text-xs text-slate-400 ml-auto shrink-0">
-                    {group.items.length} archivo{group.items.length !== 1 ? 's' : ''}
-                  </span>
-                </div>
-              )}
-              {group.items.map(file => {
-                const isPdf   = file.file_type?.toLowerCase() === 'pdf'
-                const fileUrl = `/api/drive/share/folder/${token}/file/${file.id}`
-                return (
-                  <div
-                    key={file.id}
-                    className="grid grid-cols-[1fr_80px] sm:grid-cols-[1fr_110px_80px_100px] items-center px-4 py-2.5 border-b border-slate-50 last:border-b-0 hover:bg-slate-50 transition-colors group"
+          {groups.map((group) => {
+            const key = group.label ?? '__root__'
+            const isOpen = !group.label || expanded.has(key)
+            return (
+              <div key={key}>
+                {/* Subfolder section header (clickeable) */}
+                {group.label ? (
+                  <button
+                    onClick={() => toggleGroup(key)}
+                    className="w-full flex items-center gap-2 px-4 py-2.5 bg-slate-50 border-b border-slate-100 hover:bg-slate-100 transition-colors text-left"
                   >
-                    {/* Name */}
-                    <div className="flex items-center gap-3 min-w-0 pr-4">
-                      <FileTypeIcon fileType={file.file_type ?? 'other'} size={26} />
-                      <div className="min-w-0">
+                    <ChevronRight
+                      className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-90' : ''}`}
+                    />
+                    <Folder className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                    <span className="text-xs font-semibold text-slate-600 truncate flex-1">{group.label}</span>
+                    <span className="text-xs text-slate-400 shrink-0">
+                      {group.items.length} archivo{group.items.length !== 1 ? 's' : ''}
+                    </span>
+                  </button>
+                ) : null}
+
+                {/* Files — only when expanded */}
+                {isOpen && group.items.map(file => {
+                  const isPdf   = file.file_type?.toLowerCase() === 'pdf'
+                  const fileUrl = `/api/drive/share/folder/${token}/file/${file.id}`
+                  return (
+                    <div
+                      key={file.id}
+                      className="grid grid-cols-[1fr_80px] sm:grid-cols-[1fr_110px_80px_100px] items-center px-4 py-2.5 border-b border-slate-50 last:border-b-0 hover:bg-slate-50 transition-colors group"
+                    >
+                      {/* Name */}
+                      <div className="flex items-center gap-3 min-w-0 pr-4">
+                        <FileTypeIcon fileType={file.file_type ?? 'other'} size={26} />
+                        <div className="min-w-0">
+                          <a
+                            href={fileUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm font-medium text-slate-800 hover:text-blue-600 hover:underline truncate block"
+                            title={file.name}
+                          >
+                            {file.name}
+                          </a>
+                          <span className="text-[10px] text-slate-400 uppercase font-semibold tracking-wide">
+                            {file.file_type}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Uploader — desktop only */}
+                      <div className="hidden sm:block text-xs text-slate-500 truncate pr-2">{file.uploader ?? '—'}</div>
+
+                      {/* Date — desktop only */}
+                      <div className="hidden sm:block text-xs text-slate-500">
+                        {file.created_at ? relativeDate(file.created_at) : '—'}
+                      </div>
+
+                      {/* Size + actions */}
+                      <div className="flex items-center justify-end gap-1">
+                        <span className="text-xs text-slate-500">{formatSize(file.file_size ?? 0)}</span>
+                        {isPdf && (
+                          <a
+                            href={fileUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="ml-0.5 w-6 h-6 flex items-center justify-center rounded hover:bg-slate-200 text-slate-400 hover:text-slate-700 opacity-0 group-hover:opacity-100 sm:transition-opacity"
+                            title="Ver"
+                          >
+                            <Eye className="w-3 h-3" />
+                          </a>
+                        )}
                         <a
                           href={fileUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-sm font-medium text-slate-800 hover:text-blue-600 hover:underline truncate block"
-                          title={file.name}
+                          download
+                          className="w-6 h-6 flex items-center justify-center rounded hover:bg-slate-200 text-slate-400 hover:text-slate-700 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity"
+                          title="Descargar"
                         >
-                          {file.name}
+                          <Download className="w-3 h-3" />
                         </a>
-                        <span className="text-[10px] text-slate-400 uppercase font-semibold tracking-wide">
-                          {file.file_type}
-                        </span>
                       </div>
                     </div>
-
-                    {/* Uploader — desktop only */}
-                    <div className="hidden sm:block text-xs text-slate-500 truncate pr-2">{file.uploader ?? '—'}</div>
-
-                    {/* Date — desktop only */}
-                    <div className="hidden sm:block text-xs text-slate-500">
-                      {file.created_at ? relativeDate(file.created_at) : '—'}
-                    </div>
-
-                    {/* Size + actions */}
-                    <div className="flex items-center justify-end gap-1">
-                      <span className="text-xs text-slate-500">{formatSize(file.file_size ?? 0)}</span>
-                      {isPdf && (
-                        <a
-                          href={fileUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="ml-0.5 w-6 h-6 flex items-center justify-center rounded hover:bg-slate-200 text-slate-400 hover:text-slate-700 opacity-0 group-hover:opacity-100 sm:transition-opacity"
-                          title="Ver"
-                        >
-                          <Eye className="w-3 h-3" />
-                        </a>
-                      )}
-                      <a
-                        href={fileUrl}
-                        download
-                        className="w-6 h-6 flex items-center justify-center rounded hover:bg-slate-200 text-slate-400 hover:text-slate-700 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity"
-                        title="Descargar"
-                      >
-                        <Download className="w-3 h-3" />
-                      </a>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          ))}
+                  )
+                })}
+              </div>
+            )
+          })}
 
           {/* Footer totals */}
           <div className="grid grid-cols-[1fr_80px] sm:grid-cols-[1fr_110px_80px_100px] px-4 py-2 bg-slate-50 border-t border-slate-200">
@@ -262,17 +284,27 @@ export function FolderShareContent({ files, token, folderName, wsName, expiresFo
 
       ) : (
         /* ── GRID VIEW ──────────────────────────────────────────────────── */
-        <div className="space-y-6">
-          {groups.map(group => (
-            <div key={group.label ?? '__root__'}>
+        <div className="space-y-2">
+          {groups.map(group => {
+            const key = group.label ?? '__root__'
+            const isOpen = !group.label || expanded.has(key)
+            return (
+            <div key={key}>
               {group.label && (
-                <div className="flex items-center gap-2 mb-3">
+                <button
+                  onClick={() => toggleGroup(key)}
+                  className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg hover:bg-slate-100 transition-colors text-left mb-1"
+                >
+                  <ChevronRight
+                    className={`w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-90' : ''}`}
+                  />
                   <Folder className="w-4 h-4 text-slate-400 shrink-0" />
-                  <span className="text-sm font-semibold text-slate-600">{group.label}</span>
+                  <span className="text-sm font-semibold text-slate-600 flex-1">{group.label}</span>
                   <span className="text-xs text-slate-400">· {group.items.length} archivo{group.items.length !== 1 ? 's' : ''}</span>
-                </div>
+                </button>
               )}
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+              {isOpen && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 mb-2">
                 {group.items.map(file => {
                   const isPdf   = file.file_type?.toLowerCase() === 'pdf'
                   const fileUrl = `/api/drive/share/folder/${token}/file/${file.id}`
@@ -329,8 +361,10 @@ export function FolderShareContent({ files, token, folderName, wsName, expiresFo
                   )
                 })}
               </div>
+              )}
             </div>
-          ))}
+          )
+          })}
         </div>
       )}
 
