@@ -52,8 +52,8 @@ export async function generateMetadata(
   return {
     title,
     description,
-    openGraph: { title, description, siteName: 'Builtek', images: [{ url: '/api/og', width: 256, height: 256 }] },
-    twitter: { card: 'summary', title, description, images: ['/api/og'] },
+    openGraph: { title, description, siteName: 'Builtek', url: `https://builtek.app/share/drive/${token}`, images: [{ url: 'https://builtek.app/api/og', width: 256, height: 256 }] },
+    twitter: { card: 'summary', title, description, images: ['https://builtek.app/api/og'] },
   }
 }
 

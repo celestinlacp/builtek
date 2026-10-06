@@ -24,11 +24,19 @@ export async function generateMetadata(
   const name  = share?.label || (share?.drive_folders as any)?.name
   const title = name ?? 'Carpeta compartida'
   const description = 'Accede y descarga los archivos de esta carpeta compartida desde Builtek.'
+  const ogImage = 'https://builtek.app/api/og'
+  const pageUrl = `https://builtek.app/share/drive/folder/${token}`
   return {
     title: `${title} — Builtek`,
     description,
-    openGraph: { title, description, siteName: 'Builtek', images: [{ url: '/api/og', width: 256, height: 256 }] },
-    twitter:   { card: 'summary', title, description, images: ['/api/og'] },
+    openGraph: {
+      title,
+      description,
+      siteName: 'Builtek',
+      url: pageUrl,
+      images: [{ url: ogImage, width: 256, height: 256 }],
+    },
+    twitter: { card: 'summary', title, description, images: [ogImage] },
   }
 }
 
