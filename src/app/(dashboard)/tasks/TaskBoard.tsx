@@ -23,7 +23,7 @@ type AvailableDoc = {
 const SPECIALTIES = [
   '📐 Geométrico', '🪨 Geotecnia', '🏗️ Estructuras',
   '💧 Hidráulica', '⚡ Electromecánico', '🏛️ Arquitectura',
-  '🌿 Ambiental', '📋 General',
+  '🛤️ Vía Férrea', '🌿 Ambiental', '📋 General',
 ]
 
 const STATUS_OPTIONS = [
