@@ -611,7 +611,7 @@ function UploadModal({
               Archivo <span className="text-red-400">*</span>
             </label>
             <input ref={inputRef} type="file" className="hidden"
-              accept=".pdf,.dwg,.dxf,.xlsx,.xls,.docx,.doc,.png,.jpg,.jpeg,.zip"
+              accept=".pdf,.dwg,.dxf,.xlsx,.xls,.pptx,.ppt,.docx,.doc,.png,.jpg,.jpeg,.zip"
               onChange={e => handleFileChange(e.target.files?.[0] || null)} />
             <button onClick={() => inputRef.current?.click()}
               className={`w-full border-2 border-dashed rounded-lg py-6 text-center transition-colors ${
@@ -956,7 +956,7 @@ function ReplaceDocModal({
               Nuevo archivo <span className="text-red-400">*</span>
             </label>
             <input ref={inputRef} type="file" className="hidden"
-              accept=".pdf,.dwg,.dxf,.xlsx,.xls,.docx,.doc,.png,.jpg,.jpeg,.zip"
+              accept=".pdf,.dwg,.dxf,.xlsx,.xls,.pptx,.ppt,.docx,.doc,.png,.jpg,.jpeg,.zip"
               onChange={e => setFile(e.target.files?.[0] || null)} />
             <button onClick={() => inputRef.current?.click()}
               className={`w-full border-2 border-dashed rounded-lg py-5 text-center transition-colors ${
@@ -2155,7 +2155,9 @@ function ProjectDetailView({
           {selected.size > 0 && (
             <button onClick={handleDownloadZip} disabled={downloading}
               className="flex items-center gap-2 bg-[#00C2FF] text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-[#00a8d6] disabled:opacity-60 transition-colors">
-              <Package className="w-3.5 h-3.5" />
+              {downloading
+                ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                : <Package className="w-3.5 h-3.5" />}
               {downloading ? 'Generando ZIP...' : `Descargar ZIP (${selected.size})`}
             </button>
           )}
