@@ -73,11 +73,12 @@ function MetaRow({ icon: Icon, label, value }: { icon: React.ElementType; label:
 }
 
 export default function DocumentSlideOver({
-  doc, workspaceId, currentUserId, onClose
+  doc, workspaceId, currentUserId, userRole, onClose
 }: {
   doc: Doc
   workspaceId: string
   currentUserId: string
+  userRole?: string
   onClose: () => void
 }) {
   const [tab,                  setTab]                  = useState<'info' | 'versions' | 'comments'>('info')
@@ -293,13 +294,15 @@ export default function DocumentSlideOver({
                 <h2 className="text-sm font-bold text-[#1A2744] leading-tight break-all line-clamp-3">
                   {localDocName ?? docName}
                 </h2>
-                <button
-                  onClick={startRename}
-                  title="Renombrar"
-                  className="opacity-0 group-hover/name:opacity-100 flex-shrink-0 mt-0.5 w-5 h-5 flex items-center justify-center rounded hover:bg-slate-100 text-slate-300 hover:text-slate-500 transition-all"
-                >
-                  <Pencil className="w-3 h-3" />
-                </button>
+                {['owner', 'admin', 'manager'].includes(userRole ?? '') && (
+                  <button
+                    onClick={startRename}
+                    title="Renombrar"
+                    className="flex-shrink-0 mt-0.5 w-5 h-5 flex items-center justify-center rounded hover:bg-slate-100 text-slate-300 hover:text-slate-500 transition-all"
+                  >
+                    <Pencil className="w-3 h-3" />
+                  </button>
+                )}
               </div>
             )}
 
