@@ -28,8 +28,13 @@ async function getWorkspaceData(userId: string) {
     supabase.from('documents').select('id, project_id, created_at').eq('workspace_id', wsId).eq('file_type', 'img').order('created_at', { ascending: false }),
     supabase.from('documents').select('project_id, created_at').eq('workspace_id', wsId).neq('doc_status', 'deleted').neq('is_current', false),
     supabase.from('workspace_members').select('user_id').eq('workspace_id', wsId),
-    supabase.from('documents').select('file_type, specialty:specialties(code, name)').eq('workspace_id', wsId).neq('doc_status', 'deleted').neq('is_current', false),
+    supabase.from('documents').select('file_type, doc_key, specialty:specialties(code, name)').eq('workspace_id', wsId).neq('doc_status', 'deleted').neq('is_current', false),
   ])
+
+  // Mapa code→name desde tabla specialties (para doc_key fallback)
+  const { data: specialtiesData } = await supabase.from('specialties').select('code, name')
+  const specNameByCode: Record<string, string> = {}
+  for (const s of (specialtiesData ?? [])) specNameByCode[s.code] = s.name
 
   // Fetch profiles separately (workspace_members FK apunta a auth.users, no a profiles — join directo falla en PostgREST)
   const memberIds = (members.data ?? []).map((m: any) => m.user_id).filter(Boolean)
@@ -135,13 +140,15 @@ async function getWorkspaceData(userId: string) {
   const specMap2: Record<string, SpecStat> = {}
   for (const d of (specDocs.data ?? [])) {
     const spec = (d as any).specialty
-    if (!spec?.code) continue
-    if (!specMap2[spec.code]) specMap2[spec.code] = { code: spec.code, name: spec.name, total: 0, dwg: 0, pdf: 0, other: 0 }
-    specMap2[spec.code].total++
+    const code: string | null = spec?.code || (d as any).doc_key?.split('-')[3] || null
+    if (!code) continue
+    const name: string = spec?.name || specNameByCode[code] || code
+    if (!specMap2[code]) specMap2[code] = { code, name, total: 0, dwg: 0, pdf: 0, other: 0 }
+    specMap2[code].total++
     const ft = (d as any).file_type
-    if (ft === 'dwg' || ft === 'dxf') specMap2[spec.code].dwg++
-    else if (ft === 'pdf') specMap2[spec.code].pdf++
-    else specMap2[spec.code].other++
+    if (ft === 'dwg' || ft === 'dxf') specMap2[code].dwg++
+    else if (ft === 'pdf') specMap2[code].pdf++
+    else specMap2[code].other++
   }
   const topSpecs = Object.values(specMap2).sort((a, b) => b.total - a.total).slice(0, 4)
 
