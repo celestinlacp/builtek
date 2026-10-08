@@ -28,7 +28,7 @@ async function getWorkspaceData(userId: string) {
     supabase.from('documents').select('id, project_id, created_at').eq('workspace_id', wsId).eq('file_type', 'img').order('created_at', { ascending: false }),
     supabase.from('documents').select('project_id, created_at').eq('workspace_id', wsId).neq('doc_status', 'deleted').neq('is_current', false),
     supabase.from('workspace_members').select('user_id').eq('workspace_id', wsId),
-    supabase.from('documents').select('file_type, doc_key, specialty:specialties(code, name)').eq('workspace_id', wsId).neq('doc_status', 'deleted').neq('is_current', false),
+    supabase.from('documents').select('created_at, doc_key, specialty:specialties(code, name)').eq('workspace_id', wsId).neq('doc_status', 'deleted').neq('is_current', false),
   ])
 
   // Mapa code→name desde tabla specialties (para doc_key fallback)
@@ -135,22 +135,24 @@ async function getWorkspaceData(userId: string) {
     }
   }).sort((a: TeamMemberStats, b: TeamMemberStats) => (b.overdue - a.overdue) || (a.score ?? 0) - (b.score ?? 0))
 
-  // Estadísticas por especialidad
-  type SpecStat = { code: string; name: string; total: number; dwg: number; pdf: number; other: number }
-  const specMap2: Record<string, SpecStat> = {}
+  // Última subida por especialidad (para nudge en dashboard)
+  type SpecActivity = { code: string; name: string; lastUpload: string | null }
+  const specActivityMap: Record<string, SpecActivity> = {}
   for (const d of (specDocs.data ?? [])) {
     const spec = (d as any).specialty
     const code: string | null = spec?.code || (d as any).doc_key?.split('-')[3] || null
     if (!code) continue
     const name: string = spec?.name || specNameByCode[code] || code
-    if (!specMap2[code]) specMap2[code] = { code, name, total: 0, dwg: 0, pdf: 0, other: 0 }
-    specMap2[code].total++
-    const ft = (d as any).file_type
-    if (ft === 'dwg' || ft === 'dxf') specMap2[code].dwg++
-    else if (ft === 'pdf') specMap2[code].pdf++
-    else specMap2[code].other++
+    const date: string | null = (d as any).created_at ?? null
+    if (!specActivityMap[code]) specActivityMap[code] = { code, name, lastUpload: null }
+    if (date && (!specActivityMap[code].lastUpload || date > specActivityMap[code].lastUpload!))
+      specActivityMap[code].lastUpload = date
   }
-  const topSpecs = Object.values(specMap2).sort((a, b) => b.total - a.total).slice(0, 4)
+  const specActivity = Object.values(specActivityMap).sort((a, b) => {
+    if (!a.lastUpload) return 1
+    if (!b.lastUpload) return -1
+    return b.lastUpload.localeCompare(a.lastUpload)
+  })
 
   return {
     workspace: membership.workspaces as unknown as { id: string; name: string },
@@ -162,7 +164,7 @@ async function getWorkspaceData(userId: string) {
     subprojectCount,
     teamStats,
     userRole,
-    topSpecs,
+    specActivity,
   }
 }
 
@@ -174,7 +176,7 @@ export default async function DashboardPage() {
   const data = await getWorkspaceData(user.id)
   if (!data) redirect('/onboarding')
 
-  const { workspace, projects, tasks, documents, latestImageByProject, docCountByProject, subprojectCount, teamStats, userRole, topSpecs } = data
+  const { workspace, projects, tasks, documents, latestImageByProject, docCountByProject, subprojectCount, teamStats, userRole, specActivity } = data
 
   const tasksDone = tasks.filter(t => t.status === 'done').length
   const tasksInProgress = tasks.filter(t => t.status === 'in_progress').length
@@ -357,38 +359,6 @@ export default async function DashboardPage() {
         ))}
       </div>
 
-      {/* Especialidades */}
-      {topSpecs.length > 0 && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          {topSpecs.map(spec => {
-            const pctDwg   = spec.total > 0 ? (spec.dwg   / spec.total) * 100 : 0
-            const pctPdf   = spec.total > 0 ? (spec.pdf   / spec.total) * 100 : 0
-            const pctOther = spec.total > 0 ? (spec.other / spec.total) * 100 : 0
-            return (
-              <Link key={spec.code} href={`/documents?specialty=${spec.code}`}
-                className="bg-white rounded-xl border border-slate-100 px-4 py-3 hover:border-[#00C2FF]/40 transition-colors group">
-                {/* Nombre + total */}
-                <div className="flex items-baseline justify-between gap-2 mb-2.5">
-                  <p className="text-sm font-semibold text-[#1A2744] truncate leading-tight">{spec.name}</p>
-                  <span className="text-sm font-bold text-slate-400 flex-shrink-0 group-hover:text-[#00C2FF] transition-colors">{spec.total}</span>
-                </div>
-                {/* Barra segmentada */}
-                <div className="flex h-1.5 rounded-full overflow-hidden bg-slate-100 gap-px">
-                  {pctDwg   > 0 && <div style={{ width: `${pctDwg}%`   }} className="bg-[#1FB0EC]" />}
-                  {pctPdf   > 0 && <div style={{ width: `${pctPdf}%`   }} className="bg-[#1A2744]" />}
-                  {pctOther > 0 && <div style={{ width: `${pctOther}%` }} className="bg-slate-300" />}
-                </div>
-                {/* Leyenda */}
-                <div className="flex items-center gap-3 mt-2">
-                  {spec.dwg   > 0 && <span className="flex items-center gap-1 text-[10px] text-slate-400"><span className="w-1.5 h-1.5 rounded-full bg-[#1FB0EC] flex-shrink-0" />{spec.dwg} DWG</span>}
-                  {spec.pdf   > 0 && <span className="flex items-center gap-1 text-[10px] text-slate-400"><span className="w-1.5 h-1.5 rounded-full bg-[#1A2744] flex-shrink-0" />{spec.pdf} PDF</span>}
-                  {spec.other > 0 && <span className="flex items-center gap-1 text-[10px] text-slate-400"><span className="w-1.5 h-1.5 rounded-full bg-slate-300 flex-shrink-0" />{spec.other} otros</span>}
-                </div>
-              </Link>
-            )
-          })}
-        </div>
-      )}
 
       {/* Progress bar */}
       {tasks.length > 0 && (
@@ -595,6 +565,48 @@ export default async function DashboardPage() {
 
         </div>
       </div>
+
+      {/* Actividad por especialidad — nudge */}
+      {specActivity.length > 0 && (() => {
+        const now = Date.now()
+        return (
+          <div className="bg-white rounded-xl border border-slate-100 p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-bold text-[#1A2744] flex items-center gap-2">
+                <FileText className="w-4 h-4 text-slate-400" /> Actividad por especialidad
+              </h2>
+              <Link href="/analytics" className="text-xs text-[#00C2FF] font-semibold hover:underline">Ver análisis →</Link>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {specActivity.map(spec => {
+                const daysSince = spec.lastUpload
+                  ? Math.floor((now - new Date(spec.lastUpload).getTime()) / 86400000)
+                  : null
+                const isWarn = daysSince !== null && daysSince >= 3 && daysSince < 7
+                const isAlert = daysSince === null || daysSince >= 7
+                const dot = isAlert ? 'bg-red-400' : isWarn ? 'bg-amber-400' : 'bg-green-400'
+                const label = daysSince === null ? 'Sin actividad'
+                  : daysSince === 0 ? 'Hoy'
+                  : daysSince === 1 ? 'Ayer'
+                  : `hace ${daysSince} días`
+                return (
+                  <div key={spec.code} className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-50 transition-colors">
+                    <span className={`w-2 h-2 rounded-full flex-shrink-0 ${dot}`} />
+                    <span className="text-sm font-medium text-[#1A2744] flex-1 truncate">{spec.name}</span>
+                    <span className={`text-xs flex-shrink-0 ${isAlert ? 'text-red-400' : isWarn ? 'text-amber-500' : 'text-slate-400'}`}>{label}</span>
+                    {isAlert && (
+                      <Link href={`/documents?specialty=${spec.code}`}
+                        className="text-[10px] font-bold text-[#00C2FF] hover:underline flex-shrink-0 whitespace-nowrap">
+                        Subir →
+                      </Link>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Vista del equipo */}
       <TeamView members={teamStats} />

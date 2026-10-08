@@ -6,11 +6,12 @@ import { logout } from '@/app/(auth)/actions'
 import Logo from '@/components/Logo'
 import {
   LayoutDashboard, CheckSquare, Calendar, Package,
-  FileText, Bot, Settings, LogOut, ChevronRight, HardDrive, Mail, MessageSquare, BookOpen, BarChart2
+  FileText, Bot, Settings, LogOut, ChevronRight, HardDrive, Mail, MessageSquare, BookOpen, BarChart2, TrendingUp
 } from 'lucide-react'
 
 const BASE_NAV = [
   { href: '/dashboard',       icon: LayoutDashboard, label: 'Dashboard' },
+  { href: '/analytics',       icon: TrendingUp,      label: 'Analytics' },
   { href: '/tasks',           icon: CheckSquare,     label: 'Tareas' },
   { href: '/calendar',        icon: Calendar,        label: 'Calendario' },
   { href: '/deliverables',    icon: Package,         label: 'Entregables' },
