@@ -11,7 +11,7 @@ function getAdminClient() {
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, password, full_name } = await request.json()
+    const { email, password, full_name, birthday } = await request.json()
 
     if (!email || !password || !full_name) {
       return NextResponse.json({ error: 'Todos los campos son requeridos' }, { status: 400 })
@@ -36,7 +36,9 @@ export async function POST(request: NextRequest) {
 
     // Crear perfil
     if (created?.user) {
-      await admin.from('profiles').upsert({ id: created.user.id, full_name })
+      const profileData: Record<string, string> = { id: created.user.id, full_name }
+      if (birthday) profileData.birthday = birthday
+      await admin.from('profiles').upsert(profileData)
     }
 
     // Iniciar sesión

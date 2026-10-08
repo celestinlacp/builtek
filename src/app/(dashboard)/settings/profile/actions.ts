@@ -7,6 +7,7 @@ export async function updateProfile(data: {
   full_name: string
   phone: string
   avatar_url?: string
+  birthday?: string
 }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -19,6 +20,7 @@ export async function updateProfile(data: {
     updated_at: new Date().toISOString(),
   }
   if (data.avatar_url !== undefined) payload.avatar_url = data.avatar_url
+  if (data.birthday !== undefined) payload.birthday = data.birthday
 
   const { error } = await supabase.from('profiles').upsert(payload)
   if (error) return { error: error.message }

@@ -35,12 +35,23 @@ export default async function CalendarPage() {
         .order('due_date')
     : { data: [] }
 
-  // Fetch nombres de assignees
-  const assigneeIds = [...new Set((rawTasks || []).map((t: any) => t.assignee_id).filter(Boolean))]
-  const profilesRes = assigneeIds.length > 0
-    ? await supabase.from('profiles').select('id, full_name').in('id', assigneeIds as string[])
+  // Fetch perfiles del workspace (assignees + cumpleaños)
+  const { data: workspaceMembers } = await supabase
+    .from('workspace_members')
+    .select('user_id')
+    .eq('workspace_id', membership.workspace_id)
+
+  const memberIds = (workspaceMembers || []).map((m: any) => m.user_id)
+
+  const profilesRes = memberIds.length > 0
+    ? await supabase.from('profiles').select('id, full_name, birthday').in('id', memberIds as string[])
     : { data: [] }
+
   const profileMap = Object.fromEntries((profilesRes.data || []).map((p: any) => [p.id, p.full_name]))
+
+  const birthdays = (profilesRes.data || [])
+    .filter((p: any) => p.birthday)
+    .map((p: any) => ({ name: p.full_name, birthday: p.birthday as string }))
 
   const tasks = (rawTasks || []).map((t: any) => ({
     ...t,
@@ -59,7 +70,7 @@ export default async function CalendarPage() {
         </p>
       </div>
 
-      <CalendarPanel tasks={tasks as any} />
+      <CalendarPanel tasks={tasks as any} birthdays={birthdays} />
     </div>
   )
 }

@@ -3,7 +3,7 @@
 import { useRef, useState, useTransition } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { updateProfile, updatePassword } from './actions'
-import { Camera, Check, AlertCircle, Eye, EyeOff, Loader2 } from 'lucide-react'
+import { Camera, Check, AlertCircle, Eye, EyeOff, Loader2, Cake } from 'lucide-react'
 
 type Toast = { type: 'success' | 'error'; message: string }
 
@@ -26,12 +26,14 @@ export default function ProfileForm({
   initialName,
   initialPhone,
   initialAvatarUrl,
+  initialBirthday,
 }: {
   userId: string
   email: string
   initialName: string
   initialPhone: string
   initialAvatarUrl: string
+  initialBirthday: string
 }) {
   const { toast, show } = useToast()
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -39,6 +41,7 @@ export default function ProfileForm({
   // Profile fields
   const [name, setName]           = useState(initialName)
   const [phone, setPhone]         = useState(initialPhone)
+  const [birthday, setBirthday]   = useState(initialBirthday)
   const [avatarUrl, setAvatarUrl] = useState(initialAvatarUrl)
   const [uploading, setUploading] = useState(false)
   const [profilePending, startProfileTransition] = useTransition()
@@ -70,7 +73,7 @@ export default function ProfileForm({
       setAvatarUrl(publicUrl)
 
       // Persist immediately
-      const res = await updateProfile({ full_name: name, phone, avatar_url: publicUrl })
+      const res = await updateProfile({ full_name: name, phone, avatar_url: publicUrl, birthday: birthday || undefined })
       if (res?.error) throw new Error(res.error)
       show({ type: 'success', message: 'Avatar actualizado' })
     } catch (err: any) {
@@ -86,7 +89,7 @@ export default function ProfileForm({
       return
     }
     startProfileTransition(async () => {
-      const res = await updateProfile({ full_name: name, phone, avatar_url: avatarUrl || undefined })
+      const res = await updateProfile({ full_name: name, phone, avatar_url: avatarUrl || undefined, birthday: birthday || undefined })
       if (res?.error) show({ type: 'error', message: res.error })
       else show({ type: 'success', message: 'Perfil actualizado correctamente' })
     })
@@ -201,6 +204,26 @@ export default function ProfileForm({
             <p className="text-[10px] text-slate-400 mt-1.5 flex items-center gap-1">
               <span className="text-green-500">💬</span>
               Tu número nos permite enviarte recordatorios de tareas por WhatsApp.
+            </p>
+          </div>
+
+          {/* Birthday */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1.5">
+              Fecha de nacimiento
+            </label>
+            <div className="relative">
+              <Cake className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input
+                type="date"
+                value={birthday}
+                onChange={e => setBirthday(e.target.value)}
+                className="w-full pl-9 pr-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/40 focus:border-[#00C2FF] transition-all text-slate-700"
+              />
+            </div>
+            <p className="text-[10px] text-slate-400 mt-1.5 flex items-center gap-1">
+              <span>🎂</span>
+              Aparecerá en el calendario del equipo.
             </p>
           </div>
 

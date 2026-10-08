@@ -21,6 +21,7 @@ function RegisterForm() {
     const password = formData.get('password') as string
     const confirm = formData.get('confirm_password') as string
     const full_name = formData.get('full_name') as string
+    const birthday = formData.get('birthday') as string | null
 
     if (password !== confirm) {
       setError('Las contraseñas no coinciden')
@@ -32,7 +33,7 @@ function RegisterForm() {
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, full_name }),
+        body: JSON.stringify({ email, password, full_name, birthday: birthday || null }),
       })
       const text = await res.text()
       const result = text ? JSON.parse(text) : {}
@@ -69,6 +70,17 @@ function RegisterForm() {
             required
             placeholder="Juan Pérez"
             className="w-full px-4 py-3 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF] focus:border-transparent transition-all"
+          />
+        </div>
+
+        <div>
+          <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
+            Fecha de nacimiento <span className="text-slate-400 normal-case font-normal">(opcional)</span>
+          </label>
+          <input
+            name="birthday"
+            type="date"
+            className="w-full px-4 py-3 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF] focus:border-transparent transition-all text-slate-700"
           />
         </div>
 

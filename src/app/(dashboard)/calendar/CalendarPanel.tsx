@@ -183,7 +183,9 @@ function GanttView({ tasks, year, month }: { tasks: CalendarTask[]; year: number
   )
 }
 
-export default function CalendarPanel({ tasks }: { tasks: CalendarTask[] }) {
+type Birthday = { name: string; birthday: string }
+
+export default function CalendarPanel({ tasks, birthdays = [] }: { tasks: CalendarTask[]; birthdays?: Birthday[] }) {
   const today = new Date()
   const [year, setYear]   = useState(today.getFullYear())
   const [month, setMonth] = useState(today.getMonth())
@@ -208,6 +210,14 @@ export default function CalendarPanel({ tasks }: { tasks: CalendarTask[] }) {
     const key = t.due_date.slice(0, 10)
     if (!byDate[key]) byDate[key] = []
     byDate[key].push(t)
+  })
+
+  // Index birthdays by MM-DD (repeat every year)
+  const birthdaysByMonthDay: Record<string, string[]> = {}
+  birthdays.forEach(b => {
+    const mmdd = b.birthday.slice(5, 10) // "MM-DD"
+    if (!birthdaysByMonthDay[mmdd]) birthdaysByMonthDay[mmdd] = []
+    birthdaysByMonthDay[mmdd].push(b.name.split(' ')[0])
   })
 
   // Count tasks with due_date in this month (for the header stat)
@@ -282,6 +292,8 @@ export default function CalendarPanel({ tasks }: { tasks: CalendarTask[] }) {
                 const key = toKey(date)
                 const dayTasks = byDate[key] || []
                 const isToday = key === todayKey
+                const mmdd = key.slice(5, 10)
+                const dayBirthdays = birthdaysByMonthDay[mmdd] || []
 
                 return (
                   <div key={key}
@@ -305,6 +317,16 @@ export default function CalendarPanel({ tasks }: { tasks: CalendarTask[] }) {
                         {date.getDate()}
                       </span>
                     </div>
+
+                    {/* Birthday chips */}
+                    {dayBirthdays.map(name => (
+                      <div key={name}
+                        title={`🎂 Cumpleaños de ${name}`}
+                        className="flex items-center gap-1 text-xs px-1.5 py-0.5 rounded font-medium truncate bg-rose-50 text-rose-600 border border-rose-100">
+                        <span className="flex-shrink-0">🎂</span>
+                        <span className="truncate">{name}</span>
+                      </div>
+                    ))}
 
                     {/* Task chips */}
                     <div className="space-y-0.5">
@@ -334,6 +356,10 @@ export default function CalendarPanel({ tasks }: { tasks: CalendarTask[] }) {
 
       {/* ── Leyenda (solo vista mes) ── */}
       {calView === 'month' && <div className="flex items-center gap-5 px-6 py-3 border-t border-slate-100 flex-wrap">
+        <div className="flex items-center gap-1.5">
+          <span className="text-sm">🎂</span>
+          <span className="text-xs text-slate-500">Cumpleaños</span>
+        </div>
         {Object.entries(STATUS_STYLE).map(([status, s]) => (
           <div key={status} className="flex items-center gap-1.5">
             <span className={`w-2 h-2 rounded-full ${s.bar}`} />
