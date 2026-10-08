@@ -359,19 +359,31 @@ export default async function DashboardPage() {
 
       {/* Especialidades */}
       {topSpecs.length > 0 && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {topSpecs.map(spec => {
-            const sub = [
-              spec.dwg  > 0 ? `${spec.dwg} DWG`  : null,
-              spec.pdf  > 0 ? `${spec.pdf} PDF`   : null,
-              spec.other > 0 ? `${spec.other} más` : null,
-            ].filter(Boolean).join(' · ')
+            const pctDwg   = spec.total > 0 ? (spec.dwg   / spec.total) * 100 : 0
+            const pctPdf   = spec.total > 0 ? (spec.pdf   / spec.total) * 100 : 0
+            const pctOther = spec.total > 0 ? (spec.other / spec.total) * 100 : 0
             return (
               <Link key={spec.code} href={`/documents?specialty=${spec.code}`}
-                className="bg-white rounded-xl border border-slate-100 p-5 hover:border-[#00C2FF]/40 transition-colors group">
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide truncate mb-3">{spec.name}</p>
-                <p className="text-3xl font-bold text-[#1A2744] group-hover:text-[#00C2FF] transition-colors">{spec.total}</p>
-                <p className="text-xs text-slate-400 mt-1">{sub || 'documentos'}</p>
+                className="bg-white rounded-xl border border-slate-100 px-4 py-3 hover:border-[#00C2FF]/40 transition-colors group">
+                {/* Nombre + total */}
+                <div className="flex items-baseline justify-between gap-2 mb-2.5">
+                  <p className="text-sm font-semibold text-[#1A2744] truncate leading-tight">{spec.name}</p>
+                  <span className="text-sm font-bold text-slate-400 flex-shrink-0 group-hover:text-[#00C2FF] transition-colors">{spec.total}</span>
+                </div>
+                {/* Barra segmentada */}
+                <div className="flex h-1.5 rounded-full overflow-hidden bg-slate-100 gap-px">
+                  {pctDwg   > 0 && <div style={{ width: `${pctDwg}%`   }} className="bg-[#1FB0EC]" />}
+                  {pctPdf   > 0 && <div style={{ width: `${pctPdf}%`   }} className="bg-[#1A2744]" />}
+                  {pctOther > 0 && <div style={{ width: `${pctOther}%` }} className="bg-slate-300" />}
+                </div>
+                {/* Leyenda */}
+                <div className="flex items-center gap-3 mt-2">
+                  {spec.dwg   > 0 && <span className="flex items-center gap-1 text-[10px] text-slate-400"><span className="w-1.5 h-1.5 rounded-full bg-[#1FB0EC] flex-shrink-0" />{spec.dwg} DWG</span>}
+                  {spec.pdf   > 0 && <span className="flex items-center gap-1 text-[10px] text-slate-400"><span className="w-1.5 h-1.5 rounded-full bg-[#1A2744] flex-shrink-0" />{spec.pdf} PDF</span>}
+                  {spec.other > 0 && <span className="flex items-center gap-1 text-[10px] text-slate-400"><span className="w-1.5 h-1.5 rounded-full bg-slate-300 flex-shrink-0" />{spec.other} otros</span>}
+                </div>
               </Link>
             )
           })}
