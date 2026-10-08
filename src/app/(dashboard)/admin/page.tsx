@@ -84,9 +84,9 @@ export default async function AdminPage() {
   // Fetch profiles separately (no FK between workspace_members and profiles)
   const memberUserIds = rawMembers.map((m: any) => m.user_id)
   const profilesRes = memberUserIds.length > 0
-    ? await supabase.from('profiles').select('id, full_name, avatar_url, phone, initials, last_seen_at').in('id', memberUserIds)
+    ? await supabase.from('profiles').select('id, full_name, avatar_url, phone, initials, last_seen_at, birthday').in('id', memberUserIds)
     : { data: [] }
-  const profileMap: Record<string, { id: string; full_name: string | null; avatar_url: string | null; phone: string | null; initials: string | null; last_seen_at: string | null }> =
+  const profileMap: Record<string, { id: string; full_name: string | null; avatar_url: string | null; phone: string | null; initials: string | null; last_seen_at: string | null; birthday: string | null }> =
     Object.fromEntries((profilesRes.data || []).map((p: any) => [p.id, p]))
 
   const members = rawMembers.map((m: any) => ({

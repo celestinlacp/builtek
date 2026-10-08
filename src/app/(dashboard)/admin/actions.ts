@@ -636,7 +636,7 @@ export async function seedAllMicNomenclatures() {
 
 export async function updateMemberProfile(
   targetUserId: string,
-  data: { full_name: string; phone: string | null }
+  data: { full_name: string; phone: string | null; birthday?: string | null }
 ) {
   const { supabase, userId, workspaceId } = await getWorkspaceId()
   if (!workspaceId) return { error: 'Sin workspace' }
@@ -674,7 +674,7 @@ export async function updateMemberProfile(
   const admin = getAdminClient()
   const { error } = await admin
     .from('profiles')
-    .update({ full_name: trimmedName, phone: data.phone || null, initials })
+    .update({ full_name: trimmedName, phone: data.phone || null, initials, ...(data.birthday !== undefined && { birthday: data.birthday || null }) })
     .eq('id', targetUserId)
 
   if (error) return { error: error.message }

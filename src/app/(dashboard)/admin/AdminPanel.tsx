@@ -124,7 +124,7 @@ function RoleDescription({ role }: { role: string }) {
 type MemberWithProfile = WorkspaceMember & {
   email?:           string | null
   last_seen_at?: string | null
-  user?: { id: string; full_name: string | null; avatar_url: string | null; phone: string | null; initials: string | null } | null
+  user?: { id: string; full_name: string | null; avatar_url: string | null; phone: string | null; initials: string | null; birthday: string | null } | null
 }
 
 function MemberRow({
@@ -142,6 +142,7 @@ function MemberRow({
   const [editing, setEditing] = useState(false)
   const [editName, setEditName] = useState(member.user?.full_name || '')
   const [editPhone, setEditPhone] = useState(member.user?.phone || '')
+  const [editBirthday, setEditBirthday] = useState(member.user?.birthday || '')
   const [saving, setSaving] = useState(false)
   const isSelf  = member.user_id === currentUserId
   const isOwner = member.role === 'owner'
@@ -158,6 +159,7 @@ function MemberRow({
     const result = await updateMemberProfile(member.user_id, {
       full_name: editName,
       phone:     editPhone.trim() || null,
+      birthday:  editBirthday || null,
     })
     setSaving(false)
     if (result?.error) setError(result.error)
@@ -200,7 +202,7 @@ function MemberRow({
               <span className="text-xs text-slate-400 font-mono">{member.user.phone}</span>
             )}
             {canEditProfile && !editing && (
-              <button onClick={() => { setEditing(true); setEditName(member.user?.full_name || ''); setEditPhone(member.user?.phone || '') }}
+              <button onClick={() => { setEditing(true); setEditName(member.user?.full_name || ''); setEditPhone(member.user?.phone || ''); setEditBirthday(member.user?.birthday || '') }}
                 title="Editar nombre y teléfono"
                 className="w-5 h-5 flex items-center justify-center rounded text-slate-300 hover:text-[#00C2FF] hover:bg-slate-100 transition-colors">
                 <Pencil className="w-3 h-3" />
@@ -290,6 +292,15 @@ function MemberRow({
                 onKeyDown={e => { if (e.key === 'Enter') handleSaveProfile(); if (e.key === 'Escape') setEditing(false) }}
                 placeholder="+52 55 0000 0000"
                 className="w-full text-sm border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/40"
+              />
+            </div>
+            <div className="w-36">
+              <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">🎂 Cumpleaños</label>
+              <input
+                type="date"
+                value={editBirthday}
+                onChange={e => setEditBirthday(e.target.value)}
+                className="w-full text-sm border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/40 text-slate-700"
               />
             </div>
             <button onClick={handleSaveProfile} disabled={saving || !editName.trim()}
