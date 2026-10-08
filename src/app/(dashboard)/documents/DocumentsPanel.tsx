@@ -3,7 +3,7 @@
 import React, { useState, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Project, Company } from '@/types'
-import { saveDocument, updateDocumentStatus, requestDeleteDocument, approveDeleteRequest, rejectDeleteRequest, deleteDocument, submitForReview, approveDocument, rejectDocument, replaceDocument, updateProjectCover, createSubproject, updateProjectClassification } from './actions'
+import { saveDocument, updateDocumentStatus, requestDeleteDocument, approveDeleteRequest, rejectDeleteRequest, deleteDocument, deleteDocumentVersion, deleteArchivedVersion, submitForReview, approveDocument, rejectDocument, replaceDocument, updateProjectCover, createSubproject, updateProjectClassification } from './actions'
 import { createOficio } from '../oficios/actions'
 import {
   Upload, Download, Trash2, ChevronDown, ChevronRight, ArrowLeft, Package,
@@ -1933,13 +1933,19 @@ function ProjectDetailView({
     }
   }
 
+  async function handleDeleteArchived(archived: Doc) {
+    const name = archived.display_name || archived.file_name || archived.name
+    if (!confirm(`¿Eliminar versión archivada "${name}" permanentemente?`)) return
+    await deleteArchivedVersion(archived.id)
+  }
+
   async function handleDelete(doc: Doc) {
     const name = doc.display_name || doc.file_name || doc.name
     const pendingReq = deleteRequests.find(r => r.document_id === doc.id)
     if (isAdmin) {
       if (!confirm(`¿Eliminar "${name}" permanentemente?`)) return
       if (pendingReq) await approveDeleteRequest(pendingReq.id, doc.id)
-      else await deleteDocument(doc.id)
+      else await deleteDocumentVersion(doc.id)
     } else {
       if (!confirm('¿Solicitar eliminación de este documento? Un administrador deberá aprobarlo.')) return
       await requestDeleteDocument(doc.id)
@@ -2393,6 +2399,13 @@ function ProjectDetailView({
                               className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-200 text-slate-300 hover:text-slate-500">
                               <Download className="w-3.5 h-3.5" />
                             </a>
+                          )}
+                          {isAdmin && (
+                            <button onClick={() => handleDeleteArchived(archived)}
+                              title="Eliminar versión archivada"
+                              className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-50 text-slate-300 hover:text-red-400">
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
                           )}
                         </div>
                       </div>

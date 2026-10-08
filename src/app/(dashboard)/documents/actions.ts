@@ -231,6 +231,23 @@ export async function deleteDocumentVersion(docId: string) {
   return { success: true }
 }
 
+export async function deleteArchivedVersion(docId: string) {
+  await getUser()
+  const admin = getAdminClient()
+  const { data: doc } = await admin
+    .from('documents')
+    .select('storage_key, is_current')
+    .eq('id', docId)
+    .single()
+  if (!doc) return { error: 'Documento no encontrado' }
+  if (doc.is_current) return { error: 'Usa la otra acción para eliminar la versión actual' }
+  await deleteFromR2(doc.storage_key)
+  const { error } = await admin.from('documents').delete().eq('id', docId)
+  if (error) return { error: error.message }
+  revalidatePath('/documents')
+  return { success: true }
+}
+
 export async function getDocumentVersions(docKey: string, workspaceId: string) {
   const { supabase } = await getUser()
   const { data, error } = await supabase

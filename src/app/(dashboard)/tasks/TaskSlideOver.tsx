@@ -897,7 +897,7 @@ export default function TaskSlideOver({
                   }
                   {uploadingEnt ? 'Subiendo...' : 'Subir'}
                   <input type="file" className="hidden" onChange={handleEntregableUpload}
-                    accept=".pdf,.dwg,.dxf,.docx,.xlsx,.png,.jpg,.jpeg,.zip" />
+                    accept=".pdf,.dwg,.dxf,.docx,.xlsx,.pptx,.ppt,.png,.jpg,.jpeg,.zip" />
                 </label>
               )}
             </div>
@@ -1004,7 +1004,7 @@ export default function TaskSlideOver({
                     {uploadingTemp ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FolderOpen className="w-3.5 h-3.5" />}
                     {uploadingTemp ? 'Subiendo...' : 'Temporal'}
                     <input ref={tempUploadRef} type="file" className="hidden" onChange={handleTempUpload}
-                      accept=".pdf,.dwg,.dxf,.docx,.xlsx,.png,.jpg,.jpeg,.zip,.rar,.txt" />
+                      accept=".pdf,.dwg,.dxf,.docx,.xlsx,.pptx,.ppt,.png,.jpg,.jpeg,.zip,.rar,.txt" />
                   </label>
                 )}
                 <button onClick={() => setShowLinkModal(true)}

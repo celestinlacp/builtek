@@ -20,7 +20,7 @@ async function getWorkspaceData(userId: string) {
   const wsId = membership.workspace_id
   const userRole = membership.role as string
 
-  const [projects, allProjectMappings, tasks, documents, imageDocs, allDocs, members] = await Promise.all([
+  const [projects, allProjectMappings, tasks, documents, imageDocs, allDocs, members, specDocs] = await Promise.all([
     supabase.from('projects').select('id, name, status, frente, cover_image_url').eq('workspace_id', wsId).eq('status', 'active').is('parent_project_id', null).order('name'),
     supabase.from('projects').select('id, parent_project_id, status').eq('workspace_id', wsId),
     supabase.from('tasks').select('id, name, status, priority, due_date, project_id, assignee_id').order('created_at', { ascending: false }),
@@ -28,6 +28,7 @@ async function getWorkspaceData(userId: string) {
     supabase.from('documents').select('id, project_id, created_at').eq('workspace_id', wsId).eq('file_type', 'img').order('created_at', { ascending: false }),
     supabase.from('documents').select('project_id, created_at').eq('workspace_id', wsId).neq('doc_status', 'deleted').neq('is_current', false),
     supabase.from('workspace_members').select('user_id').eq('workspace_id', wsId),
+    supabase.from('documents').select('file_type, specialty:specialties(code, name)').eq('workspace_id', wsId).neq('doc_status', 'deleted').neq('is_current', false),
   ])
 
   // Fetch profiles separately (workspace_members FK apunta a auth.users, no a profiles — join directo falla en PostgREST)
@@ -129,6 +130,21 @@ async function getWorkspaceData(userId: string) {
     }
   }).sort((a: TeamMemberStats, b: TeamMemberStats) => (b.overdue - a.overdue) || (a.score ?? 0) - (b.score ?? 0))
 
+  // Estadísticas por especialidad
+  type SpecStat = { code: string; name: string; total: number; dwg: number; pdf: number; other: number }
+  const specMap2: Record<string, SpecStat> = {}
+  for (const d of (specDocs.data ?? [])) {
+    const spec = (d as any).specialty
+    if (!spec?.code) continue
+    if (!specMap2[spec.code]) specMap2[spec.code] = { code: spec.code, name: spec.name, total: 0, dwg: 0, pdf: 0, other: 0 }
+    specMap2[spec.code].total++
+    const ft = (d as any).file_type
+    if (ft === 'dwg' || ft === 'dxf') specMap2[spec.code].dwg++
+    else if (ft === 'pdf') specMap2[spec.code].pdf++
+    else specMap2[spec.code].other++
+  }
+  const topSpecs = Object.values(specMap2).sort((a, b) => b.total - a.total).slice(0, 4)
+
   return {
     workspace: membership.workspaces as unknown as { id: string; name: string },
     projects: sortedProjects,
@@ -139,6 +155,7 @@ async function getWorkspaceData(userId: string) {
     subprojectCount,
     teamStats,
     userRole,
+    topSpecs,
   }
 }
 
@@ -150,7 +167,7 @@ export default async function DashboardPage() {
   const data = await getWorkspaceData(user.id)
   if (!data) redirect('/onboarding')
 
-  const { workspace, projects, tasks, documents, latestImageByProject, docCountByProject, subprojectCount, teamStats, userRole } = data
+  const { workspace, projects, tasks, documents, latestImageByProject, docCountByProject, subprojectCount, teamStats, userRole, topSpecs } = data
 
   const tasksDone = tasks.filter(t => t.status === 'done').length
   const tasksInProgress = tasks.filter(t => t.status === 'in_progress').length
@@ -332,6 +349,27 @@ export default async function DashboardPage() {
           </div>
         ))}
       </div>
+
+      {/* Especialidades */}
+      {topSpecs.length > 0 && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {topSpecs.map(spec => {
+            const sub = [
+              spec.dwg  > 0 ? `${spec.dwg} DWG`  : null,
+              spec.pdf  > 0 ? `${spec.pdf} PDF`   : null,
+              spec.other > 0 ? `${spec.other} más` : null,
+            ].filter(Boolean).join(' · ')
+            return (
+              <Link key={spec.code} href={`/documents?specialty=${spec.code}`}
+                className="bg-white rounded-xl border border-slate-100 p-5 hover:border-[#00C2FF]/40 transition-colors group">
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide truncate mb-3">{spec.name}</p>
+                <p className="text-3xl font-bold text-[#1A2744] group-hover:text-[#00C2FF] transition-colors">{spec.total}</p>
+                <p className="text-xs text-slate-400 mt-1">{sub || 'documentos'}</p>
+              </Link>
+            )
+          })}
+        </div>
+      )}
 
       {/* Progress bar */}
       {tasks.length > 0 && (

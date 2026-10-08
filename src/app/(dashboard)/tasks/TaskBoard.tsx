@@ -327,6 +327,7 @@ export default function TaskBoard({
   const [view, setView] = useState<'board' | 'list' | 'person'>('board')
   const [filter, setFilter] = useState<string>('all')
   const [userFilter, setUserFilter] = useState<string>('all')
+  const [sortBy, setSortBy] = useState<'default' | 'date_desc' | 'date_asc' | 'name_asc'>('default')
   const [showNew, setShowNew] = useState(false)
   const [editTask, setEditTask] = useState<Task | null>(null)
   const [slideTask, setSlideTask] = useState<ExtendedTask | null>(null)
@@ -342,6 +343,12 @@ export default function TaskBoard({
   const filtered = tasks
     .filter(t => filter === 'all' || t.status === filter)
     .filter(t => userFilter === 'all' || t.assignees?.some((a: any) => a.user_id === userFilter) || t.assignee_id === userFilter)
+    .sort((a, b) => {
+      if (sortBy === 'date_desc') return new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime()
+      if (sortBy === 'date_asc')  return new Date(a.created_at ?? 0).getTime() - new Date(b.created_at ?? 0).getTime()
+      if (sortBy === 'name_asc')  return (a.name ?? '').localeCompare(b.name ?? '', 'es')
+      return 0
+    })
 
   // Agrupar por especialidad
   const groups: Record<string, ExtendedTask[]> = {}
@@ -406,6 +413,7 @@ export default function TaskBoard({
             { value: 'all', label: 'Todas' },
             { value: 'pending', label: 'Pendientes' },
             { value: 'in_progress', label: 'En curso' },
+            { value: 'review', label: 'En revisión' },
             { value: 'blocked', label: 'Bloqueadas' },
             { value: 'done', label: 'Hechas' },
           ].map(f => (
@@ -429,6 +437,21 @@ export default function TaskBoard({
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Sort */}
+          <div className="relative">
+            <select
+              value={sortBy}
+              onChange={e => setSortBy(e.target.value as typeof sortBy)}
+              className="text-xs pl-3 pr-7 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 font-medium focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/40 focus:border-[#00C2FF] appearance-none cursor-pointer"
+            >
+              <option value="default">Orden por defecto</option>
+              <option value="date_desc">Fecha ↓ (más reciente)</option>
+              <option value="date_asc">Fecha ↑ (más antigua)</option>
+              <option value="name_asc">Nombre A→Z</option>
+            </select>
+            <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 text-[10px]">▾</span>
+          </div>
+
           {/* Filtro por usuario — visible para admin/owner/manager */}
           {['owner', 'admin', 'manager'].includes(currentUserRole) && members.length > 0 && (
             <div className="relative">
