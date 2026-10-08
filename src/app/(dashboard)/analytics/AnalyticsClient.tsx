@@ -140,7 +140,6 @@ export default function AnalyticsClient({ data }: { data: AnalyticsData }) {
 
   const [activeFrente,    setActiveFrente]    = useState('')
   const [activeSpecialty, setActiveSpecialty] = useState('')
-  const [selectedProject, setSelectedProject] = useState<ProjectDocData | null>(null)
 
   const now = Date.now()
 
@@ -268,9 +267,6 @@ export default function AnalyticsClient({ data }: { data: AnalyticsData }) {
       .sort((a, b) => b.value - a.value)
   }, [fProjectDocs, activeSpecialty])
 
-  /* ── Default project: one with most docs ────────────────────── */
-  const displayProject = selectedProject ?? projectDocs[0] ?? null
-
   const hasFilters = activeFrente || activeSpecialty
 
   /* ── KPIs ────────────────────────────────────────────────────── */
@@ -338,7 +334,7 @@ export default function AnalyticsClient({ data }: { data: AnalyticsData }) {
             </select>
           )}
           {hasFilters && (
-            <button onClick={() => { setActiveFrente(''); setActiveSpecialty(''); setSelectedProject(null) }}
+            <button onClick={() => { setActiveFrente(''); setActiveSpecialty('') }}
               className="flex items-center gap-1 text-xs font-semibold text-red-400 hover:text-red-500 px-2 py-1.5 rounded-lg hover:bg-red-50 transition-colors">
               <XIcon className="w-3 h-3" />
               Limpiar
@@ -421,95 +417,32 @@ export default function AnalyticsClient({ data }: { data: AnalyticsData }) {
         </div>
       </div>
 
-      {/* ── ROW 2: Cover widget + Docs by project ────────────────── */}
+      {/* ── ROW 2: Docs by project ───────────────────────────────── */}
       {filteredProjectDocs.length > 0 && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-
-          {/* Cover widget — defaults to top project */}
-          <div className="rounded-2xl overflow-hidden border border-slate-100 shadow-sm"
-            style={{ minHeight: 240 }}>
-            {displayProject?.coverUrl ? (
-              <div className="relative h-full min-h-[240px]"
-                style={{ backgroundImage: `url(${displayProject.coverUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' }}>
-                <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(26,39,68,.92) 40%, transparent)' }} />
-                <div className="absolute bottom-0 left-0 right-0 p-5">
-                  {displayProject.frente && (
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full mb-2 inline-block"
-                      style={{ background: frenteColor(displayProject.frente), color: '#fff' }}>
-                      {displayProject.frente}
-                    </span>
-                  )}
-                  <p className="text-white font-bold text-sm leading-tight line-clamp-2">{displayProject.name}</p>
-                  <div className="flex items-center gap-3 mt-2">
-                    <span className="text-white/70 text-xs">{displayProject.total} docs</span>
-                    {displayProject.projectType && <span className="text-white/50 text-xs">{displayProject.projectType}</span>}
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center p-6 h-full min-h-[240px] relative"
-                style={{ background: NAVY }}>
-                <div className="absolute inset-0 pointer-events-none" style={{
-                  backgroundImage: `linear-gradient(rgba(0,194,255,.06) 1px, transparent 1px),
-                                    linear-gradient(90deg, rgba(0,194,255,.06) 1px, transparent 1px)`,
-                  backgroundSize: '28px 28px',
-                }} />
-                {displayProject && (
-                  <div className="relative z-10 text-center">
-                    <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-black text-white mb-3 mx-auto"
-                      style={{ background: frenteColor(displayProject.frente) }}>
-                      {displayProject.name.charAt(0)}
-                    </div>
-                    {displayProject.frente && (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full mb-2 inline-block"
-                        style={{ background: frenteColor(displayProject.frente), color: '#fff' }}>
-                        {displayProject.frente}
-                      </span>
-                    )}
-                    <p className="text-white font-bold text-sm mt-1">{displayProject.name}</p>
-                    <p className="text-white/40 text-xs mt-1">{displayProject.total} documentos</p>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Docs by project */}
-          <Card className="lg:col-span-2">
-            <SectionTitle color={CYAN}>
-              Documentos por proyecto
-              {activeSpecialty && ` — ${specialties.find(s => s.code === activeSpecialty)?.name ?? activeSpecialty}`}
-            </SectionTitle>
-            <ResponsiveContainer width="100%" height={Math.max(200, filteredProjectDocs.length * 28)}>
-              <BarChart data={filteredProjectDocs} layout="vertical"
-                margin={{ left: 4, right: 44, top: 0, bottom: 0 }}
-                onClick={(e: any) => {
-                  if (e?.activePayload?.[0]) {
-                    const name = e.activePayload[0].payload?.name
-                    const found = projectDocs.find(p => p.name === name)
-                    if (found) setSelectedProject(found)
-                  }
-                }}>
-                <XAxis type="number" tick={{ fontSize: 10, fill: '#94A3B8' }} axisLine={false} tickLine={false} />
-                <YAxis type="category" dataKey="name" width={170}
-                  tick={{ fontSize: 11, fill: '#475569', fontWeight: 500 }}
-                  axisLine={false} tickLine={false}
-                  tickFormatter={v => v.length > 28 ? v.slice(0, 28) + '…' : v} />
-                <Tooltip content={<CustomTooltip />} cursor={{ fill: '#F8FAFC' }} />
-                <Bar dataKey="displayTotal" name="Documentos" radius={[0, 4, 4, 0]} barSize={14} style={{ cursor: 'pointer' }}>
-                  {filteredProjectDocs.map((entry, i) => (
-                    <Cell key={i}
-                      fill={displayProject?.id === entry.id
-                        ? frenteColor(entry.frente)
-                        : (entry.frente ? frenteColor(entry.frente) + 'BB' : CYAN + 'BB')} />
-                  ))}
-                  <LabelList dataKey="displayTotal" position="right"
-                    style={{ fill: '#94A3B8', fontSize: 10, fontWeight: 700 }} />
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </Card>
-        </div>
+        <Card>
+          <SectionTitle color={CYAN}>
+            Documentos por proyecto
+            {activeSpecialty && ` — ${specialties.find(s => s.code === activeSpecialty)?.name ?? activeSpecialty}`}
+          </SectionTitle>
+          <ResponsiveContainer width="100%" height={Math.max(200, filteredProjectDocs.length * 28)}>
+            <BarChart data={filteredProjectDocs} layout="vertical"
+              margin={{ left: 4, right: 44, top: 0, bottom: 0 }}>
+              <XAxis type="number" tick={{ fontSize: 10, fill: '#94A3B8' }} axisLine={false} tickLine={false} />
+              <YAxis type="category" dataKey="name" width={200}
+                tick={{ fontSize: 11, fill: '#475569', fontWeight: 500 }}
+                axisLine={false} tickLine={false}
+                tickFormatter={v => v.length > 34 ? v.slice(0, 34) + '…' : v} />
+              <Tooltip content={<CustomTooltip />} cursor={{ fill: '#F8FAFC' }} />
+              <Bar dataKey="displayTotal" name="Documentos" radius={[0, 4, 4, 0]} barSize={14}>
+                {filteredProjectDocs.map((entry, i) => (
+                  <Cell key={i} fill={entry.frente ? frenteColor(entry.frente) : CYAN} />
+                ))}
+                <LabelList dataKey="displayTotal" position="right"
+                  style={{ fill: '#94A3B8', fontSize: 10, fontWeight: 700 }} />
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </Card>
       )}
 
       {/* ── ROW 3: Docs by specialty ─────────────────────────────── */}
