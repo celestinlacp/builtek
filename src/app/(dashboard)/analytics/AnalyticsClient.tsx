@@ -104,33 +104,31 @@ function CompactDonut({
   const total = data.reduce((s, d) => s + d.value, 0)
   if (total === 0) return null
   return (
-    <Card className="flex flex-col">
+    <Card className="flex flex-col items-center">
       <SectionTitle color={color}>{title}</SectionTitle>
-      <div className="flex items-center gap-3 flex-1">
-        <div className="relative flex-shrink-0">
-          <ResponsiveContainer width={90} height={90}>
-            <PieChart>
-              <Pie data={data} cx="50%" cy="50%"
-                innerRadius={26} outerRadius={42}
-                dataKey="value" strokeWidth={2} stroke="#F8FAFC" paddingAngle={2}>
-                {data.map((entry, i) => <Cell key={i} fill={entry.color} />)}
-              </Pie>
-              <Tooltip content={<CustomTooltip />} />
-            </PieChart>
-          </ResponsiveContainer>
-          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-            <span className="text-lg font-black" style={{ color: NAVY }}>{total}</span>
+      <div className="relative">
+        <ResponsiveContainer width={110} height={110}>
+          <PieChart>
+            <Pie data={data} cx="50%" cy="50%"
+              innerRadius={30} outerRadius={48}
+              dataKey="value" strokeWidth={2} stroke="#F8FAFC" paddingAngle={2}>
+              {data.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+            </Pie>
+            <Tooltip content={<CustomTooltip />} />
+          </PieChart>
+        </ResponsiveContainer>
+        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+          <span className="text-xl font-black" style={{ color: NAVY }}>{total}</span>
+        </div>
+      </div>
+      <div className="mt-3 w-full flex flex-col gap-1.5">
+        {data.map(s => (
+          <div key={s.name} className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-sm flex-shrink-0" style={{ background: s.color }} />
+            <span className="text-[11px] text-slate-500 flex-1 truncate">{s.name}</span>
+            <span className="text-[11px] font-black flex-shrink-0" style={{ color: NAVY }}>{s.value}</span>
           </div>
-        </div>
-        <div className="flex flex-col gap-1.5 min-w-0">
-          {data.map(s => (
-            <div key={s.name} className="flex items-center gap-1.5 min-w-0">
-              <span className="w-2 h-2 rounded-sm flex-shrink-0" style={{ background: s.color }} />
-              <span className="text-[11px] text-slate-500 flex-1 truncate">{s.name}</span>
-              <span className="text-[11px] font-black flex-shrink-0" style={{ color: NAVY }}>{s.value}</span>
-            </div>
-          ))}
-        </div>
+        ))}
       </div>
     </Card>
   )
