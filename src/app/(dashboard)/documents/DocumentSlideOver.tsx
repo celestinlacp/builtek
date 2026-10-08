@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import {
   X, Send, Trash2, Download, GitBranch, User,
   Calendar, Weight, Tag, FileText, MessageSquare, Loader2, History, CheckCircle2, XCircle, Clock, Eye,
-  Share2, Pencil, Check,
+  Share2, Pencil, Check, Upload,
 } from 'lucide-react'
 import { addDocumentComment, deleteDocumentComment, getDocumentVersions, createDocumentShare, renameDocument } from './actions'
 
@@ -73,13 +73,14 @@ function MetaRow({ icon: Icon, label, value }: { icon: React.ElementType; label:
 }
 
 export default function DocumentSlideOver({
-  doc, workspaceId, currentUserId, userRole, onClose
+  doc, workspaceId, currentUserId, userRole, onClose, onUploadNew
 }: {
   doc: Doc
   workspaceId: string
   currentUserId: string
   userRole?: string
   onClose: () => void
+  onUploadNew?: () => void
 }) {
   const [tab,                  setTab]                  = useState<'info' | 'versions' | 'comments'>('info')
   const [comments,             setComments]             = useState<Comment[]>([])
@@ -311,6 +312,15 @@ export default function DocumentSlideOver({
             )}
           </div>
           <div className="flex items-center gap-1 flex-shrink-0">
+            {onUploadNew && ['owner', 'admin', 'manager'].includes(userRole ?? '') && (
+              <button
+                onClick={() => { onClose(); setTimeout(onUploadNew, 50) }}
+                title="Subir nueva versión"
+                className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#00C2FF]/10 text-slate-400 hover:text-[#00C2FF] transition-colors"
+              >
+                <Upload className="w-4 h-4" />
+              </button>
+            )}
             {doc.file_name && (
               <a href={`/api/documents/download/${doc.id}`} target="_blank" rel="noopener noreferrer"
                 title="Descargar" className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600">

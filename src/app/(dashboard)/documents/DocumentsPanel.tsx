@@ -453,8 +453,8 @@ function UploadModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="relative z-[1] bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 sticky top-0 bg-white z-10">
           <h2 className="text-base font-bold text-[#1A2744]">Subir documento</h2>
           <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100">
@@ -536,7 +536,7 @@ function UploadModal({
           </div>
 
           <div className="grid grid-cols-2 gap-6">
-            <div>
+            <div className="min-w-0">
               <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
                 Tipo de plano
               </label>
@@ -547,7 +547,7 @@ function UploadModal({
               ) : (
                 <div className="flex gap-2">
                   <select value={docView} onChange={e => { setDocView(e.target.value); setDocViewNum('') }}
-                    className="flex-1 px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50">
+                    className="min-w-0 flex-1 px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50">
                     <option value="">Sin tipo</option>
                     {tipoPlanoOptions.map(t => (
                       <option key={t.code} value={t.code}>[{t.code}] {t.name}</option>
@@ -558,12 +558,12 @@ function UploadModal({
                     onChange={e => setDocViewNum(e.target.value.replace(/\D/g, ''))}
                     placeholder="#"
                     disabled={!docView}
-                    className="w-16 px-2 py-2.5 rounded-lg border border-slate-200 text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50 disabled:bg-slate-50 disabled:text-slate-300"
+                    className="w-14 flex-shrink-0 px-2 py-2.5 rounded-lg border border-slate-200 text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50 disabled:bg-slate-50 disabled:text-slate-300"
                   />
                 </div>
               )}
             </div>
-            <div>
+            <div className="min-w-0">
               <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide flex items-center gap-1.5">
                 Versión
                 <div className="relative group">
@@ -2433,6 +2433,7 @@ function ProjectDetailView({
           currentUserId={currentUserId}
           userRole={userRole}
           onClose={() => setSlideDoc(null)}
+          onUploadNew={onUpload}
         />
       )}
 
