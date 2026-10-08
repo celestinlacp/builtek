@@ -486,6 +486,38 @@ export async function renameDocument(docId: string, displayName: string) {
   return { success: true }
 }
 
+// ── Edición de metadatos de documento ────────────────────────────────────────
+
+export async function updateDocumentMeta(docId: string, data: {
+  doc_type:      string | null
+  doc_view:      string | null
+  doc_element:   string | null
+  mic_version:   'V0' | 'V1' | null
+  emission_date: string | null
+  notes:         string | null
+  author:        string | null
+}) {
+  await getUser()
+  const admin = getAdminClient()
+
+  const { error } = await admin
+    .from('documents')
+    .update({
+      doc_type:      data.doc_type      || null,
+      doc_view:      data.doc_view      || null,
+      doc_element:   data.doc_element   || null,
+      mic_version:   data.mic_version   || 'V0',
+      emission_date: data.emission_date || null,
+      notes:         data.notes         || null,
+      author:        data.author        || null,
+    })
+    .eq('id', docId)
+
+  if (error) return { error: error.message }
+  revalidatePath('/documents')
+  return { success: true }
+}
+
 // ── Edición rápida de proyecto (frente + tipo) ────────────────────────────────
 
 export async function updateProjectClassification(projectId: string, data: {

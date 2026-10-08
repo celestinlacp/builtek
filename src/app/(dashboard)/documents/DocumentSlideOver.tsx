@@ -5,9 +5,9 @@ import { createClient } from '@/lib/supabase/client'
 import {
   X, Send, Trash2, Download, GitBranch, User,
   Calendar, Weight, Tag, FileText, MessageSquare, Loader2, History, CheckCircle2, XCircle, Clock, Eye,
-  Share2, Pencil, Check, Upload,
+  Share2, Pencil, Check, Upload, Edit2,
 } from 'lucide-react'
-import { addDocumentComment, deleteDocumentComment, getDocumentVersions, createDocumentShare, renameDocument } from './actions'
+import { addDocumentComment, deleteDocumentComment, getDocumentVersions, createDocumentShare, renameDocument, updateDocumentMeta } from './actions'
 
 type Doc = {
   id: string
@@ -25,6 +25,10 @@ type Doc = {
   author: string | null
   notes: string | null
   created_at: string
+  doc_type:    string | null
+  doc_view:    string | null
+  doc_element: string | null
+  mic_version: string | null
   specialty?: { name: string; code: string } | null
   project?: { name: string } | null
   approved_by?: string | null
@@ -101,6 +105,17 @@ export default function DocumentSlideOver({
   const [localDocName, setLocalDocName] = useState<string | null>(null)
   const renameRef = useRef<HTMLInputElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  // Edit metadata
+  const [editingMeta,   setEditingMeta]   = useState(false)
+  const [savingMeta,    setSavingMeta]    = useState(false)
+  const [metaError,     setMetaError]     = useState<string | null>(null)
+  const [metaDocType,   setMetaDocType]   = useState(doc.doc_type    ?? '')
+  const [metaDocView,   setMetaDocView]   = useState(doc.doc_view    ?? '')
+  const [metaDocEl,     setMetaDocEl]     = useState(doc.doc_element ?? '')
+  const [metaVersion,   setMetaVersion]   = useState<'V0'|'V1'>(doc.mic_version === 'V1' ? 'V1' : 'V0')
+  const [metaDate,      setMetaDate]      = useState(doc.emission_date?.slice(0,10) ?? '')
+  const [metaNotes,     setMetaNotes]     = useState(doc.notes  ?? '')
+  const [metaAuthor,    setMetaAuthor]    = useState(doc.author ?? '')
   const supabase = createClient()
 
   // Cargar nombre del aprobador si aplica
@@ -246,6 +261,23 @@ export default function DocumentSlideOver({
     if (e.key === 'Escape') { setEditingName(false) }
   }
 
+  async function saveMeta() {
+    setSavingMeta(true)
+    setMetaError(null)
+    const result = await updateDocumentMeta(doc.id, {
+      doc_type:      metaDocType      || null,
+      doc_view:      metaDocView.trim() || null,
+      doc_element:   metaDocEl.trim() || null,
+      mic_version:   metaVersion,
+      emission_date: metaDate         || null,
+      notes:         metaNotes.trim() || null,
+      author:        metaAuthor.trim() || null,
+    })
+    setSavingMeta(false)
+    if ('error' in result) { setMetaError(result.error ?? 'Error al guardar'); return }
+    setEditingMeta(false)
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex">
       {/* Backdrop */}
@@ -374,6 +406,113 @@ export default function DocumentSlideOver({
           {/* ── Tab: Información ── */}
           {tab === 'info' && (
             <div className="px-5 py-4">
+
+              {/* Edit toggle — admin/owner/manager only */}
+              {['owner', 'admin', 'manager'].includes(userRole ?? '') && (
+                <div className="flex items-center justify-between mb-3">
+                  {editingMeta ? (
+                    <p className="text-xs font-semibold text-[#1A2744]">Editar metadatos</p>
+                  ) : (
+                    <p className="text-xs text-slate-400">Datos del documento</p>
+                  )}
+                  {!editingMeta && (
+                    <button onClick={() => setEditingMeta(true)}
+                      className="flex items-center gap-1.5 text-xs font-semibold text-[#00C2FF] hover:text-[#00a8dd] transition-colors">
+                      <Edit2 className="w-3 h-3" />
+                      Editar
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* ── Edit form ── */}
+              {editingMeta ? (
+                <div className="space-y-3">
+                  {/* Tipo de documento */}
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-500 mb-1 uppercase tracking-wide">Tipo de documento</label>
+                    <select value={metaDocType} onChange={e => setMetaDocType(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/40">
+                      <option value="">Sin tipo</option>
+                      {[
+                        ['PLA','Plano'],['OFI','Oficio'],['MEM','Memoria de cálculo'],
+                        ['ESP','Especificación'],['INF','Informe'],['PAT','Ficha técnica'],['ACT','Acta'],
+                      ].map(([code, name]) => (
+                        <option key={code} value={code}>[{code}] {name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Tipo de plano + Versión row */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-500 mb-1 uppercase tracking-wide">Tipo de plano</label>
+                      <input value={metaDocView} onChange={e => setMetaDocView(e.target.value)}
+                        placeholder="Ej: PLT, COR01…"
+                        className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/40" />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-500 mb-1 uppercase tracking-wide">Versión</label>
+                      <div className="flex rounded-lg border border-slate-200 overflow-hidden">
+                        <button type="button" onClick={() => setMetaVersion('V0')}
+                          className={`flex-1 py-2 text-xs font-bold transition-colors ${metaVersion === 'V0' ? 'bg-[#1A2744] text-white' : 'bg-white text-slate-400 hover:bg-slate-50'}`}>
+                          V0 Proy.
+                        </button>
+                        <button type="button" onClick={() => setMetaVersion('V1')}
+                          className={`flex-1 py-2 text-xs font-bold transition-colors ${metaVersion === 'V1' ? 'bg-green-600 text-white' : 'bg-white text-slate-400 hover:bg-slate-50'}`}>
+                          V1 Const.
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Elemento estructural */}
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-500 mb-1 uppercase tracking-wide">Elemento estructural</label>
+                    <input value={metaDocEl} onChange={e => setMetaDocEl(e.target.value)}
+                      placeholder="Ej: Zapata, Pilote, Trabe…"
+                      className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/40" />
+                  </div>
+
+                  {/* Fecha + Autor row */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-500 mb-1 uppercase tracking-wide">Fecha versión</label>
+                      <input type="date" value={metaDate} onChange={e => setMetaDate(e.target.value)}
+                        className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/40" />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-500 mb-1 uppercase tracking-wide">Autor</label>
+                      <input value={metaAuthor} onChange={e => setMetaAuthor(e.target.value)}
+                        placeholder="Nombre"
+                        className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/40" />
+                    </div>
+                  </div>
+
+                  {/* Notas */}
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-500 mb-1 uppercase tracking-wide">Notas</label>
+                    <textarea value={metaNotes} onChange={e => setMetaNotes(e.target.value)}
+                      rows={2} placeholder="Observaciones o comentarios…"
+                      className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/40 resize-none" />
+                  </div>
+
+                  {metaError && <p className="text-xs text-red-500">{metaError}</p>}
+
+                  {/* Action buttons */}
+                  <div className="flex gap-2 pt-1">
+                    <button onClick={saveMeta} disabled={savingMeta}
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-[#1A2744] text-white text-xs font-bold hover:bg-[#243660] disabled:opacity-50 transition-colors">
+                      {savingMeta ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                      Guardar
+                    </button>
+                    <button onClick={() => { setEditingMeta(false); setMetaError(null) }} disabled={savingMeta}
+                      className="px-4 py-2 rounded-lg border border-slate-200 text-xs font-semibold text-slate-500 hover:bg-slate-50 transition-colors">
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              ) : (
               <div className="space-y-0">
                 <MetaRow icon={User}     label="Autor"         value={doc.author || '—'} />
                 <MetaRow icon={Calendar} label="Fecha versión"
@@ -397,6 +536,7 @@ export default function DocumentSlideOver({
                   <MetaRow icon={FileText} label="Archivo original" value={doc.file_name} />
                 )}
               </div>
+              )}
 
               {/* Cadena de aprobación */}
               <div className="mt-4 rounded-xl border border-slate-100 overflow-hidden">
