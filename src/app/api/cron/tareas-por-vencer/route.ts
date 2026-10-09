@@ -31,9 +31,8 @@ export async function GET(req: NextRequest) {
 
   const admin = getAdminClient()
 
-  // Fecha objetivo: hoy + 2 días
+  // Fecha objetivo: hoy (mismo día de vencimiento)
   const target = new Date()
-  target.setDate(target.getDate() + 2)
   const targetDate = target.toISOString().split('T')[0] // YYYY-MM-DD
 
   // Buscar tareas que vencen en 2 días, no finalizadas, con asignado
@@ -82,10 +81,13 @@ export async function GET(req: NextRequest) {
     const assigneeName = profile?.full_name ?? 'Responsable'
     const projectName  = (task.projects as any)?.name ?? 'Proyecto'
 
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://builtek.app'
+    const taskUrl = `${baseUrl}/tasks?task=${task.id}`
     const result = await sendMenvioWhatsApp(
       'tarea_por_vencer',
       phone,
-      [assigneeName, task.name, projectName, dueDateStr]
+      [assigneeName, task.name, projectName, dueDateStr],
+      taskUrl
     )
 
     if (result.ok) sent++
