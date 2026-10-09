@@ -1024,6 +1024,259 @@ function Footer() {
   )
 }
 
+// ── Tasks Feature ─────────────────────────────────────────────────────────────
+function TasksFeature() {
+  return (
+    <section id="tareas" className="bg-[#0a1220] py-14 md:py-24 px-4 md:px-6">
+      <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-10 lg:gap-16 items-center">
+        {/* Text */}
+        <div>
+          <div className="inline-flex items-center gap-2 bg-emerald-400/10 border border-emerald-400/20 rounded-full px-4 py-1.5 mb-8">
+            <CheckSquare className="w-3.5 h-3.5 text-emerald-400" />
+            <span className="text-emerald-400 text-xs font-medium">Gestión de Tareas</span>
+          </div>
+
+          <h2 className="text-2xl md:text-4xl text-white leading-tight mb-5">
+            <span className="font-light">Cada tarea tiene</span><br />
+            <span className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-[#00C2FF]">
+              responsable, fecha y plano.
+            </span>
+          </h2>
+
+          <p className="text-white/40 text-lg leading-relaxed mb-8 font-light">
+            TaskBoard organizado por especialidad: EST, ARQ, HID, SAN y más. Cada tarea lleva sus documentos vinculados — nada queda suelto en correos ni grupos de WhatsApp.
+          </p>
+
+          <div className="space-y-4">
+            {[
+              'TaskBoard por especialidad: filtra EST, ARQ, HID en un clic',
+              'Dashboard de equipo: score por responsable, tareas vencidas y carga actual',
+              'Vincula planos y documentos directamente a cada tarea',
+              'El responsable recibe notificación por WhatsApp al ser asignado',
+            ].map(f => (
+              <div key={f} className="flex items-start gap-3">
+                <div className="w-5 h-5 rounded-full bg-emerald-400/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <div className="w-2 h-2 rounded-full bg-emerald-400" />
+                </div>
+                <p className="text-white/50 text-sm font-light">{f}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Mock TaskBoard */}
+        <div className="bg-[#1A2744]/60 border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
+          <div className="flex items-center gap-2 px-4 py-3 border-b border-white/5 bg-white/3">
+            <CheckSquare className="w-4 h-4 text-emerald-400" />
+            <span className="text-white/50 text-xs font-medium">TaskBoard — Frente 3 · Todas las especialidades</span>
+          </div>
+          <div className="p-4 space-y-3">
+            {/* Specialty filter chips */}
+            <div className="flex gap-1.5 flex-wrap">
+              {['Todas', 'EST', 'ARQ', 'HID', 'SAN'].map((s, i) => (
+                <span key={s} className={`px-2.5 py-1 rounded-full text-[10px] font-semibold ${i === 0 ? 'bg-emerald-400/20 text-emerald-400' : 'bg-white/5 text-white/30'}`}>{s}</span>
+              ))}
+            </div>
+
+            {/* Kanban 2×2 */}
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { label: 'Pendiente',  dot: 'bg-slate-500',   tasks: [{ name: 'Trazo ejes N+0.00', spec: 'TOP', who: 'CG' }, { name: 'Excavación Z-3', spec: 'CIV', who: 'LA' }] },
+                { label: 'En proceso', dot: 'bg-[#00C2FF]',   tasks: [{ name: 'Colado losa N+3.50', spec: 'EST', who: 'SR' }, { name: 'Armado muros', spec: 'EST', who: 'MR' }] },
+                { label: 'Revisión',   dot: 'bg-amber-400',   tasks: [{ name: 'Planos Arq. Rev.B', spec: 'ARQ', who: 'PM' }] },
+                { label: 'Listo',      dot: 'bg-emerald-400', tasks: [{ name: 'Topografía gral.', spec: 'TOP', who: 'CG' }, { name: 'Permisos IMSS', spec: 'ADM', who: 'LA' }] },
+              ].map(col => (
+                <div key={col.label} className="bg-white/3 rounded-xl p-2.5">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <div className={`w-1.5 h-1.5 rounded-full ${col.dot}`} />
+                    <span className="text-[10px] text-white/40 font-semibold">{col.label}</span>
+                    <span className="ml-auto text-[9px] text-white/20">{col.tasks.length}</span>
+                  </div>
+                  <div className="space-y-1.5">
+                    {col.tasks.map(t => (
+                      <div key={t.name} className="bg-white/4 rounded-lg px-2 py-1.5">
+                        <p className="text-[10px] text-white/60 font-normal leading-tight mb-1">{t.name}</p>
+                        <div className="flex items-center justify-between">
+                          <span className="text-[9px] bg-[#00C2FF]/10 text-[#00C2FF] px-1.5 py-0.5 rounded font-semibold">{t.spec}</span>
+                          <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-white/10 text-[9px] text-white/40 font-semibold">{t.who}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Team dashboard mini */}
+            <div className="border-t border-white/5 pt-3">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-[10px] text-white/25 font-semibold uppercase tracking-wide">Rendimiento del equipo</p>
+                <span className="text-[9px] text-emerald-400/60 font-semibold">Score promedio: 74%</span>
+              </div>
+              {[
+                { name: 'Carlos G.', role: 'Manager', score: 88, overdue: 0, color: 'bg-emerald-500' },
+                { name: 'Luis A.',   role: 'Engineer', score: 61, overdue: 2, color: 'bg-amber-400' },
+                { name: 'Sofía R.', role: 'Engineer', score: 74, overdue: 0, color: 'bg-emerald-500' },
+                { name: 'Pedro M.', role: 'Viewer',   score: 30, overdue: 3, color: 'bg-red-500' },
+              ].map(p => (
+                <div key={p.name} className="flex items-center gap-2 py-1.5 border-b border-white/5 last:border-0">
+                  <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-400/15 text-[9px] text-emerald-400 font-semibold flex-shrink-0">{p.name[0]}</span>
+                  <span className="text-[11px] text-white/45 font-light w-16 truncate">{p.name}</span>
+                  <div className="flex-1 h-1.5 bg-white/5 rounded-full overflow-hidden">
+                    <div className={`h-full rounded-full ${p.color}`} style={{ width: `${p.score}%` }} />
+                  </div>
+                  <span className="text-[10px] text-white/35 w-7 text-right font-semibold">{p.score}%</span>
+                  {p.overdue > 0
+                    ? <span className="text-[9px] text-red-400 font-bold w-12 text-right">{p.overdue} venc.</span>
+                    : <span className="text-[9px] text-emerald-400/50 w-12 text-right">al día</span>
+                  }
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Inline CTA */}
+      <div className="max-w-7xl mx-auto mt-14 px-6">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-emerald-400/5 border border-emerald-400/15 rounded-2xl px-7 py-5">
+          <p className="text-white/55 text-sm font-light text-center sm:text-left">
+            ¿Quieres ver el TaskBoard con datos reales de tu proyecto?
+          </p>
+          <Link href="/demo" className="flex-shrink-0 flex items-center gap-2 bg-emerald-400 text-[#0a1220] px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-white transition-colors whitespace-nowrap">
+            Ver demo en vivo <ArrowRight className="w-4 h-4" />
+          </Link>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+// ── Analytics + Team Feature ──────────────────────────────────────────────────
+function AnalyticsTeamFeature() {
+  return (
+    <section id="analytics" className="bg-[#0D1729] py-14 md:py-24 px-4 md:px-6">
+      <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-10 lg:gap-16 items-center">
+
+        {/* Mock */}
+        <div className="bg-[#1A2744]/60 border border-white/10 rounded-2xl overflow-hidden shadow-2xl order-2 lg:order-1">
+          <div className="flex items-center gap-2 px-4 py-3 border-b border-white/5 bg-white/3">
+            <TrendingUp className="w-4 h-4 text-amber-400" />
+            <span className="text-white/50 text-xs font-medium">Analytics — Viaducto Norte · Oct 2026</span>
+          </div>
+          <div className="p-4 space-y-4">
+            {/* KPI row */}
+            <div className="grid grid-cols-4 gap-2">
+              {[
+                { label: 'Documentos',  val: '347', color: 'text-[#00C2FF]' },
+                { label: 'Aprobados',   val: '218', color: 'text-emerald-400' },
+                { label: 'En revisión', val: '89',  color: 'text-amber-400' },
+                { label: 'Rechazados',  val: '40',  color: 'text-rose-400' },
+              ].map(k => (
+                <div key={k.label} className="bg-white/3 rounded-xl p-2.5 text-center">
+                  <p className={`text-lg font-bold ${k.color}`}>{k.val}</p>
+                  <p className="text-[9px] text-white/25 font-light leading-tight mt-0.5">{k.label}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Bar chart — docs por especialidad */}
+            <div className="bg-white/3 rounded-xl p-3">
+              <p className="text-[10px] text-white/25 font-semibold uppercase tracking-wide mb-3">Documentos por especialidad</p>
+              {[
+                { spec: 'EST', val: 112, pct: 100 },
+                { spec: 'ARQ', val: 87,  pct: 78  },
+                { spec: 'HID', val: 64,  pct: 57  },
+                { spec: 'SAN', val: 51,  pct: 46  },
+                { spec: 'ELE', val: 33,  pct: 29  },
+              ].map(r => (
+                <div key={r.spec} className="flex items-center gap-2 mb-1.5 last:mb-0">
+                  <span className="text-[10px] text-white/40 w-7 font-semibold shrink-0">{r.spec}</span>
+                  <div className="flex-1 h-2 bg-white/5 rounded-full overflow-hidden">
+                    <div className="h-full bg-gradient-to-r from-amber-400 to-amber-500/60 rounded-full" style={{ width: `${r.pct}%` }} />
+                  </div>
+                  <span className="text-[10px] text-white/30 w-6 text-right">{r.val}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Team table */}
+            <div className="bg-white/3 rounded-xl p-3">
+              <p className="text-[10px] text-white/25 font-semibold uppercase tracking-wide mb-2">Equipo — última actividad</p>
+              {[
+                { name: 'Carlos G.',  role: 'Manager',  last: 'hace 5 min',  docs: 48, active: true  },
+                { name: 'Luis A.',    role: 'Engineer', last: 'hace 2 h',    docs: 31, active: false },
+                { name: 'Sofía R.',  role: 'Engineer', last: 'hace 1 día',  docs: 27, active: false },
+                { name: 'Pedro M.',  role: 'Viewer',   last: 'hace 3 días', docs: 0,  active: false },
+              ].map(m => (
+                <div key={m.name} className="flex items-center gap-2 py-1.5 border-b border-white/5 last:border-0">
+                  <div className="relative">
+                    <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-indigo-400/15 text-[9px] text-indigo-400 font-bold">{m.name[0]}</span>
+                    {m.active && <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-400 border border-[#1A2744]" />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[11px] text-white/55 font-normal truncate">{m.name}</p>
+                    <p className="text-[9px] text-white/20 font-light">{m.last}</p>
+                  </div>
+                  <span className="text-[9px] bg-white/5 text-white/30 px-1.5 py-0.5 rounded font-medium">{m.role}</span>
+                  {m.docs > 0 && <span className="text-[10px] text-white/25">{m.docs} docs</span>}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Text */}
+        <div className="order-1 lg:order-2">
+          <div className="inline-flex items-center gap-2 bg-amber-400/10 border border-amber-400/20 rounded-full px-4 py-1.5 mb-8">
+            <TrendingUp className="w-3.5 h-3.5 text-amber-400" />
+            <span className="text-amber-400 text-xs font-medium">Analytics + Equipo</span>
+          </div>
+
+          <h2 className="text-2xl md:text-4xl text-white leading-tight mb-5">
+            <span className="font-light">Sabe exactamente</span><br />
+            <span className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-[#00C2FF]">
+              quién hizo qué y cuándo.
+            </span>
+          </h2>
+
+          <p className="text-white/40 text-lg leading-relaxed mb-8 font-light">
+            Dashboards en tiempo real que muestran el avance por especialidad, frente y tipo de documento. Y un panel de equipo donde ves quién está activo, qué subió cada uno y cuándo fue su última acción.
+          </p>
+
+          <div className="space-y-4">
+            {[
+              'Gráficas por especialidad, frente y estado de documento',
+              'Filtra por frente y todas las métricas se actualizan',
+              'Panel de equipo: rol, última actividad y documentos subidos',
+              'Trazabilidad completa: cada acción queda registrada con usuario y fecha',
+            ].map(f => (
+              <div key={f} className="flex items-start gap-3">
+                <div className="w-5 h-5 rounded-full bg-amber-400/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <div className="w-2 h-2 rounded-full bg-amber-400" />
+                </div>
+                <p className="text-white/50 text-sm font-light">{f}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Inline CTA */}
+      <div className="max-w-7xl mx-auto mt-14 px-6">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-amber-400/5 border border-amber-400/15 rounded-2xl px-7 py-5">
+          <p className="text-white/55 text-sm font-light text-center sm:text-left">
+            ¿Quieres ver el analytics con los datos reales de tu proyecto?
+          </p>
+          <Link href="/demo" className="flex-shrink-0 flex items-center gap-2 bg-amber-400 text-[#0D1729] px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-white transition-colors whitespace-nowrap">
+            Ver demo en vivo <ArrowRight className="w-4 h-4" />
+          </Link>
+        </div>
+      </div>
+    </section>
+  )
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 export default function LandingPage() {
   return (
@@ -1033,9 +1286,11 @@ export default function LandingPage() {
       <Ticker />
       <Problem />
       <Modules />
+      <TasksFeature />
       <AIFeature />
       <RAGFeature />
       <DriveFeature />
+      <AnalyticsTeamFeature />
       <WhatsAppFeature />
       <PartnerSection />
       <CostCallout />
