@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { createFolder, saveDriveFile, replaceFile, deleteFolder, deleteDriveFile, renameFolder, createShare, revokeShare, getWorkspaceShares, getWorkspaceOficiosSalida, updateShare } from './actions'
+import { createFolder, saveDriveFile, replaceFile, deleteFolder, deleteDriveFile, renameFolder, createShare, revokeShare, revokeShares, getWorkspaceShares, getWorkspaceProjectShares, getWorkspaceOficiosSalida, updateShare } from './actions'
 import { FileTypeIcon } from '@/components/ui/FileTypeIcon'
 import QRCode from 'react-qr-code'
 import {
@@ -866,10 +866,24 @@ type DriveShare = {
   drive_folders: { name: string } | null
 }
 
+type ProjectShare = {
+  id: string
+  token: string
+  expires_at: string
+  created_at: string
+  created_by: string | null
+  created_by_name: string | null
+  project_id: string
+  project_name: string
+}
+
 function LinksPanel({ workspaceId, isAdmin }: { workspaceId: string; isAdmin: boolean }) {
   const [shares,         setShares]         = useState<DriveShare[]>([])
+  const [projectShares,  setProjectShares]  = useState<ProjectShare[]>([])
   const [loading,        setLoading]        = useState(true)
   const [revoking,       setRevoking]       = useState<string | null>(null)
+  const [bulkRevoking,   setBulkRevoking]   = useState(false)
+  const [selectedIds,    setSelectedIds]    = useState<Set<string>>(new Set())
   const [copied,         setCopied]         = useState<string | null>(null)
   const [editingId,      setEditingId]      = useState<string | null>(null)
   const [editOficioId,   setEditOficioId]   = useState('')
@@ -881,19 +895,48 @@ function LinksPanel({ workspaceId, isAdmin }: { workspaceId: string; isAdmin: bo
   useEffect(() => {
     Promise.all([
       getWorkspaceShares(workspaceId),
+      getWorkspaceProjectShares(workspaceId),
       getWorkspaceOficiosSalida(workspaceId),
-    ]).then(([sharesRes, oficiosRes]) => {
+    ]).then(([sharesRes, projectSharesRes, oficiosRes]) => {
       setShares((sharesRes.shares as unknown as DriveShare[]) ?? [])
+      if ('shares' in projectSharesRes) setProjectShares(projectSharesRes.shares as ProjectShare[])
       if ('oficios' in oficiosRes) setOficiosSalida(oficiosRes.oficios ?? [])
       setLoading(false)
     })
   }, [workspaceId])
+
+  function toggleSelect(id: string) {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  function toggleSelectAll() {
+    if (selectedIds.size === shares.length) {
+      setSelectedIds(new Set())
+    } else {
+      setSelectedIds(new Set(shares.map(s => s.id)))
+    }
+  }
+
+  async function handleBulkRevoke() {
+    if (!confirm(`¿Revocar ${selectedIds.size} link(s)? Dejarán de funcionar inmediatamente.`)) return
+    setBulkRevoking(true)
+    await revokeShares([...selectedIds])
+    setShares(prev => prev.filter(s => !selectedIds.has(s.id)))
+    setSelectedIds(new Set())
+    setBulkRevoking(false)
+  }
 
   async function handleRevoke(shareId: string) {
     if (!confirm('¿Revocar este link? Dejará de funcionar inmediatamente.')) return
     setRevoking(shareId)
     await revokeShare(shareId)
     setShares(prev => prev.filter(s => s.id !== shareId))
+    setSelectedIds(prev => { const next = new Set(prev); next.delete(shareId); return next })
     setRevoking(null)
   }
 
@@ -933,7 +976,7 @@ function LinksPanel({ workspaceId, isAdmin }: { workspaceId: string; isAdmin: bo
     </div>
   )
 
-  if (shares.length === 0) return (
+  if (shares.length === 0 && projectShares.length === 0) return (
     <div className="bg-white border border-slate-100 rounded-xl p-12 text-center">
       <div className="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
         <Link2 className="w-7 h-7 text-slate-300" />
@@ -944,14 +987,36 @@ function LinksPanel({ workspaceId, isAdmin }: { workspaceId: string; isAdmin: bo
   )
 
   return (
+    <div className="space-y-4">
     <div className="bg-white rounded-xl border border-slate-100 overflow-hidden">
       <div className="flex items-center gap-3 px-4 py-2.5 bg-slate-50 border-b border-slate-100 text-xs font-bold text-slate-500 uppercase tracking-wide">
+        {isAdmin && (
+          <input
+            type="checkbox"
+            className="w-3.5 h-3.5 rounded accent-[#1A2744] flex-shrink-0 cursor-pointer"
+            checked={shares.length > 0 && selectedIds.size === shares.length}
+            onChange={toggleSelectAll}
+            title="Seleccionar todos"
+          />
+        )}
         <span className="flex-1">Archivo</span>
         <span className="hidden md:block w-20 text-center">Accesos</span>
         <span className="hidden lg:block w-28">Por</span>
         <span className="hidden lg:block w-32">Creado</span>
         <span className="hidden lg:block w-28">Expira</span>
-        <span className="w-32 text-right">Acciones</span>
+        <div className="flex items-center gap-2 flex-shrink-0 justify-end w-32">
+          {isAdmin && selectedIds.size > 0 && (
+            <button
+              onClick={handleBulkRevoke}
+              disabled={bulkRevoking}
+              className="flex items-center gap-1 px-2 py-1 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 text-[10px] font-bold transition-colors disabled:opacity-50"
+            >
+              {bulkRevoking ? <Loader2 className="w-3 h-3 animate-spin" /> : <ShieldOff className="w-3 h-3" />}
+              Revocar ({selectedIds.size})
+            </button>
+          )}
+          {(!isAdmin || selectedIds.size === 0) && <span className="text-right w-full">Acciones</span>}
+        </div>
       </div>
 
       {shares.map(share => {
@@ -969,6 +1034,14 @@ function LinksPanel({ workspaceId, isAdmin }: { workspaceId: string; isAdmin: bo
         return (
           <div key={share.id} className={`border-b border-slate-50 last:border-b-0 ${isExpired ? 'opacity-50' : ''}`}>
             <div className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50">
+              {isAdmin && (
+                <input
+                  type="checkbox"
+                  className="w-3.5 h-3.5 rounded accent-[#1A2744] flex-shrink-0 cursor-pointer"
+                  checked={selectedIds.has(share.id)}
+                  onChange={() => toggleSelect(share.id)}
+                />
+              )}
               {isFolder
                 ? <span className="text-lg flex-shrink-0">📁</span>
                 : <FileTypeIcon fileType={fileType} size={28} />
@@ -1092,6 +1165,68 @@ function LinksPanel({ workspaceId, isAdmin }: { workspaceId: string; isAdmin: bo
           </div>
         )
       })}
+    </div>
+
+    {/* Sección de links de proyectos (24h) */}
+    {projectShares.length > 0 && (
+      <div className="bg-white rounded-xl border border-slate-100 overflow-hidden">
+        <div className="flex items-center gap-3 px-4 py-2.5 bg-slate-50 border-b border-slate-100 text-xs font-bold text-slate-500 uppercase tracking-wide">
+          <span className="flex-1">Proyecto (link 24h)</span>
+          <span className="hidden lg:block w-28">Compartido por</span>
+          <span className="hidden lg:block w-32">Creado</span>
+          <span className="hidden lg:block w-28">Expira</span>
+          <span className="w-20 text-right">Copiar</span>
+        </div>
+        {projectShares.map(share => {
+          const projectUrl = `${appUrl}/share/${share.token}`
+          return (
+            <div key={share.token} className="flex items-center gap-3 px-4 py-3 border-b border-slate-50 last:border-b-0 hover:bg-slate-50">
+              <span className="text-lg flex-shrink-0">📂</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-slate-700 truncate">{share.project_name}</p>
+                {share.created_by_name && (
+                  <span className="text-xs text-slate-400 lg:hidden">
+                    <span className="text-slate-600 font-medium">{share.created_by_name}</span>
+                    {' · '}
+                    {new Date(share.created_at).toLocaleString('es-MX', {
+                      day: '2-digit', month: 'short', year: 'numeric',
+                      hour: '2-digit', minute: '2-digit',
+                    })}
+                  </span>
+                )}
+              </div>
+              <span className="hidden lg:block w-28 text-xs text-slate-600 font-medium flex-shrink-0 truncate">
+                {share.created_by_name || '—'}
+              </span>
+              <span className="hidden lg:block w-32 text-xs text-slate-400 flex-shrink-0">
+                {new Date(share.created_at).toLocaleString('es-MX', {
+                  day: '2-digit', month: 'short', year: 'numeric',
+                  hour: '2-digit', minute: '2-digit',
+                })}
+              </span>
+              <span className="hidden lg:block w-28 text-xs text-slate-400 flex-shrink-0">
+                {new Date(share.expires_at).toLocaleDateString('es-MX')}
+              </span>
+              <div className="flex items-center gap-1 flex-shrink-0 justify-end w-20">
+                <button
+                  onClick={() => { navigator.clipboard.writeText(projectUrl); setCopied(share.token) }}
+                  className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-200 text-slate-400 hover:text-slate-600"
+                  title="Copiar link"
+                >
+                  {copied === share.token ? <CheckCheck className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
+                </button>
+                <a href={projectUrl} target="_blank" rel="noopener noreferrer"
+                  className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-200 text-slate-400 hover:text-slate-600"
+                  title="Abrir link"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    )}
     </div>
   )
 }

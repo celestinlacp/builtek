@@ -798,12 +798,13 @@ export async function deleteMesaTecnica(id: string) {
 }
 
 export async function upsertProjectShare(projectId: string) {
+  const { userId } = await getWorkspaceId()
   const admin = getAdminClient()
   const token     = crypto.randomUUID().replace(/-/g, '')
   const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
   const { error } = await admin
     .from('project_shares')
-    .upsert({ project_id: projectId, token, expires_at: expiresAt }, { onConflict: 'project_id' })
+    .upsert({ project_id: projectId, token, expires_at: expiresAt, created_by: userId }, { onConflict: 'project_id' })
   if (error) return { error: error.message }
   return { token, expiresAt }
 }

@@ -211,6 +211,65 @@ export async function revokeShare(shareId: string) {
   return { success: true }
 }
 
+export async function revokeShares(shareIds: string[]) {
+  await getUser()
+  const admin = getAdminClient()
+  const { error } = await admin
+    .from('drive_shares')
+    .update({ is_active: false })
+    .in('id', shareIds)
+  if (error) return { error: error.message }
+  revalidatePath('/drive')
+  return { success: true }
+}
+
+export async function getWorkspaceProjectShares(workspaceId: string) {
+  await getUser()
+  const admin = getAdminClient()
+
+  const { data: projects } = await admin
+    .from('projects')
+    .select('id, name')
+    .eq('workspace_id', workspaceId)
+
+  const projectIds = (projects ?? []).map(p => p.id)
+  if (projectIds.length === 0) return { shares: [] }
+
+  const projectMap: Record<string, string> = {}
+  for (const p of (projects ?? [])) projectMap[p.id] = p.name
+
+  const { data, error } = await admin
+    .from('project_shares')
+    .select('id, token, expires_at, created_at, created_by, project_id')
+    .in('project_id', projectIds)
+    .gte('expires_at', new Date().toISOString())
+    .order('created_at', { ascending: false })
+
+  if (error) return { shares: [] }
+
+  const creatorIds = [...new Set((data ?? []).map((s: any) => s.created_by).filter(Boolean))]
+  const creatorMap: Record<string, string> = {}
+  if (creatorIds.length > 0) {
+    const { data: users } = await admin.from('users').select('id, full_name').in('id', creatorIds)
+    for (const u of (users ?? [])) {
+      if (u.id && u.full_name) creatorMap[u.id] = u.full_name
+    }
+  }
+
+  const enriched = (data ?? []).map((s: any) => ({
+    id:              s.id as string,
+    token:           s.token as string,
+    expires_at:      s.expires_at as string,
+    created_at:      s.created_at as string,
+    created_by:      s.created_by as string | null,
+    created_by_name: creatorMap[s.created_by] ?? null,
+    project_id:      s.project_id as string,
+    project_name:    projectMap[s.project_id] ?? '—',
+  }))
+
+  return { shares: enriched }
+}
+
 export async function getWorkspaceShares(workspaceId: string) {
   await getUser()
   const admin = getAdminClient()

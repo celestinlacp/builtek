@@ -1391,23 +1391,23 @@ function ProjectCard({ project, docCount, disciplines, lastUpload, workspaceId, 
         {isAdmin && (
           <ProjectCoverUploader project={project} workspaceId={workspaceId} onUploaded={() => setDisplayCoverUrl(`/api/projects/${project.id}/cover?t=${Date.now()}`)} />
         )}
-        {/* Botones editar + compartir — top-left, visibles al hover */}
-        {isAdmin && (
-          <div className="absolute top-2 left-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+        {/* Botones visibles al hover */}
+        <div className="absolute top-2 left-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+          {isAdmin && (
             <button
               onClick={e => { e.stopPropagation(); onEdit(project) }}
               title="Editar proyecto"
               className="w-7 h-7 flex items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors">
               <Pencil className="w-3.5 h-3.5" />
             </button>
-            <button
-              onClick={e => { e.stopPropagation(); onShare(project) }}
-              title="Compartir archivos del proyecto"
-              className="w-7 h-7 flex items-center justify-center rounded-full bg-black/50 text-white hover:bg-[#00C2FF] transition-colors">
-              <Share2 className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        )}
+          )}
+          <button
+            onClick={e => { e.stopPropagation(); onShare(project) }}
+            title="Compartir archivos del proyecto"
+            className="w-7 h-7 flex items-center justify-center rounded-full bg-black/50 text-white hover:bg-[#00C2FF] transition-colors">
+            <Share2 className="w-3.5 h-3.5" />
+          </button>
+        </div>
       </div>
 
       {/* Card body */}
