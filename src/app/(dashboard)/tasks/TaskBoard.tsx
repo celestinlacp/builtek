@@ -368,6 +368,15 @@ export default function TaskBoard({
     .filter(k => !SPECIALTIES.includes(k))
     .forEach(k => orderedGroups.push({ specialty: k, tasks: groups[k] }))
 
+  // Si hay sort activo por fecha, reordenar también los grupos
+  if (sortBy === 'date_desc' || sortBy === 'date_asc') {
+    orderedGroups.sort((a, b) => {
+      const dateA = new Date(a.tasks[0]?.created_at ?? 0).getTime()
+      const dateB = new Date(b.tasks[0]?.created_at ?? 0).getTime()
+      return sortBy === 'date_desc' ? dateB - dateA : dateA - dateB
+    })
+  }
+
   // Agrupar por usuario (vista persona)
   const personGroups: { member: { user_id: string | null; full_name: string | null; initials: string | null }; tasks: ExtendedTask[] }[] = []
   const seenUsers = new Set<string>()
@@ -396,12 +405,22 @@ export default function TaskBoard({
       })
     }
   })
-  // Ordenar: sin asignar al final
-  personGroups.sort((a, b) => {
-    if (a.member.user_id === null) return 1
-    if (b.member.user_id === null) return -1
-    return (a.member.full_name ?? '').localeCompare(b.member.full_name ?? '')
-  })
+  // Ordenar: sin asignar al final; si hay sort de fecha activo, reordenar grupos también
+  if (sortBy === 'date_desc' || sortBy === 'date_asc') {
+    personGroups.sort((a, b) => {
+      if (a.member.user_id === null) return 1
+      if (b.member.user_id === null) return -1
+      const dateA = new Date(a.tasks[0]?.created_at ?? 0).getTime()
+      const dateB = new Date(b.tasks[0]?.created_at ?? 0).getTime()
+      return sortBy === 'date_desc' ? dateB - dateA : dateA - dateB
+    })
+  } else {
+    personGroups.sort((a, b) => {
+      if (a.member.user_id === null) return 1
+      if (b.member.user_id === null) return -1
+      return (a.member.full_name ?? '').localeCompare(b.member.full_name ?? '')
+    })
+  }
 
   return (
     <div>
