@@ -49,7 +49,7 @@ export async function GET(req: NextRequest) {
   }
 
   if (!tasks || tasks.length === 0) {
-    return NextResponse.json({ ok: true, sent: 0, message: 'No hay tareas por vencer en 2 días' })
+    return NextResponse.json({ ok: true, sent: 0, message: 'No hay tareas que venzan hoy' })
   }
 
   // Obtener perfiles de los asignados (phone + full_name)
