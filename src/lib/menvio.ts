@@ -20,7 +20,8 @@ export type MenvioTemplate = 'tarea_asignada' | 'tarea_por_vencer'
 export async function sendMenvioWhatsApp(
   template: MenvioTemplate,
   phone: string,
-  variables: string[]
+  variables: string[],
+  button_url?: string
 ): Promise<{ ok: boolean; messageSid?: string; error?: string }> {
   const apiKey = process.env.BUILTEK_API_KEY
   if (!apiKey) {
@@ -35,7 +36,7 @@ export async function sendMenvioWhatsApp(
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiKey}`,
       },
-      body: JSON.stringify({ template, phone, variables }),
+      body: JSON.stringify({ template, phone, variables, ...(button_url ? { button_url } : {}) }),
     })
 
     const body = await res.json().catch(() => ({}))
