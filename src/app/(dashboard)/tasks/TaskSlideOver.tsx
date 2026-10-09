@@ -354,6 +354,8 @@ export default function TaskSlideOver({
   const countdown = task.due_date && task.status !== 'done' ? getCountdown(task.due_date) : null
   const isOverdue = task.due_date && task.status !== 'done' && new Date(task.due_date + 'T00:00:00') < new Date()
   const canReprogram = isOverdue && currentUserRole && CAN_REPROGRAM_ROLES.includes(currentUserRole)
+  const isSameDayTask = task.due_date && task.created_at &&
+    (task.created_at as string).split('T')[0] === task.due_date
 
   async function handleEntregableUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -815,7 +817,7 @@ export default function TaskSlideOver({
               <div className="flex items-center justify-between">
                 <p className="text-xs font-semibold text-red-600 flex items-center gap-1.5">
                   <AlertCircle className="w-3.5 h-3.5" />
-                  Tarea vencida — acción requerida
+                  {isSameDayTask ? 'Tarea de 1 día — pendiente' : 'Tarea vencida'}
                 </p>
                 {!showReprogram && (
                   <button

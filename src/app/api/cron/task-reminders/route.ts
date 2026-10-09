@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
   const { data: tasks, error } = await admin
     .from('tasks')
     .select(`
-      id, name, due_date, assignee_id,
+      id, name, due_date, assignee_id, created_at,
       project:projects(name),
       assignee:profiles!tasks_assignee_id_fkey(full_name, phone)
     `)
@@ -50,6 +50,10 @@ export async function GET(req: NextRequest) {
     const phone    = normalizePhone(assignee?.phone)
 
     if (!phone) { skipped++; continue }
+
+    // Si la tarea se asignó el mismo día que vence, omitir recordatorio
+    const createdDate = (task.created_at as string)?.split('T')[0]
+    if (createdDate === dateStr) { skipped++; continue }
 
     const assigneeName = assignee?.full_name ?? 'Responsable'
     const projectName  = (task.project as unknown as { name: string } | null)?.name ?? 'Proyecto'

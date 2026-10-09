@@ -35,10 +35,10 @@ export async function GET(req: NextRequest) {
   const target = new Date()
   const targetDate = target.toISOString().split('T')[0] // YYYY-MM-DD
 
-  // Buscar tareas que vencen en 2 días, no finalizadas, con asignado
+  // Buscar tareas que vencen hoy, no finalizadas, con asignado
   const { data: tasks, error } = await admin
     .from('tasks')
-    .select('id, name, due_date, assignee_id, projects(name)')
+    .select('id, name, due_date, assignee_id, created_at, projects(name)')
     .eq('due_date', targetDate)
     .not('status', 'in', '(done,blocked)')
     .not('assignee_id', 'is', null)
@@ -74,6 +74,14 @@ export async function GET(req: NextRequest) {
     const phone = normalizePhone(profile?.phone)
 
     if (!phone) {
+      skipped++
+      continue
+    }
+
+    // Si la tarea se asignó el mismo día que vence, omitir recordatorio
+    // (ya se mandó el WhatsApp de asignación)
+    const createdDate = (task.created_at as string)?.split('T')[0]
+    if (createdDate === targetDate) {
       skipped++
       continue
     }
