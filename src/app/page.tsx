@@ -1024,6 +1024,72 @@ function Footer() {
   )
 }
 
+// ── Privacy Trust ─────────────────────────────────────────────────────────────
+function PrivacyTrust() {
+  const items = [
+    {
+      icon: Shield,
+      title: 'Tus archivos son tuyos',
+      desc: 'Builtek actúa como Procesador de Datos sobre tus proyectos y documentos — nunca como propietario. No leemos, analizamos ni reclamamos derechos sobre tu contenido.',
+    },
+    {
+      icon: Bot,
+      title: 'Sin entrenamiento AI con tus datos',
+      desc: 'Los modelos de IA (Gemini, Claude) operan bajo condiciones API empresariales: no retienen ni usan el contenido de tus planos o documentos para entrenar modelos.',
+    },
+    {
+      icon: Layers,
+      title: 'Cifrado AES-256 + TLS 1.3',
+      desc: 'Toda la información en reposo se cifra con AES-256. El tráfico en tránsito usa TLS 1.3. Tu infraestructura de documentos cumple los mismos estándares que Dropbox y Monday.com.',
+    },
+    {
+      icon: BookOpen,
+      title: 'LFPDPPP + GDPR Art. 13',
+      desc: 'Aviso de Privacidad conforme a la Ley Federal de Protección de Datos Personales en Posesión de los Particulares (México) y al Reglamento General de Protección de Datos europeo.',
+    },
+    {
+      icon: Wrench,
+      title: 'Eliminación garantizada',
+      desc: 'Al cancelar tu cuenta, tus datos pasan por una papelera de 30 días y se purgan completamente en un máximo de 90 días, incluyendo copias de respaldo y subprocesadores.',
+    },
+  ]
+
+  return (
+    <section className="bg-[#060e1c] py-12 md:py-16 px-4 md:px-6 border-t border-white/5">
+      <div className="max-w-7xl mx-auto">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+          <div>
+            <p className="text-[#00C2FF] text-xs font-semibold uppercase tracking-widest mb-1">Privacidad y seguridad</p>
+            <h2 className="text-lg md:text-2xl text-white font-light">
+              Construido para industrias donde la <span className="font-semibold">confidencialidad no es opcional.</span>
+            </h2>
+          </div>
+          <Link
+            href="/privacy"
+            className="flex-shrink-0 text-xs text-white/30 hover:text-white/60 transition-colors border border-white/10 hover:border-white/20 rounded-lg px-4 py-2 whitespace-nowrap"
+          >
+            Aviso de Privacidad completo →
+          </Link>
+        </div>
+
+        <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-4">
+          {items.map(item => (
+            <div key={item.title} className="bg-white/2 border border-white/6 rounded-xl p-4 hover:border-white/12 transition-colors">
+              <item.icon className="w-4 h-4 text-white/25 mb-3" />
+              <p className="text-xs font-semibold text-white/50 mb-1.5">{item.title}</p>
+              <p className="text-[11px] text-white/25 font-light leading-relaxed">{item.desc}</p>
+            </div>
+          ))}
+        </div>
+
+        <p className="text-[10px] text-white/15 mt-6 text-center font-light">
+          Responsable: INGENIUM ANALYTICS, S. de R.L. de C.V. · RFC IAN210415CX5 · Querétaro, México · privacidad@builtek.app
+        </p>
+      </div>
+    </section>
+  )
+}
+
 // ── Tasks Feature ─────────────────────────────────────────────────────────────
 function TasksFeature() {
   return (
@@ -1295,6 +1361,7 @@ export default function LandingPage() {
       <PartnerSection />
       <CostCallout />
       <PricingSection />
+      <PrivacyTrust />
       <CTA />
       <Footer />
     </main>
