@@ -352,10 +352,17 @@ export default function TaskSlideOver({
       ? [{ user_id: task.assignee_id, full_name: members?.find(m => m.user_id === task.assignee_id)?.full_name ?? null, initials: null }]
       : []
   const countdown = task.due_date && task.status !== 'done' ? getCountdown(task.due_date) : null
-  const isOverdue = task.due_date && task.status !== 'done' && new Date(task.due_date + 'T00:00:00') < new Date()
-  const canReprogram = isOverdue && currentUserRole && CAN_REPROGRAM_ROLES.includes(currentUserRole)
+  const todayDate = new Date().toISOString().split('T')[0]
   const isSameDayTask = task.due_date && task.created_at &&
     (task.created_at as string).split('T')[0] === task.due_date
+  // Tareas de 1 día: vencida solo cuando el día ya terminó (fecha < hoy)
+  // Tareas normales: vencida desde el inicio del día (timestamp < ahora)
+  const isOverdue = task.due_date && task.status !== 'done' && (
+    isSameDayTask
+      ? task.due_date < todayDate
+      : new Date(task.due_date + 'T00:00:00') < new Date()
+  )
+  const canReprogram = isOverdue && currentUserRole && CAN_REPROGRAM_ROLES.includes(currentUserRole)
 
   async function handleEntregableUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]

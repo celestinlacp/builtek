@@ -31,25 +31,38 @@ export async function GET(req: NextRequest) {
 
   const admin = getAdminClient()
 
-  // Fecha objetivo: hoy (mismo día de vencimiento)
-  const target = new Date()
-  const targetDate = target.toISOString().split('T')[0] // YYYY-MM-DD
+  const now = new Date()
+  const todayDate     = now.toISOString().split('T')[0]
+  const yesterdayDate = new Date(now.getTime() - 86400000).toISOString().split('T')[0]
 
-  // Buscar tareas que vencen hoy, no finalizadas, con asignado
-  const { data: tasks, error } = await admin
+  // 1. Tareas que vencen HOY y NO son de 1 día (creadas antes de hoy)
+  const { data: todayTasks, error: todayError } = await admin
     .from('tasks')
     .select('id, name, due_date, assignee_id, created_at, projects(name)')
-    .eq('due_date', targetDate)
+    .eq('due_date', todayDate)
     .not('status', 'in', '(done,blocked)')
     .not('assignee_id', 'is', null)
 
-  if (error) {
-    console.error('[cron/tareas-por-vencer] DB error:', error.message)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+  if (todayError) {
+    console.error('[cron/tareas-por-vencer] DB error:', todayError.message)
+    return NextResponse.json({ error: todayError.message }, { status: 500 })
   }
 
-  if (!tasks || tasks.length === 0) {
-    return NextResponse.json({ ok: true, sent: 0, message: 'No hay tareas que venzan hoy' })
+  // 2. Tareas de 1 día que vencieron AYER (created_at date == due_date == ayer)
+  //    → se les envía el recordatorio al día siguiente (hoy)
+  const { data: sameDayTasks } = await admin
+    .from('tasks')
+    .select('id, name, due_date, assignee_id, created_at, projects(name)')
+    .eq('due_date', yesterdayDate)
+    .not('status', 'in', '(done,blocked)')
+    .not('assignee_id', 'is', null)
+
+  const regularTasks  = (todayTasks ?? []).filter(t => (t.created_at as string)?.split('T')[0] !== todayDate)
+  const overdueYesterday = (sameDayTasks ?? []).filter(t => (t.created_at as string)?.split('T')[0] === yesterdayDate)
+  const tasks = [...regularTasks, ...overdueYesterday]
+
+  if (tasks.length === 0) {
+    return NextResponse.json({ ok: true, sent: 0, message: 'No hay tareas para notificar hoy' })
   }
 
   // Obtener perfiles de los asignados (phone + full_name)
@@ -61,11 +74,6 @@ export async function GET(req: NextRequest) {
 
   const profileMap = new Map((profiles ?? []).map(p => [p.id, p]))
 
-  // Formatear fecha para el mensaje
-  const dueDateStr = target.toLocaleDateString('es-MX', {
-    day: 'numeric', month: 'short', year: 'numeric',
-  })
-
   let sent = 0
   let skipped = 0
 
@@ -73,21 +81,13 @@ export async function GET(req: NextRequest) {
     const profile = profileMap.get(task.assignee_id as string)
     const phone = normalizePhone(profile?.phone)
 
-    if (!phone) {
-      skipped++
-      continue
-    }
-
-    // Si la tarea se asignó el mismo día que vence, omitir recordatorio
-    // (ya se mandó el WhatsApp de asignación)
-    const createdDate = (task.created_at as string)?.split('T')[0]
-    if (createdDate === targetDate) {
-      skipped++
-      continue
-    }
+    if (!phone) { skipped++; continue }
 
     const assigneeName = profile?.full_name ?? 'Responsable'
     const projectName  = (task.projects as any)?.name ?? 'Proyecto'
+    const dueDateStr   = new Date(task.due_date + 'T00:00:00').toLocaleDateString('es-MX', {
+      day: 'numeric', month: 'short', year: 'numeric',
+    })
 
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://builtek.app'
     const taskUrl = `${baseUrl}/tasks?task=${task.id}`
@@ -102,6 +102,6 @@ export async function GET(req: NextRequest) {
     else skipped++
   }
 
-  console.log(`[cron/tareas-por-vencer] ${targetDate}: ${sent} enviados, ${skipped} omitidos`)
-  return NextResponse.json({ ok: true, date: targetDate, sent, skipped })
+  console.log(`[cron/tareas-por-vencer] ${todayDate}: ${sent} enviados, ${skipped} omitidos`)
+  return NextResponse.json({ ok: true, date: todayDate, sent, skipped })
 }
