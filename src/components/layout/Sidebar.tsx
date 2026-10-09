@@ -6,7 +6,7 @@ import { logout } from '@/app/(auth)/actions'
 import Logo from '@/components/Logo'
 import {
   LayoutDashboard, CheckSquare, Calendar, Package,
-  FileText, Bot, Settings, LogOut, ChevronRight, HardDrive, Mail, MessageSquare, BookOpen, BarChart2, TrendingUp
+  FileText, Bot, Settings, LogOut, ChevronRight, HardDrive, Mail, MessageSquare, BookOpen, BarChart2, TrendingUp, Activity
 } from 'lucide-react'
 
 const BASE_NAV = [
@@ -24,10 +24,12 @@ const BASE_NAV = [
 
 export default function Sidebar({ workspaceName, features, role }: { workspaceName: string; features?: Record<string, boolean>; role?: string }) {
   const isManager = ['owner', 'admin', 'manager'].includes(role ?? '')
+  const isOwner   = role === 'owner'
   const NAV = [
     ...BASE_NAV,
     ...(isManager ? [{ href: '/team', icon: BarChart2, label: 'Equipo' }] : []),
     ...(features?.oficios ? [{ href: '/oficios', icon: Mail, label: 'Oficios' }] : []),
+    ...(isOwner ? [{ href: '/logs', icon: Activity, label: 'Actividad' }] : []),
   ]
   const pathname = usePathname()
 

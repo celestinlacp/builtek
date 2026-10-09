@@ -5,6 +5,7 @@ import { createClient as createAdmin } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { sendMenvioWhatsApp, normalizePhone } from '@/lib/menvio'
+import { logActivity } from '@/lib/activity'
 
 function getAdminClient() {
   return createAdmin(
@@ -29,7 +30,7 @@ async function getWorkspaceId() {
 }
 
 export async function createTask(formData: FormData) {
-  const { workspaceId } = await getWorkspaceId()
+  const { userId, workspaceId } = await getWorkspaceId()
   const admin = getAdminClient()
 
   const projectId   = formData.get('project_id')  as string
@@ -81,6 +82,10 @@ export async function createTask(formData: FormData) {
     }
   }
 
+  if (task?.id && workspaceId) {
+    logActivity({ workspace_id: workspaceId, user_id: userId ?? null, action: 'task_created', entity_type: 'task', entity_id: task.id, entity_name: taskName, metadata: { project_id: projectId } })
+  }
+
   revalidatePath('/tasks')
   return { success: true }
 }
@@ -95,10 +100,14 @@ export async function updateTaskName(taskId: string, name: string) {
 }
 
 export async function updateTaskStatus(taskId: string, status: string) {
-  await getWorkspaceId()
+  const { userId, workspaceId } = await getWorkspaceId()
   const admin = getAdminClient()
+  const { data: task } = await admin.from('tasks').select('name').eq('id', taskId).single()
   const { error } = await admin.from('tasks').update({ status }).eq('id', taskId)
   if (error) return { error: error.message }
+  if (status === 'done' && workspaceId) {
+    logActivity({ workspace_id: workspaceId, user_id: userId ?? null, action: 'task_completed', entity_type: 'task', entity_id: taskId, entity_name: task?.name ?? null })
+  }
   revalidatePath('/tasks')
   return { success: true }
 }
@@ -500,7 +509,7 @@ export async function saveTempAndLink(data: {
 }
 
 export async function reprogramTask(taskId: string, newDueDate: string, reason: string) {
-  const { userId } = await getWorkspaceId()
+  const { userId, workspaceId } = await getWorkspaceId()
   const admin = getAdminClient()
 
   const { error } = await admin.from('tasks').update({ due_date: newDueDate }).eq('id', taskId)
@@ -512,6 +521,10 @@ export async function reprogramTask(taskId: string, newDueDate: string, reason: 
   const content = `📅 Reprogramada al ${formatted}\nMotivo: ${reason}\n— ${name}`
 
   await admin.from('comments').insert({ task_id: taskId, user_id: userId, content })
+
+  if (workspaceId) {
+    logActivity({ workspace_id: workspaceId, user_id: userId ?? null, action: 'task_reprogram', entity_type: 'task', entity_id: taskId, metadata: { new_due_date: newDueDate, reason } })
+  }
 
   revalidatePath('/tasks')
   return { success: true }

@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdmin } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
+import { logActivity } from '@/lib/activity'
 import { redirect } from 'next/navigation'
 import { Resend } from 'resend'
 
@@ -215,6 +216,8 @@ export async function inviteMember(formData: FormData) {
     })
 
     if (emailError) return { error: `Error al enviar email: ${emailError.message}` }
+
+    logActivity({ workspace_id: workspaceId!, user_id: userId, action: 'member_invited', entity_name: email, metadata: { role } })
 
     revalidatePath('/admin')
     return { success: true }
@@ -798,7 +801,7 @@ export async function deleteMesaTecnica(id: string) {
 }
 
 export async function upsertProjectShare(projectId: string) {
-  const { userId } = await getWorkspaceId()
+  const { userId, workspaceId } = await getWorkspaceId()
   const admin = getAdminClient()
   const token     = crypto.randomUUID().replace(/-/g, '')
   const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
@@ -806,5 +809,9 @@ export async function upsertProjectShare(projectId: string) {
     .from('project_shares')
     .upsert({ project_id: projectId, token, expires_at: expiresAt, created_by: userId }, { onConflict: 'project_id' })
   if (error) return { error: error.message }
+  const { data: proj } = await admin.from('projects').select('name').eq('id', projectId).single()
+  if (workspaceId) {
+    logActivity({ workspace_id: workspaceId, user_id: userId ?? null, action: 'share_project_created', entity_type: 'project', entity_id: projectId, entity_name: proj?.name ?? null })
+  }
   return { token, expiresAt }
 }

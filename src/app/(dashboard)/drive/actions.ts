@@ -6,6 +6,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { DeleteObjectCommand } from '@aws-sdk/client-s3'
 import { getR2Client, R2_BUCKET, r2IsConfigured } from '@/lib/r2/client'
+import { logActivity } from '@/lib/activity'
 
 async function deleteFromR2(storageKey: string | null) {
   if (!storageKey || !r2IsConfigured()) return
@@ -74,6 +75,8 @@ export async function saveDriveFile(data: {
   }).select('id').single()
 
   if (error) return { error: error.message }
+
+  logActivity({ workspace_id: data.workspace_id, user_id: user.id, action: 'drive_upload', entity_type: 'drive_file', entity_id: file.id, entity_name: data.name, metadata: { folder_id: data.folder_id, file_type: data.file_type } })
 
   // Registrar evento de upload para trazabilidad
   await admin.from('drive_upload_logs').insert({
@@ -198,6 +201,10 @@ export async function createShare(data: {
   }).select('token').single()
 
   if (error) return { error: error.message }
+
+  const label = data.label || (data.folder_id ? 'Carpeta' : 'Archivo')
+  logActivity({ workspace_id: data.workspace_id, user_id: user.id, action: 'share_link_created', entity_type: data.folder_id ? 'drive_folder' : 'drive_file', entity_id: data.file_id ?? data.folder_id ?? null, entity_name: label })
+
   revalidatePath('/drive')
   return { token: share.token }
 }

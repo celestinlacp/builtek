@@ -5,6 +5,7 @@ import { createClient as createAdmin } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { parseDocKey } from './utils'
+import { logActivity } from '@/lib/activity'
 import { DeleteObjectCommand } from '@aws-sdk/client-s3'
 import { getR2Client, R2_BUCKET, r2IsConfigured } from '@/lib/r2/client'
 
@@ -174,6 +175,10 @@ export async function saveDocument(data: {
     await admin.from('documents').update({
       superseded_by: inserted.id,
     }).eq('id', previousVersionId)
+  }
+
+  if (inserted?.id) {
+    logActivity({ workspace_id: data.workspace_id, user_id: user.id, action: 'document_upload', entity_type: 'document', entity_id: inserted.id, entity_name: data.file_name, metadata: { project_id: data.project_id, version: newVersionNumber } })
   }
 
   revalidatePath('/documents')
