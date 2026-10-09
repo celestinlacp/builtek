@@ -75,7 +75,8 @@ export async function createTask(formData: FormData) {
         ? new Date(dueDate + 'T00:00:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })
         : 'Sin fecha'
 
-      const taskUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://builtek.app'}/tasks`
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://builtek.app'
+      const taskUrl = task?.id ? `${baseUrl}/tasks?task=${task.id}` : `${baseUrl}/tasks`
       await sendMenvioWhatsApp('tarea_asignada', phone, [assigneeName, taskName, projectName, dueDateStr], taskUrl)
     }
   }
@@ -426,7 +427,8 @@ export async function updateTaskAssignees(taskId: string, userIds: string[]) {
       const dueDateStr   = taskRes.data?.due_date
         ? new Date(taskRes.data.due_date + 'T00:00:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })
         : 'Sin fecha'
-      const taskUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://builtek.app'}/tasks`
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://builtek.app'
+      const taskUrl = `${baseUrl}/tasks?task=${taskId}`
       await sendMenvioWhatsApp('tarea_asignada', phone, [assigneeName, taskName, projectName, dueDateStr], taskUrl)
     }
   }
