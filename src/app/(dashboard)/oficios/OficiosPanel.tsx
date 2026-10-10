@@ -327,8 +327,9 @@ function OficioModal({
   const [taskName,       setTaskName]       = useState('')
   const [showCreateTask, setShowCreateTask] = useState(false)
   const [createTaskLoading, setCreateTaskLoading] = useState(false)
-  const [taskPriority,   setTaskPriority]   = useState('medium')
-  const [taskDueDate,    setTaskDueDate]    = useState('')
+  const [taskPriority,     setTaskPriority]     = useState('medium')
+  const [taskDueDate,      setTaskDueDate]      = useState('')
+  const [taskDescription,  setTaskDescription]  = useState('')
 
   // Antecedentes
   const [antecedentes,    setAntecedentes]    = useState<Antecedente[]>(initialAntecedentes)
@@ -516,7 +517,7 @@ function OficioModal({
           antecedentes: newAntecedentes,
           anexos: newAnexos,
           auto_task: autoTask && proyectoId && assigneeId && taskName.trim()
-            ? { name: taskName.trim(), priority: taskPriority, due_date: taskDueDate || null }
+            ? { name: taskName.trim(), priority: taskPriority, due_date: taskDueDate || null, description: taskDescription.trim() || null }
             : null,
         } as any)
       }
@@ -816,8 +817,8 @@ function OficioModal({
             </div>
           )}
 
-          {/* Auto-tarea (solo entrada nueva con proyecto y asignado) */}
-          {tipo === 'entrada' && !isEdit && proyectoId && assigneeId && (
+          {/* Auto-tarea (nueva con asignado) */}
+          {!isEdit && assigneeId && (
             <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3">
               <label className="flex items-center gap-3 cursor-pointer select-none">
                 <div
@@ -862,13 +863,19 @@ function OficioModal({
                       <input type="date" value={taskDueDate} onChange={e => setTaskDueDate(e.target.value)} className={inputCls} />
                     </div>
                   </div>
+                  <div>
+                    <label className={labelCls}>Descripción <span className="font-normal text-slate-400">(opcional)</span></label>
+                    <textarea rows={2} value={taskDescription} onChange={e => setTaskDescription(e.target.value)}
+                      placeholder="Detalles o instrucciones para el responsable..."
+                      className={`${inputCls} resize-none`} />
+                  </div>
                 </div>
               )}
             </div>
           )}
 
           {/* Crear tarea desde oficio existente */}
-          {isEdit && !oficio?.task_id && proyectoId && (
+          {isEdit && !oficio?.task_id && assigneeId && (
             <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3">
               <label className="flex items-center gap-3 cursor-pointer select-none">
                 <div
@@ -882,8 +889,8 @@ function OficioModal({
                   <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${showCreateTask ? 'translate-x-4' : ''}`} />
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-slate-700">Crear tarea para este oficio</p>
-                  <p className="text-xs text-slate-400">Vincula una tarea nueva al proyecto seleccionado</p>
+                  <p className="text-sm font-semibold text-slate-700">Crear tarea y asignar</p>
+                  <p className="text-xs text-slate-400">Genera una tarea vinculada a este oficio para los asignados</p>
                 </div>
               </label>
               {showCreateTask && (
@@ -907,9 +914,18 @@ function OficioModal({
                       <input type="date" value={taskDueDate} onChange={e => setTaskDueDate(e.target.value)} className={inputCls} />
                     </div>
                   </div>
+                  <div>
+                    <label className={labelCls}>Descripción <span className="font-normal text-slate-400">(opcional)</span></label>
+                    <textarea rows={2} value={taskDescription} onChange={e => setTaskDescription(e.target.value)}
+                      placeholder="Detalles o instrucciones para el responsable..."
+                      className={`${inputCls} resize-none`} />
+                  </div>
+                  {!proyectoId && (
+                    <p className="text-xs text-amber-600 bg-amber-50 px-3 py-2 rounded-lg">Selecciona un Proyecto arriba para poder crear la tarea.</p>
+                  )}
                   <button
                     type="button"
-                    disabled={createTaskLoading || !taskName.trim()}
+                    disabled={createTaskLoading || !taskName.trim() || !proyectoId}
                     onClick={async () => {
                       setCreateTaskLoading(true)
                       const res = await createTaskFromOficio(oficio!.id, {
@@ -917,6 +933,9 @@ function OficioModal({
                         name: taskName.trim(),
                         priority: taskPriority,
                         due_date: taskDueDate || null,
+                        description: taskDescription.trim() || null,
+                        assignee_id: assigneeId || null,
+                        assignee2_id: assignee2Id || null,
                       })
                       setCreateTaskLoading(false)
                       if (res?.error) { setError(res.error); return }

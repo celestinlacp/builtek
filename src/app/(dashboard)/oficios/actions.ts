@@ -53,7 +53,7 @@ export async function createOficio(data: {
   para_conocimiento?: string | null
   antecedentes?:    Array<{ ref_texto: string; antecedente_oficio_id?: string | null }>
   anexos?:          Array<{ tipo: 'link' | 'archivo'; nombre: string; url?: string | null; storage_key?: string | null; file_name?: string | null; file_size?: number | null }>
-  auto_task?:       { name: string; priority: string; due_date?: string | null } | null
+  auto_task?:       { name: string; priority: string; due_date?: string | null; description?: string | null } | null
 }) {
   const { user, workspaceId } = await getUser()
   const admin = getAdminClient()
@@ -122,6 +122,7 @@ export async function createOficio(data: {
     const { data: task } = await admin.from('tasks').insert({
       project_id:  data.proyecto_id,
       name:        data.auto_task.name,
+      description: data.auto_task.description || null,
       specialty:   data.especialidad ?? null,
       assignee_id: data.assignee_id ?? null,
       priority:    data.auto_task.priority || 'medium',
@@ -199,6 +200,9 @@ export async function createTaskFromOficio(oficioId: string, data: {
   name: string
   priority: string
   due_date?: string | null
+  description?: string | null
+  assignee_id?: string | null
+  assignee2_id?: string | null
 }) {
   const { user, workspaceId } = await getUser()
   const admin = getAdminClient()
@@ -212,11 +216,16 @@ export async function createTaskFromOficio(oficioId: string, data: {
   if (!oficio) return { error: 'Oficio no encontrado' }
   if (oficio.task_id)  return { error: 'Este oficio ya tiene una tarea vinculada' }
 
+  // Usar los assignees pasados directamente (estado del form) o los del DB como fallback
+  const a1 = data.assignee_id  !== undefined ? data.assignee_id  : oficio.assignee_id
+  const a2 = data.assignee2_id !== undefined ? data.assignee2_id : oficio.assignee2_id
+
   const { data: task, error } = await admin.from('tasks').insert({
     project_id:  data.proyecto_id,
     name:        data.name,
+    description: data.description || null,
     specialty:   oficio.especialidad ?? null,
-    assignee_id: oficio.assignee_id  ?? null,
+    assignee_id: a1 ?? null,
     priority:    data.priority || 'medium',
     due_date:    data.due_date || null,
     status:      'pending',
@@ -225,8 +234,8 @@ export async function createTaskFromOficio(oficioId: string, data: {
   if (error) return { error: error.message }
 
   const assigneeInserts = []
-  if (oficio.assignee_id)  assigneeInserts.push({ task_id: task.id, user_id: oficio.assignee_id })
-  if (oficio.assignee2_id) assigneeInserts.push({ task_id: task.id, user_id: oficio.assignee2_id })
+  if (a1) assigneeInserts.push({ task_id: task.id, user_id: a1 })
+  if (a2) assigneeInserts.push({ task_id: task.id, user_id: a2 })
   if (assigneeInserts.length) await admin.from('task_assignees').insert(assigneeInserts)
 
   await admin.from('oficios').update({ task_id: task.id }).eq('id', oficioId)
