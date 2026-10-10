@@ -7,7 +7,7 @@ import {
   Calendar, Weight, Tag, FileText, MessageSquare, Loader2, History, CheckCircle2, XCircle, Clock, Eye,
   Share2, Pencil, Check, Upload, Edit2,
 } from 'lucide-react'
-import { addDocumentComment, deleteDocumentComment, getDocumentVersions, createDocumentShare, renameDocument, updateDocumentMeta } from './actions'
+import { addDocumentComment, deleteDocumentComment, getDocumentVersions, createDocumentShare, renameDocument, updateDocumentMeta, deleteArchivedVersion } from './actions'
 
 type Doc = {
   id: string
@@ -724,6 +724,19 @@ export default function DocumentSlideOver({
                                 <Download className="w-3 h-3" />
                                 Descargar
                               </a>
+                              {!isCurrent && ['owner', 'admin'].includes(userRole ?? '') && (
+                                <button
+                                  onClick={async () => {
+                                    if (!confirm(`¿Eliminar la versión v${String(v.version_number ?? idx + 1).padStart(4, '0')} permanentemente? Esta acción no se puede deshacer.`)) return
+                                    await deleteArchivedVersion(v.id)
+                                    setVersions(prev => prev.filter(x => x.id !== v.id))
+                                  }}
+                                  title="Eliminar versión archivada"
+                                  className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-red-50 hover:bg-red-100 text-red-400 hover:text-red-600 transition-colors">
+                                  <Trash2 className="w-3 h-3" />
+                                  Eliminar
+                                </button>
+                              )}
                             </div>
                           </div>
                         </div>

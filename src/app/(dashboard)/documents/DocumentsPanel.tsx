@@ -238,7 +238,8 @@ function UploadModal({
   const [error,          setError]          = useState<string | null>(null)
   const [step,           setStep]           = useState('')
   const [uploadPct,      setUploadPct]      = useState(0)
-  const [versionWarning, setVersionWarning] = useState<{ prevVersion: number; newVersion: number } | null>(null)
+  const [versionWarning,   setVersionWarning]   = useState<{ prevVersion: number; newVersion: number } | null>(null)
+  const [overwriteWarning, setOverwriteWarning] = useState<{ existingName: string; version: number } | null>(null)
   const [docView,        setDocView]        = useState(lastConfig?.docView || '')
   const [docViewNum,     setDocViewNum]     = useState(lastConfig?.docViewNum || '')
   const [docElement,     setDocElement]     = useState(lastConfig?.docElement || '')
@@ -288,6 +289,7 @@ function UploadModal({
   async function handleFileChange(f: File | null) {
     setFile(f)
     setVersionWarning(null)
+    setOverwriteWarning(null)
     if (!f) { setFileFormat(null); return }
     // Auto-detectar formato de archivo
     setFileFormat(detectFileFormat(f.name))
@@ -295,8 +297,14 @@ function UploadModal({
     const parsed = parseDocKey(f.name)
     if (parsed) {
       const existing = existingDocs.find(d => d.doc_key === parsed.doc_key && d.is_current)
-      if (existing && existing.version_number !== null && existing.version_number !== parsed.version_number) {
-        setVersionWarning({ prevVersion: existing.version_number, newVersion: parsed.version_number })
+      if (existing) {
+        if (existing.version_number !== null && existing.version_number === parsed.version_number) {
+          // Misma versión — sobreescritura directa
+          setOverwriteWarning({ existingName: existing.display_name || existing.file_name || existing.name, version: existing.version_number })
+        } else if (existing.version_number !== null && existing.version_number !== parsed.version_number) {
+          // Versión nueva — archiva la anterior
+          setVersionWarning({ prevVersion: existing.version_number, newVersion: parsed.version_number })
+        }
       }
     }
     // Si es PDF y el oficio está activado, intentar extracción AI
@@ -630,6 +638,20 @@ function UploadModal({
               )}
             </button>
           </div>
+
+          {overwriteWarning && (
+            <div className="bg-red-50 border border-red-300 rounded-lg px-4 py-3 flex items-start gap-3">
+              <AlertTriangle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold text-red-800">Sobreescritura de versión existente</p>
+                <p className="text-xs text-red-700 mt-0.5">
+                  Ya existe la versión <span className="font-mono font-bold">v{String(overwriteWarning.version).padStart(4, '0')}</span> de este documento:
+                </p>
+                <p className="text-xs text-red-800 font-medium mt-1 truncate max-w-xs">{overwriteWarning.existingName}</p>
+                <p className="text-xs text-red-600 mt-1">Si continúas, el archivo actual será reemplazado permanentemente. ¿Estás seguro?</p>
+              </div>
+            </div>
+          )}
 
           {versionWarning && (
             <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 flex items-start gap-3">
