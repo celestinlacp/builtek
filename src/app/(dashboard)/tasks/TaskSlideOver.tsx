@@ -2,14 +2,14 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { addComment, deleteComment, linkDocument, unlinkDocument, reprogramTask, uploadEntregable, approveEntregable, rejectEntregable, linkOficioToTask, unlinkOficioFromTask, updateTaskName, updateTaskAssignees, getOrCreateTempFolder, saveTempAndLink } from './actions'
+import { addComment, deleteComment, linkDocument, unlinkDocument, reprogramTask, uploadEntregable, approveEntregable, rejectEntregable, linkOficioToTask, unlinkOficioFromTask, updateTaskName, updateTaskAssignees, getOrCreateTempFolder, saveTempAndLink, resendTaskNotification } from './actions'
 import { Task, Project } from '@/types'
 import {
   X, MessageSquare, Send, Trash2, Paperclip,
   FileText, HardDrive, ChevronDown, Calendar,
   AlertCircle, Clock, CheckCircle2, XCircle,
   Eye, Download, Plus, Loader2, User, Timer,
-  Upload, Package, ThumbsUp, ThumbsDown, Mail, Pencil, Check, ImageIcon, FolderOpen,
+  Upload, Package, ThumbsUp, ThumbsDown, Mail, Pencil, Check, ImageIcon, FolderOpen, MessageCircle,
 } from 'lucide-react'
 
 // ── Tipos ────────────────────────────────────────────────────────────────────
@@ -303,6 +303,17 @@ export default function TaskSlideOver({
   const [localName,         setLocalName]         = useState(task.name)
   const [savingName,        setSavingName]        = useState(false)
   const [editingAssignees,  setEditingAssignees]  = useState(false)
+  const [waSending,         setWaSending]         = useState(false)
+  const [waFeedback,        setWaFeedback]        = useState<string | null>(null)
+
+  async function handleResendWA() {
+    setWaSending(true)
+    setWaFeedback(null)
+    const result = await resendTaskNotification(task.id)
+    setWaSending(false)
+    if (result.ok) setWaFeedback(`✓ Enviado a ${result.sent} persona${result.sent !== 1 ? 's' : ''}`)
+    else setWaFeedback(`✗ ${result.error ?? 'Sin teléfono registrado'}`)
+  }
   const [localAssignees,    setLocalAssignees]    = useState<string[]>(
     task.assignees?.map(a => a.user_id) ?? (task.assignee_id ? [task.assignee_id] : [])
   )
@@ -788,6 +799,19 @@ export default function TaskSlideOver({
                   </div>
                 </div>
               )}
+              {/* Reenviar WhatsApp */}
+              <div className="flex items-center gap-2 mt-1">
+                <button type="button" onClick={handleResendWA} disabled={waSending}
+                  className="flex items-center gap-1 px-2 py-0.5 rounded-lg border border-slate-200 text-[11px] font-medium text-slate-500 hover:bg-slate-50 disabled:opacity-50 transition-colors">
+                  <MessageCircle className="w-3 h-3 text-green-500" />
+                  {waSending ? 'Enviando...' : 'Reenviar WA'}
+                </button>
+                {waFeedback && (
+                  <span className={`text-[11px] ${waFeedback.startsWith('✓') ? 'text-green-600' : 'text-red-500'}`}>
+                    {waFeedback}
+                  </span>
+                )}
+              </div>
               {countdown && (
                 <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full ${countdown.color}`}>
                   <Timer className="w-3 h-3" />

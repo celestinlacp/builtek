@@ -157,10 +157,14 @@ export default function LogsPanel({ logs, members }: { logs: LogEntry[]; members
                             ? `Nueva fecha: ${log.metadata.new_date}`
                             : log.action === 'drive_upload' && log.metadata.file_type
                             ? `${log.metadata.file_type}`
-                            : log.action === 'whatsapp_sent' && log.metadata.phone
-                            ? `→ ${log.metadata.phone}`
-                            : log.action === 'whatsapp_error'
-                            ? `Error: ${log.metadata.error ?? 'desconocido'}`
+                            : (log.action === 'whatsapp_sent' || log.action === 'whatsapp_error')
+                            ? [
+                                log.metadata.phone ? `→ ${log.metadata.phone}` : null,
+                                log.metadata.template ? `plantilla: ${log.metadata.template}` : null,
+                                log.metadata.resend ? '(reenvío)' : null,
+                                log.metadata.oficio_id ? 'desde oficio' : null,
+                                log.action === 'whatsapp_error' ? `Error: ${log.metadata.error ?? 'desconocido'}` : null,
+                              ].filter(Boolean).join(' · ')
                             : null}
                         </p>
                       )}

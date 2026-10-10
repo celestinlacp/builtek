@@ -1,8 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { X } from 'lucide-react'
-import { updateTask } from './actions'
+import { X, MessageCircle } from 'lucide-react'
+import { updateTask, resendTaskNotification } from './actions'
 import { Task } from '@/types'
 
 export default function EditTaskModal({
@@ -14,6 +14,17 @@ export default function EditTaskModal({
 }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [waSending, setWaSending] = useState(false)
+  const [waFeedback, setWaFeedback] = useState<string | null>(null)
+
+  async function handleResendWA() {
+    setWaSending(true)
+    setWaFeedback(null)
+    const result = await resendTaskNotification(task.id)
+    setWaSending(false)
+    if (result.ok) setWaFeedback(`✓ WhatsApp enviado a ${result.sent} persona${result.sent !== 1 ? 's' : ''}`)
+    else setWaFeedback(`✗ ${result.error ?? 'No se pudo enviar (sin teléfono registrado?)'}`)
+  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -94,6 +105,23 @@ export default function EditTaskModal({
           </div>
 
           {error && <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-600">{error}</div>}
+
+          {/* Reenviar notificación WhatsApp */}
+          <div className="border-t border-slate-100 pt-4">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-slate-400">Notificación WhatsApp</span>
+              <button type="button" onClick={handleResendWA} disabled={waSending}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50">
+                <MessageCircle className="w-3.5 h-3.5 text-green-500" />
+                {waSending ? 'Enviando...' : 'Reenviar WhatsApp'}
+              </button>
+            </div>
+            {waFeedback && (
+              <p className={`mt-1.5 text-xs ${waFeedback.startsWith('✓') ? 'text-green-600' : 'text-red-500'}`}>
+                {waFeedback}
+              </p>
+            )}
+          </div>
 
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={onClose}

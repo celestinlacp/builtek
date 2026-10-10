@@ -4,6 +4,8 @@ import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdmin } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { sendMenvioWhatsApp, normalizePhone } from '@/lib/menvio'
+import { logActivity } from '@/lib/activity'
 
 function getAdminClient() {
   return createAdmin(
@@ -245,19 +247,45 @@ export async function createTaskFromOficio(oficioId: string, data: {
   await admin.from('oficios').update({ task_id: task.id }).eq('id', oficioId)
 
   // Notificar a los asignados
-  const { data: assignerProfile } = await admin.from('profiles').select('full_name').eq('id', user.id).single()
-  const assignerName = assignerProfile?.full_name ?? 'Un manager'
-  const { data: oficioFull } = await admin.from('oficios').select('asunto, no_oficio').eq('id', oficioId).single()
-  const notifyIds = [oficio.assignee_id, oficio.assignee2_id].filter((id): id is string => !!id && id !== user.id)
-  for (const mentionId of notifyIds) {
+  const assigneeNotifyIds = [a1, a2].filter((id): id is string => !!id && id !== user.id)
+  const [assignerProfileRes, oficioFullRes, projectRes, assigneeProfilesRes] = await Promise.all([
+    admin.from('profiles').select('full_name').eq('id', user.id).single(),
+    admin.from('oficios').select('asunto, no_oficio').eq('id', oficioId).single(),
+    admin.from('projects').select('name').eq('id', data.proyecto_id).single(),
+    assigneeNotifyIds.length
+      ? admin.from('profiles').select('id, full_name, phone').in('id', assigneeNotifyIds)
+      : Promise.resolve({ data: [] }),
+  ])
+
+  const assignerName = assignerProfileRes.data?.full_name ?? 'Un manager'
+  const oficioFull   = oficioFullRes.data
+  const projectName  = projectRes.data?.name ?? 'Proyecto'
+  const dueDateStr   = data.due_date
+    ? new Date(data.due_date + 'T00:00:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })
+    : 'Sin fecha'
+  const baseUrl  = process.env.NEXT_PUBLIC_APP_URL || 'https://builtek.app'
+  const taskUrl  = `${baseUrl}/tasks?task=${task.id}`
+
+  for (const profile of (assigneeProfilesRes.data ?? [])) {
+    // WhatsApp
+    const phone = normalizePhone(profile.phone)
+    if (phone) {
+      const assigneeName = profile.full_name ?? 'Responsable'
+      const waResult = await sendMenvioWhatsApp('tarea_asignada', phone, [assigneeName, data.name, projectName, dueDateStr], taskUrl)
+      logActivity({ workspace_id: workspaceId, user_id: user.id, action: waResult.ok ? 'whatsapp_sent' : 'whatsapp_error', entity_type: 'task', entity_id: task.id, entity_name: data.name, metadata: { template: 'tarea_asignada', phone, ...(waResult.ok ? { messageSid: waResult.messageSid } : { error: waResult.error }) } })
+    }
+
+    // In-app message
     await admin.from('workspace_messages').insert({
       workspace_id: workspaceId,
       sender_id:    null,
       type:         'system',
       content:      `📋 ${assignerName} creó una tarea para el oficio "${oficioFull?.asunto ?? ''}"${oficioFull?.no_oficio ? ` (${oficioFull.no_oficio})` : ''}`,
-      metadata:     { action: 'task_created', mention_to: mentionId, from_user: user.id },
+      metadata:     { action: 'task_created', mention_to: profile.id, from_user: user.id },
     })
   }
+
+  logActivity({ workspace_id: workspaceId, user_id: user.id, action: 'task_created', entity_type: 'task', entity_id: task.id, entity_name: data.name, metadata: { oficio_id: oficioId } })
 
   revalidatePath('/oficios')
   revalidatePath('/tasks')

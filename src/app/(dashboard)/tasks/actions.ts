@@ -453,6 +453,48 @@ export async function updateTaskAssignees(taskId: string, userIds: string[]) {
   return { success: true }
 }
 
+// ── Reenviar notificación WhatsApp ────────────────────────────────────────────
+
+export async function resendTaskNotification(taskId: string): Promise<{ ok: boolean; sent: number; error?: string }> {
+  const { workspaceId } = await getWorkspaceId()
+  const admin = getAdminClient()
+
+  const { data: task } = await admin
+    .from('tasks')
+    .select('name, due_date, projects(name), task_assignees(user_id)')
+    .eq('id', taskId)
+    .single()
+
+  if (!task) return { ok: false, sent: 0, error: 'Tarea no encontrada' }
+
+  const assigneeIds = (task.task_assignees as { user_id: string }[]).map(a => a.user_id)
+  if (!assigneeIds.length) return { ok: false, sent: 0, error: 'La tarea no tiene asignados' }
+
+  const { data: profiles } = await admin.from('profiles').select('id, full_name, phone').in('id', assigneeIds)
+
+  const taskName    = task.name
+  const projectName = (task.projects as any)?.name ?? 'Proyecto'
+  const dueDateStr  = task.due_date
+    ? new Date(task.due_date + 'T00:00:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })
+    : 'Sin fecha'
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://builtek.app'
+  const taskUrl = `${baseUrl}/tasks?task=${taskId}`
+
+  let sent = 0
+  for (const profile of (profiles ?? [])) {
+    const phone = normalizePhone(profile.phone)
+    if (!phone) continue
+    const assigneeName = profile.full_name ?? 'Responsable'
+    const waResult = await sendMenvioWhatsApp('tarea_asignada', phone, [assigneeName, taskName, projectName, dueDateStr], taskUrl)
+    if (workspaceId) {
+      logActivity({ workspace_id: workspaceId, user_id: profile.id, action: waResult.ok ? 'whatsapp_sent' : 'whatsapp_error', entity_type: 'task', entity_id: taskId, entity_name: taskName, metadata: { template: 'tarea_asignada', phone, resend: true, ...(waResult.ok ? { messageSid: waResult.messageSid } : { error: waResult.error }) } })
+    }
+    if (waResult.ok) sent++
+  }
+
+  return { ok: sent > 0, sent }
+}
+
 // ── Drive Temporal ────────────────────────────────────────────────────────────
 
 export async function getOrCreateTempFolder(workspaceId: string): Promise<{ folderId?: string; error?: string }> {
