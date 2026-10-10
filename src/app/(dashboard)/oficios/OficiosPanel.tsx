@@ -2091,27 +2091,27 @@ export default function OficiosPanel({
             Limpiar
           </button>
         )}
-      </div>
 
-      {/* Toggle de vista */}
-      <div className="flex items-center justify-between mb-3">
-        <p className="text-xs text-slate-400">{sorted.length} oficio{sorted.length !== 1 ? 's' : ''}</p>
-        <div className="flex items-center gap-0.5 bg-slate-100 p-0.5 rounded-lg">
-          {([
-            ['lista',  <LayoutList className="w-3.5 h-3.5" />,    'Lista'],
-            ['semana', <Calendar className="w-3.5 h-3.5" />,      'Semana'],
-            ['dia',    <CalendarDays className="w-3.5 h-3.5" />,  'Día'],
-          ] as const).map(([mode, icon, label]) => (
-            <button
-              key={mode}
-              onClick={() => setViewMode(mode)}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium transition-all ${
-                viewMode === mode ? 'bg-white text-[#1A2744] shadow-sm' : 'text-slate-500 hover:text-slate-700'
-              }`}
-            >
-              {icon}{label}
-            </button>
-          ))}
+        {/* Toggle de vista — inline en la barra de filtros */}
+        <div className="ml-auto flex items-center gap-2">
+          <span className="text-xs text-slate-400">{sorted.length} oficio{sorted.length !== 1 ? 's' : ''}</span>
+          <div className="flex items-center gap-0.5 bg-slate-100 p-0.5 rounded-lg">
+            {([
+              ['lista',  <LayoutList className="w-3.5 h-3.5" />,    'Lista'],
+              ['semana', <Calendar className="w-3.5 h-3.5" />,      'Semana'],
+              ['dia',    <CalendarDays className="w-3.5 h-3.5" />,  'Día'],
+            ] as const).map(([mode, icon, label]) => (
+              <button
+                key={mode}
+                onClick={() => setViewMode(mode)}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium transition-all ${
+                  viewMode === mode ? 'bg-white text-[#1A2744] shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                {icon}{label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
