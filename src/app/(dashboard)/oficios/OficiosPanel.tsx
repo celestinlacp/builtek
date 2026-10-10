@@ -906,6 +906,25 @@ function OficioModal({
             </div>
           )}
 
+          {/* Tarea ya vinculada */}
+          {isEdit && oficio?.task_id && (
+            <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 flex items-center gap-3">
+              <span className="text-emerald-600 text-lg">✓</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold text-emerald-700">Tarea vinculada a este oficio</p>
+                <p className="text-[11px] text-emerald-500 truncate">ID: {oficio.task_id}</p>
+              </div>
+              <a
+                href={`/tasks?task=${oficio.task_id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs font-semibold text-emerald-600 hover:text-emerald-800 whitespace-nowrap underline underline-offset-2"
+              >
+                Ver tarea →
+              </a>
+            </div>
+          )}
+
           {/* Crear tarea desde oficio existente */}
           {isEdit && !oficio?.task_id && assigneeId && (
             <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3">
