@@ -8,6 +8,14 @@ export const metadata: Metadata = {
 
 const POSTS = [
   {
+    slug: '/blog/control-documental-obra-civil',
+    category: 'Guía práctica',
+    title: 'Cómo llevar el control documental en una obra civil sin volverse loco',
+    excerpt: 'Los 5 errores más comunes que retrasan proyectos de infraestructura en México y cómo evitarlos con un sistema que tu equipo realmente use.',
+    readTime: '6 min',
+    date: 'Oct 2026',
+  },
+  {
     slug: '/blog/alternativa-procore-mexico',
     category: 'Comparativa',
     title: 'Por qué Procore es demasiado caro para constructoras mexicanas (y qué usar en su lugar)',
