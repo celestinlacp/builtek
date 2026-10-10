@@ -984,11 +984,13 @@ function OficioModal({
                       if (saveRes?.error) { setError(saveRes.error); setCreateTaskLoading(false); return }
                       // 2. Crear la tarea (el DB ya tiene los datos frescos)
                       const res = await createTaskFromOficio(oficio!.id, {
-                        proyecto_id: proyectoId,
-                        name: taskName.trim(),
-                        priority: taskPriority,
-                        due_date: taskDueDate || null,
-                        description: taskDescription.trim() || null,
+                        proyecto_id:  proyectoId,
+                        name:         taskName.trim(),
+                        priority:     taskPriority,
+                        due_date:     taskDueDate || null,
+                        description:  taskDescription.trim() || null,
+                        assignee_id:  assigneeId  || null,
+                        assignee2_id: assignee2Id || null,
                       })
                       setCreateTaskLoading(false)
                       if (res?.error) { setError(res.error); return }
