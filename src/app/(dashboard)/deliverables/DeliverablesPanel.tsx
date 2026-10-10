@@ -103,7 +103,17 @@ function EntregableCard({
       {/* Task + Project */}
       {ent.task_name && (
         <div className="mb-2">
-          <p className="text-[10px] text-slate-500 font-medium truncate">{ent.task_name}</p>
+          {ent.task_id ? (
+            <a
+              href={`/tasks?task=${ent.task_id}`}
+              className="text-[10px] text-[#00C2FF] font-medium truncate block hover:underline"
+              title="Ver tarea"
+            >
+              ↗ {ent.task_name}
+            </a>
+          ) : (
+            <p className="text-[10px] text-slate-500 font-medium truncate">{ent.task_name}</p>
+          )}
           {ent.project_name && <p className="text-[10px] text-slate-400 truncate">{ent.project_name}</p>}
         </div>
       )}
@@ -319,7 +329,13 @@ export default function DeliverablesPanel({
                     <p className="text-sm font-medium text-slate-700 truncate">{ent.file_name}</p>
                     <p className="text-xs text-slate-400">{formatSize(ent.file_size)} · {ent.file_type?.toUpperCase()}</p>
                   </div>
-                  <span className="hidden sm:block text-xs text-slate-500 w-40 truncate">{ent.task_name ?? '—'}</span>
+                  {ent.task_id ? (
+                    <a href={`/tasks?task=${ent.task_id}`} className="hidden sm:block text-xs text-[#00C2FF] w-40 truncate hover:underline">
+                      ↗ {ent.task_name}
+                    </a>
+                  ) : (
+                    <span className="hidden sm:block text-xs text-slate-500 w-40 truncate">{ent.task_name ?? '—'}</span>
+                  )}
                   <span className="hidden md:block text-xs text-slate-400 w-32 truncate">{ent.project_name ?? '—'}</span>
                   <span className="text-xs text-slate-400 w-24 truncate">{ent.reviewer_name ?? '—'}</span>
                   <div className="flex items-center gap-1 w-20 justify-end">
