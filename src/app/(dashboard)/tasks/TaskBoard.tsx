@@ -423,23 +423,22 @@ export default function TaskBoard({
   }
 
   return (
-    <div>
-      {/* Toolbar */}
-      <div className="flex items-center justify-between mb-5">
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* Filter by status */}
+    <div className="pb-10">
+      {/* Toolbar — row 1: filtros + nueva tarea */}
+      <div className="flex items-center gap-2 mb-2">
+        <div className="flex items-center gap-1.5 flex-1 min-w-0 overflow-x-auto scrollbar-none">
           {[
-            { value: 'all', label: 'Todas' },
-            { value: 'pending', label: 'Pendientes' },
-            { value: 'in_progress', label: 'En curso' },
-            { value: 'review', label: 'En revisión' },
-            { value: 'blocked', label: 'Bloqueadas' },
-            { value: 'done', label: 'Hechas' },
+            { value: 'all',        label: 'Todas' },
+            { value: 'pending',    label: 'Pendientes' },
+            { value: 'in_progress',label: 'En curso' },
+            { value: 'review',     label: 'En revisión' },
+            { value: 'blocked',    label: 'Bloqueadas' },
+            { value: 'done',       label: 'Hechas' },
           ].map(f => (
             <button
               key={f.value}
               onClick={() => setFilter(f.value)}
-              className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-all ${
+              className={`flex-shrink-0 text-xs px-3 py-1.5 rounded-lg font-medium transition-all ${
                 filter === f.value
                   ? 'bg-[#1A2744] text-white'
                   : 'bg-white border border-slate-200 text-slate-600 hover:border-slate-300'
@@ -454,66 +453,64 @@ export default function TaskBoard({
             </button>
           ))}
         </div>
+        <button
+          onClick={() => setShowNew(true)}
+          className="flex-shrink-0 flex items-center gap-2 bg-[#1A2744] text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-[#243660] transition-colors"
+        >
+          + Nueva tarea
+        </button>
+      </div>
 
-        <div className="flex items-center gap-2">
-          {/* Sort */}
+      {/* Toolbar — row 2: sort, user filter, view toggle */}
+      <div className="flex items-center gap-2 mb-4">
+        <div className="relative">
+          <select
+            value={sortBy}
+            onChange={e => setSortBy(e.target.value as typeof sortBy)}
+            className="text-xs pl-3 pr-7 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 font-medium focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/40 focus:border-[#00C2FF] appearance-none cursor-pointer"
+          >
+            <option value="default">Orden por defecto</option>
+            <option value="date_desc">Fecha ↓ (más reciente)</option>
+            <option value="date_asc">Fecha ↑ (más antigua)</option>
+            <option value="name_asc">Nombre A→Z</option>
+          </select>
+          <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 text-[10px]">▾</span>
+        </div>
+
+        {['owner', 'admin', 'manager'].includes(currentUserRole) && members.length > 0 && (
           <div className="relative">
             <select
-              value={sortBy}
-              onChange={e => setSortBy(e.target.value as typeof sortBy)}
+              value={userFilter}
+              onChange={e => setUserFilter(e.target.value)}
               className="text-xs pl-3 pr-7 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 font-medium focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/40 focus:border-[#00C2FF] appearance-none cursor-pointer"
             >
-              <option value="default">Orden por defecto</option>
-              <option value="date_desc">Fecha ↓ (más reciente)</option>
-              <option value="date_asc">Fecha ↑ (más antigua)</option>
-              <option value="name_asc">Nombre A→Z</option>
+              <option value="all">Todos los usuarios</option>
+              {members.filter(m => tasks.some(t => t.assignees?.some((a: any) => a.user_id === m.user_id) || t.assignee_id === m.user_id)).map(m => (
+                <option key={m.user_id} value={m.user_id}>
+                  {m.full_name || m.initials || m.user_id.slice(0, 8)}
+                </option>
+              ))}
             </select>
             <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 text-[10px]">▾</span>
           </div>
+        )}
 
-          {/* Filtro por usuario — visible para admin/owner/manager */}
-          {['owner', 'admin', 'manager'].includes(currentUserRole) && members.length > 0 && (
-            <div className="relative">
-              <select
-                value={userFilter}
-                onChange={e => setUserFilter(e.target.value)}
-                className="text-xs pl-3 pr-7 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 font-medium focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/40 focus:border-[#00C2FF] appearance-none cursor-pointer"
-              >
-                <option value="all">Todos los usuarios</option>
-                {members.filter(m => tasks.some(t => t.assignees?.some((a: any) => a.user_id === m.user_id) || t.assignee_id === m.user_id)).map(m => (
-                  <option key={m.user_id} value={m.user_id}>
-                    {m.full_name || m.initials || m.user_id.slice(0, 8)}
-                  </option>
-                ))}
-              </select>
-              <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 text-[10px]">▾</span>
-            </div>
-          )}
-          {/* View toggle */}
-          <div className="flex bg-slate-100 rounded-lg p-0.5">
-            {([
-              { value: 'board', label: '⊞ Tablero' },
-              { value: 'list', label: '☰ Lista' },
-              { value: 'person', label: '👤 Usuarios' },
-            ] as const).map(v => (
-              <button
-                key={v.value}
-                onClick={() => setView(v.value)}
-                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
-                  view === v.value ? 'bg-white text-[#1A2744] shadow-sm' : 'text-slate-500 hover:text-slate-700'
-                }`}
-              >
-                {v.label}
-              </button>
-            ))}
-          </div>
-
-          <button
-            onClick={() => setShowNew(true)}
-            className="flex items-center gap-2 bg-[#1A2744] text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-[#243660] transition-colors"
-          >
-            + Nueva tarea
-          </button>
+        <div className="flex bg-slate-100 rounded-lg p-0.5 ml-auto">
+          {([
+            { value: 'board',  label: '⊞ Tablero' },
+            { value: 'list',   label: '☰ Lista' },
+            { value: 'person', label: '👤 Usuarios' },
+          ] as const).map(v => (
+            <button
+              key={v.value}
+              onClick={() => setView(v.value)}
+              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+                view === v.value ? 'bg-white text-[#1A2744] shadow-sm' : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              {v.label}
+            </button>
+          ))}
         </div>
       </div>
 
