@@ -799,8 +799,8 @@ export default function TaskSlideOver({
                   </div>
                 </div>
               )}
-              {/* Reenviar WhatsApp — solo visible cuando no estás editando asignados */}
-              {!editingAssignees && <div className="flex items-center gap-2 mt-1">
+              {/* Reenviar WhatsApp — solo owner, solo cuando no editas asignados */}
+              {!editingAssignees && currentUserRole === 'owner' && <div className="flex items-center gap-2 mt-1">
                 <button type="button" onClick={handleResendWA} disabled={waSending}
                   className="flex items-center gap-1 px-2 py-0.5 rounded-lg border border-slate-200 text-[11px] font-medium text-slate-500 hover:bg-slate-50 disabled:opacity-50 transition-colors">
                   <MessageCircle className="w-3 h-3 text-green-500" />
