@@ -108,6 +108,8 @@ export default function DocumentSlideOver({
   // Edit metadata
   const [editingMeta,   setEditingMeta]   = useState(false)
   const [savingMeta,    setSavingMeta]    = useState(false)
+  // PDF preview
+  const [pdfZoom,       setPdfZoom]       = useState(1)
   const [metaError,     setMetaError]     = useState<string | null>(null)
   const [metaDocType,   setMetaDocType]   = useState(doc.doc_type    ?? '')
   const [metaDocView,   setMetaDocView]   = useState(doc.doc_view    ?? '')
@@ -278,12 +280,51 @@ export default function DocumentSlideOver({
     setEditingMeta(false)
   }
 
+  const hasPdf   = doc.file_type === 'pdf' || doc.file_name?.toLowerCase().endsWith('.pdf')
+  const docViewUrl = `/api/documents/view/${doc.id}`
+
   return (
     <div className="fixed inset-0 z-50 flex">
-      {/* Backdrop */}
-      <div className="flex-1 bg-black/30 backdrop-blur-sm" onClick={onClose} />
+      {/* Izquierda: PDF preview (si aplica) o backdrop blur */}
+      {hasPdf ? (
+        <div className="flex-1 flex flex-col bg-[#111827] min-w-0">
+          {/* Barra superior del visor */}
+          <div className="flex items-center gap-2 px-4 py-2 bg-black/40 flex-shrink-0">
+            <button type="button"
+              onClick={() => setPdfZoom(z => Math.max(0.5, Math.round((z - 0.25) * 100) / 100))}
+              className="w-7 h-7 flex items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 text-white font-bold text-base leading-none">−</button>
+            <span className="text-xs font-semibold text-white/60 w-10 text-center">{Math.round(pdfZoom * 100)}%</span>
+            <button type="button"
+              onClick={() => setPdfZoom(z => Math.min(3, Math.round((z + 0.25) * 100) / 100))}
+              className="w-7 h-7 flex items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 text-white font-bold text-base leading-none">+</button>
+            <button type="button" onClick={() => setPdfZoom(1)}
+              className="text-[10px] text-white/40 hover:text-white/70 ml-1 uppercase tracking-wide">Reset</button>
+            <div className="flex-1" />
+            <a href={docViewUrl} target="_blank" rel="noopener noreferrer"
+              className="flex items-center gap-1.5 text-xs text-white/50 hover:text-white transition-colors px-2 py-1 rounded-lg hover:bg-white/10">
+              <Eye className="w-3.5 h-3.5" />
+              Abrir en pestaña
+            </a>
+            <button onClick={onClose}
+              className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 text-white/70 hover:text-white ml-1">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          {/* Iframe */}
+          <div className="flex-1 overflow-auto">
+            <iframe
+              key={`${doc.id}-${pdfZoom}`}
+              src={`${docViewUrl}#zoom=${Math.round(pdfZoom * 100)}`}
+              className="block w-full border-0"
+              style={{ minHeight: 'calc(100vh - 44px)' }}
+            />
+          </div>
+        </div>
+      ) : (
+        <div className="flex-1 bg-black/30 backdrop-blur-sm" onClick={onClose} />
+      )}
 
-      {/* Panel */}
+      {/* Panel derecho */}
       <div className="w-full max-w-md bg-white shadow-2xl flex flex-col h-full overflow-hidden">
 
         {/* Header */}

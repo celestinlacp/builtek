@@ -2398,11 +2398,7 @@ function ProjectDetailView({
                           <input type="checkbox" checked={selected.has(doc.id)} onChange={() => toggleDoc(doc.id)} className="w-3.5 h-3.5 accent-[#1A2744] flex-shrink-0" />
                           <span className="text-base w-5 flex-shrink-0">{fileIcon}</span>
                           <div className="flex-1 min-w-0">
-                            {doc.file_type === 'pdf' ? (
-                              <button onClick={() => setViewingDoc({ id: doc.id, name: docName })} className="text-sm font-medium text-slate-700 truncate block w-full text-left hover:text-[#00C2FF] transition-colors">{docName}</button>
-                            ) : (
-                              <p className="text-sm font-medium text-slate-700 truncate">{docName}</p>
-                            )}
+                            <button onClick={() => setSlideDoc(doc)} className="text-sm font-medium text-slate-700 truncate block w-full text-left hover:text-[#00C2FF] transition-colors">{docName}</button>
                             {doc.file_name && doc.file_name !== docName && <p className="text-[11px] text-slate-400 truncate font-mono leading-tight mb-0.5">{doc.file_name}</p>}
                             <p className="text-xs text-slate-400 flex items-center gap-1.5 flex-wrap">
                               {doc.version_number !== null ? <span className="font-mono bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded font-bold">v{String(doc.version_number).padStart(4, '0')}</span> : <span>v{doc.version}</span>}
@@ -2415,8 +2411,9 @@ function ProjectDetailView({
                           <span className="hidden lg:block text-xs text-slate-400 w-24">{doc.emission_date ? new Date(doc.emission_date).toLocaleDateString('es-MX') : '—'}</span>
                           <div className="w-28"><WorkflowBadge doc={doc} userRole={userRole} /></div>
                           <div className="flex items-center gap-0.5 w-28 justify-end">
-                            <button onClick={() => setSlideDoc(doc)} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-[#00C2FF]/10 text-slate-400 hover:text-[#00C2FF]"><SlidersHorizontal className="w-3.5 h-3.5" /></button>
-                            {doc.storage_key && <a href={`/api/documents/download/${doc.id}`} target="_blank" rel="noopener noreferrer" className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600"><Download className="w-3.5 h-3.5" /></a>}
+                            {doc.storage_key && <a href={`/api/documents/view/${doc.id}`} target="_blank" rel="noopener noreferrer" title="Ver archivo" className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-[#00C2FF]/10 text-slate-400 hover:text-[#00C2FF]"><Eye className="w-3.5 h-3.5" /></a>}
+                            <button onClick={() => setSlideDoc(doc)} title="Detalles y comentarios" className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-[#00C2FF]/10 text-slate-400 hover:text-[#00C2FF]"><SlidersHorizontal className="w-3.5 h-3.5" /></button>
+                            {doc.storage_key && <a href={`/api/documents/download/${doc.id}`} target="_blank" rel="noopener noreferrer" title="Descargar" className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600"><Download className="w-3.5 h-3.5" /></a>}
                             {canManageProjects && !isPendingDelete && <button onClick={() => setReplaceDoc(doc)} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600"><RefreshCw className="w-3.5 h-3.5" /></button>}
                             {(isAdmin || !isPendingDelete) && <button onClick={() => handleDelete(doc)} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-500">{isAdmin ? <Trash2 className="w-3.5 h-3.5" /> : <AlertTriangle className="w-3.5 h-3.5" />}</button>}
                           </div>
@@ -2477,15 +2474,11 @@ function ProjectDetailView({
 
                       {/* Nombre */}
                       <div className="flex-1 min-w-0">
-                        {doc.file_type === 'pdf' ? (
-                          <button
-                            onClick={() => setViewingDoc({ id: doc.id, name: docName })}
-                            className="text-sm font-medium text-slate-700 truncate block w-full text-left hover:text-[#00C2FF] transition-colors">
-                            {docName}
-                          </button>
-                        ) : (
-                          <p className="text-sm font-medium text-slate-700 truncate">{docName}</p>
-                        )}
+                        <button
+                          onClick={() => setSlideDoc(doc)}
+                          className="text-sm font-medium text-slate-700 truncate block w-full text-left hover:text-[#00C2FF] transition-colors">
+                          {docName}
+                        </button>
                         {doc.file_name && doc.file_name !== docName && (
                           <p className="text-[11px] text-slate-400 truncate font-mono leading-tight mb-0.5" title={doc.file_name}>
                             {doc.file_name}
@@ -2560,6 +2553,13 @@ function ProjectDetailView({
 
                       {/* Acciones */}
                       <div className="flex items-center gap-0.5 w-28 justify-end">
+                        {doc.storage_key && (
+                          <a href={`/api/documents/view/${doc.id}`} target="_blank" rel="noopener noreferrer"
+                            title="Ver archivo"
+                            className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-[#00C2FF]/10 text-slate-400 hover:text-[#00C2FF] transition-colors">
+                            <Eye className="w-3.5 h-3.5" />
+                          </a>
+                        )}
                         <button onClick={() => setSlideDoc(doc)} title="Ver detalles y comentarios"
                           className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-[#00C2FF]/10 text-slate-400 hover:text-[#00C2FF] transition-colors">
                           <SlidersHorizontal className="w-3.5 h-3.5" />
