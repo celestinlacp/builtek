@@ -177,6 +177,10 @@ export async function updateOficio(id: string, data: {
   mesa_id?:           string | null
   copia_a?:           string | null
   para_conocimiento?: string | null
+  storage_key?:       string | null
+  file_name?:         string | null
+  file_type?:         string | null
+  file_size?:         number | null
 }) {
   await getUser()
   const admin = getAdminClient()

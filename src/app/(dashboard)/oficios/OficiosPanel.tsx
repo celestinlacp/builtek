@@ -451,57 +451,89 @@ function OficioModal({
     }
   }
 
+  // ── Helper: guarda los cambios del oficio en edición ──────────────────────
+  async function saveOficioEdits(): Promise<{ error?: string } | null> {
+    if (!asunto.trim()) return { error: 'El asunto es requerido' }
+
+    let storageKey = oficio?.storage_key || null
+    let fileType   = oficio?.file_type   || null
+    let fileSize   = oficio?.file_size   || null
+    let fileName   = oficio?.file_name   || null
+
+    if (file) {
+      setUploading(true)
+      const uploaded = await uploadFile(file, workspaceId, tipo)
+      setUploading(false)
+      if (!uploaded) return { error: 'Error al subir el archivo' }
+      storageKey = uploaded.storageKey
+      fileType   = uploaded.fileType
+      fileSize   = file.size
+      fileName   = file.name
+    }
+
+    return await updateOficio(oficio!.id, {
+      tipo_documento:    tipoDoc,
+      asunto:            asunto.trim(),
+      no_oficio:         noOficio           || null,
+      tema:              tema.trim()        || null,
+      fecha_documento:   fechaDoc           || null,
+      fecha_recepcion:   fechaRecep         || null,
+      proyecto_id:       proyectoId         || null,
+      proyecto2_id:      proyecto2Id        || null,
+      especialidad:      especialidad       || null,
+      remitente:         remitente          || null,
+      destinatario:      destinatario       || null,
+      assignee_id:       assigneeId         || null,
+      assignee2_id:      assignee2Id        || null,
+      notas:             notas              || null,
+      mesa_id:           mesaId             || null,
+      copia_a:           copiaA             || null,
+      para_conocimiento: paraConocimiento   || null,
+      storage_key:       storageKey,
+      file_name:         fileName,
+      file_type:         fileType,
+      file_size:         fileSize,
+    })
+  }
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (!asunto.trim()) { setError('El asunto es requerido'); return }
     setLoading(true); setError(null)
 
     try {
-      let storageKey = oficio?.storage_key || null
-      let fileType   = oficio?.file_type   || null
-      let fileSize   = oficio?.file_size   || null
-      let fileName   = oficio?.file_name   || null
-
-      if (file) {
-        setUploading(true)
-        const uploaded = await uploadFile(file, workspaceId, tipo)
-        setUploading(false)
-        if (!uploaded) { setError('Error al subir el archivo'); return }
-        storageKey = uploaded.storageKey
-        fileType   = uploaded.fileType
-        fileSize   = file.size
-        fileName   = file.name
-      }
-
-      const payload = {
-        tipo,
-        tipo_documento:  tipoDoc,
-        asunto:          asunto.trim(),
-        no_oficio:       noOficio       || null,
-        tema:            tema.trim()    || null,
-        fecha_documento: fechaDoc       || null,
-        fecha_recepcion: fechaRecep     || null,
-        proyecto_id:     proyectoId     || null,
-        proyecto2_id:    proyecto2Id    || null,
-        especialidad:    especialidad   || null,
-        remitente:       remitente      || null,
-        destinatario:    destinatario   || null,
-        assignee_id:     assigneeId     || null,
-        assignee2_id:    assignee2Id    || null,
-        notas:           notas          || null,
-        mesa_id:         mesaId         || null,
-        copia_a:         copiaA         || null,
-        para_conocimiento: paraConocimiento || null,
-        storage_key:     storageKey,
-        file_name:       fileName,
-        file_type:       fileType,
-        file_size:       fileSize,
-      }
-
       let result
       if (isEdit) {
-        result = await updateOficio(oficio!.id, payload)
+        result = await saveOficioEdits()
       } else {
+        // Subir archivo nuevo si aplica
+        let storageKey = null as string | null
+        let fileType   = null as string | null
+        let fileSize   = null as number | null
+        let fileName   = null as string | null
+        if (file) {
+          setUploading(true)
+          const uploaded = await uploadFile(file, workspaceId, tipo)
+          setUploading(false)
+          if (!uploaded) { setError('Error al subir el archivo'); return }
+          storageKey = uploaded.storageKey
+          fileType   = uploaded.fileType
+          fileSize   = file.size
+          fileName   = file.name
+        }
+        const payload = {
+          tipo, tipo_documento: tipoDoc,
+          asunto: asunto.trim(), no_oficio: noOficio || null,
+          tema: tema.trim() || null,
+          fecha_documento: fechaDoc || null, fecha_recepcion: fechaRecep || null,
+          proyecto_id: proyectoId || null, proyecto2_id: proyecto2Id || null,
+          especialidad: especialidad || null,
+          remitente: remitente || null, destinatario: destinatario || null,
+          assignee_id: assigneeId || null, assignee2_id: assignee2Id || null,
+          notas: notas || null, mesa_id: mesaId || null,
+          copia_a: copiaA || null, para_conocimiento: paraConocimiento || null,
+          storage_key: storageKey, file_name: fileName, file_type: fileType, file_size: fileSize,
+        }
         // Pasar antecedentes y todos los anexos (links y archivos pre-subidos) al crear
         const newAntecedentes = antecedentes
           .filter(a => a.id.startsWith('tmp-'))
@@ -928,18 +960,19 @@ function OficioModal({
                     disabled={createTaskLoading || !taskName.trim() || !proyectoId}
                     onClick={async () => {
                       setCreateTaskLoading(true)
+                      // 1. Guardar todos los cambios del oficio (incluyendo el nuevo asignado)
+                      const saveRes = await saveOficioEdits()
+                      if (saveRes?.error) { setError(saveRes.error); setCreateTaskLoading(false); return }
+                      // 2. Crear la tarea (el DB ya tiene los datos frescos)
                       const res = await createTaskFromOficio(oficio!.id, {
                         proyecto_id: proyectoId,
                         name: taskName.trim(),
                         priority: taskPriority,
                         due_date: taskDueDate || null,
                         description: taskDescription.trim() || null,
-                        assignee_id: assigneeId || null,
-                        assignee2_id: assignee2Id || null,
                       })
                       setCreateTaskLoading(false)
                       if (res?.error) { setError(res.error); return }
-                      setShowCreateTask(false)
                       onClose(true)
                     }}
                     className="w-full py-2 rounded-lg bg-[#00C2FF] text-white text-sm font-semibold hover:bg-[#00a8e0] disabled:opacity-50 transition-colors"
