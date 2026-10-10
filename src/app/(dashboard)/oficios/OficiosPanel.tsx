@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Plus, X, Pencil, Trash2, Eye, Upload, Loader2,
@@ -363,6 +363,24 @@ function OficioModal({
   const [extractMsg, setExtractMsg] = useState<string | null>(null)
   const [error,      setError]      = useState<string | null>(null)
 
+  // PDF preview
+  const [pdfZoom,     setPdfZoom]     = useState(1)
+  const [localPdfUrl, setLocalPdfUrl] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (file && file.type === 'application/pdf') {
+      const url = URL.createObjectURL(file)
+      setLocalPdfUrl(url)
+      return () => URL.revokeObjectURL(url)
+    }
+    setLocalPdfUrl(null)
+  }, [file])
+
+  const existingPdfUrl = isEdit && oficio?.storage_key &&
+    (oficio.file_type === 'application/pdf' || oficio.file_name?.toLowerCase().endsWith('.pdf'))
+    ? `/api/oficios/view/${oficio.id}` : null
+  const pdfPreviewUrl = localPdfUrl || existingPdfUrl
+
   // Al seleccionar un archivo: parsear filename + intentar AI
   async function handleFileSelect(selected: File) {
     setFile(selected)
@@ -610,8 +628,8 @@ function OficioModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => onClose()} />
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 sticky top-0 bg-white z-10">
+      <div className={`relative bg-white rounded-2xl shadow-2xl w-full max-h-[90vh] flex flex-col ${pdfPreviewUrl ? 'max-w-5xl' : 'max-w-lg'}`}>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 flex-shrink-0">
           <h2 className="text-base font-bold text-[#1A2744]">
             {isEdit ? 'Editar oficio' : `Nuevo oficio de ${tipo}`}
           </h2>
@@ -620,6 +638,33 @@ function OficioModal({
           </button>
         </div>
 
+        <div className={`${pdfPreviewUrl ? 'flex flex-1 min-h-0' : 'overflow-y-auto'}`}>
+
+        {pdfPreviewUrl && (
+          <div className="w-1/2 flex flex-col border-r border-slate-100 min-h-0 flex-shrink-0">
+            <div className="flex items-center justify-center gap-2 px-4 py-2 bg-slate-50 border-b border-slate-100 flex-shrink-0">
+              <button type="button"
+                onClick={() => setPdfZoom(z => Math.max(0.5, Math.round((z - 0.25) * 100) / 100))}
+                className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-200 text-slate-600 font-bold text-base leading-none">−</button>
+              <span className="text-xs font-semibold text-slate-500 w-10 text-center">{Math.round(pdfZoom * 100)}%</span>
+              <button type="button"
+                onClick={() => setPdfZoom(z => Math.min(3, Math.round((z + 0.25) * 100) / 100))}
+                className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-200 text-slate-600 font-bold text-base leading-none">+</button>
+              <button type="button" onClick={() => setPdfZoom(1)}
+                className="ml-2 text-[10px] text-slate-400 hover:text-slate-600 uppercase tracking-wide">Reset</button>
+            </div>
+            <div className="flex-1 overflow-auto bg-slate-200">
+              <iframe
+                key={`${pdfPreviewUrl}-${pdfZoom}`}
+                src={`${pdfPreviewUrl}#zoom=${Math.round(pdfZoom * 100)}`}
+                className="block border-0 w-full"
+                style={{ minHeight: 'calc(90vh - 112px)' }}
+              />
+            </div>
+          </div>
+        )}
+
+        <div className={pdfPreviewUrl ? 'flex-1 overflow-y-auto min-w-0' : ''}>
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
 
           {/* Tipo de documento */}
@@ -1056,6 +1101,8 @@ function OficioModal({
             </button>
           </div>
         </form>
+        </div>
+        </div>
       </div>
     </div>
   )
