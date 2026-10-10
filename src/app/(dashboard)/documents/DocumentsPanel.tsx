@@ -1850,6 +1850,7 @@ function ProjectDetailView({
   const [savingFolder,     setSavingFolder]     = useState<string | null>(null)           // groupKey en proceso
   const [editingFolderId,  setEditingFolderId]  = useState<string | null>(null)
   const [editingFolderName,setEditingFolderName]= useState('')
+  const router = useRouter()
   // Drag & drop
   const [draggingDocId,    setDraggingDocId]    = useState<string | null>(null)
   const [dragOverTarget,   setDragOverTarget]   = useState<string | null>(null)  // folderId | 'root__<groupKey>'
@@ -1887,7 +1888,7 @@ function ProjectDetailView({
     setDraggingDocId(null)
     setDragOverTarget(null)
     await moveDocumentToFolder(docId, targetFolderId)
-    // Actualizar folder_id localmente para feedback inmediato (revalidatePath refresca en background)
+    router.refresh()
   }
 
   async function handleCreateSubproject() {
