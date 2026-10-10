@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createAdmin } from '@supabase/supabase-js'
 import { redirect } from 'next/navigation'
 import TaskBoard from './TaskBoard'
 import { CheckSquare, Plus } from 'lucide-react'
@@ -56,11 +57,15 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
   const profileMap = Object.fromEntries((profilesRes.data || []).map((p: any) => [p.id, { full_name: p.full_name, initials: p.initials }]))
   const members = rawMemberIds.map((uid: string) => ({ user_id: uid, full_name: profileMap[uid]?.full_name || null, initials: profileMap[uid]?.initials || null }))
 
-  // Cargar asignados múltiples y enriquecer cada tarea
+  // Cargar asignados múltiples y enriquecer cada tarea (admin para bypassear RLS)
+  const admin = createAdmin(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
   const rawTasks = (tasksRes.data || []) as any[]
   const taskIds = rawTasks.map(t => t.id)
   const taskAssigneesRes = taskIds.length > 0
-    ? await supabase.from('task_assignees').select('task_id, user_id').in('task_id', taskIds)
+    ? await admin.from('task_assignees').select('task_id, user_id').in('task_id', taskIds)
     : { data: [] }
   const assigneesByTask: Record<string, string[]> = {}
   for (const row of (taskAssigneesRes.data || [])) {

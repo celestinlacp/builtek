@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { addComment, deleteComment, linkDocument, unlinkDocument, reprogramTask, uploadEntregable, approveEntregable, rejectEntregable, linkOficioToTask, unlinkOficioFromTask, updateTaskName, updateTaskAssignees, getOrCreateTempFolder, saveTempAndLink, resendTaskNotification } from './actions'
+import { addComment, deleteComment, linkDocument, unlinkDocument, reprogramTask, uploadEntregable, approveEntregable, rejectEntregable, linkOficioToTask, unlinkOficioFromTask, updateTaskName, updateTaskAssignees, getOrCreateTempFolder, saveTempAndLink, resendTaskNotification, getTaskWALogs } from './actions'
 import { Task, Project } from '@/types'
 import {
   X, MessageSquare, Send, Trash2, Paperclip,
@@ -305,15 +305,29 @@ export default function TaskSlideOver({
   const [editingAssignees,  setEditingAssignees]  = useState(false)
   const [waSending,         setWaSending]         = useState(false)
   const [waFeedback,        setWaFeedback]        = useState<string | null>(null)
+  const [waLogs,            setWaLogs]            = useState<{ action: string; phone: string | null; created_at: string; resend: boolean; oficio: boolean }[]>([])
+  const [showWALogs,        setShowWALogs]        = useState(false)
 
   async function handleResendWA() {
     setWaSending(true)
     setWaFeedback(null)
     const result = await resendTaskNotification(task.id)
     setWaSending(false)
-    if (result.ok) setWaFeedback(`✓ Enviado a ${result.sent} persona${result.sent !== 1 ? 's' : ''}`)
-    else setWaFeedback(`✗ ${result.error ?? 'Sin teléfono registrado'}`)
+    if (result.ok) {
+      setWaFeedback(`✓ Enviado a ${result.sent} persona${result.sent !== 1 ? 's' : ''}`)
+      // Refrescar logs
+      getTaskWALogs(task.id).then(setWaLogs)
+    } else {
+      setWaFeedback(`✗ ${result.error ?? 'Sin teléfono registrado'}`)
+    }
   }
+
+  // Cargar historial WA al abrir (solo owner)
+  useEffect(() => {
+    if (currentUserRole === 'owner') {
+      getTaskWALogs(task.id).then(setWaLogs)
+    }
+  }, [task.id, currentUserRole])
   const [localAssignees,    setLocalAssignees]    = useState<string[]>(
     task.assignees?.map(a => a.user_id) ?? (task.assignee_id ? [task.assignee_id] : [])
   )
@@ -800,18 +814,47 @@ export default function TaskSlideOver({
                 </div>
               )}
               {/* Reenviar WhatsApp — solo owner, solo cuando no editas asignados */}
-              {!editingAssignees && currentUserRole === 'owner' && <div className="flex items-center gap-2 mt-1">
-                <button type="button" onClick={handleResendWA} disabled={waSending}
-                  className="flex items-center gap-1 px-2 py-0.5 rounded-lg border border-slate-200 text-[11px] font-medium text-slate-500 hover:bg-slate-50 disabled:opacity-50 transition-colors">
-                  <MessageCircle className="w-3 h-3 text-green-500" />
-                  {waSending ? 'Enviando...' : 'Reenviar WA'}
-                </button>
-                {waFeedback && (
-                  <span className={`text-[11px] ${waFeedback.startsWith('✓') ? 'text-green-600' : 'text-red-500'}`}>
-                    {waFeedback}
-                  </span>
-                )}
-              </div>}
+              {!editingAssignees && currentUserRole === 'owner' && (
+                <div className="mt-1.5 space-y-1">
+                  <div className="flex items-center gap-2">
+                    <button type="button" onClick={handleResendWA} disabled={waSending}
+                      className="flex items-center gap-1 px-2 py-0.5 rounded-lg border border-slate-200 text-[11px] font-medium text-slate-500 hover:bg-slate-50 disabled:opacity-50 transition-colors">
+                      <MessageCircle className="w-3 h-3 text-green-500" />
+                      {waSending ? 'Enviando...' : 'Reenviar WA'}
+                    </button>
+                    {waLogs.length > 0 && (
+                      <button type="button" onClick={() => setShowWALogs(v => !v)}
+                        className={`text-[11px] font-medium transition-colors ${waLogs[0].action === 'whatsapp_sent' ? 'text-green-600 hover:text-green-700' : 'text-red-500 hover:text-red-600'}`}>
+                        {waLogs[0].action === 'whatsapp_sent' ? '✓ WA enviado' : '✗ Error WA'} {showWALogs ? '▲' : '▼'}
+                      </button>
+                    )}
+                    {waLogs.length === 0 && !waSending && (
+                      <span className="text-[11px] text-slate-400">Sin envíos registrados</span>
+                    )}
+                    {waFeedback && (
+                      <span className={`text-[11px] ${waFeedback.startsWith('✓') ? 'text-green-600' : 'text-red-500'}`}>
+                        {waFeedback}
+                      </span>
+                    )}
+                  </div>
+                  {showWALogs && waLogs.length > 0 && (
+                    <div className="bg-slate-50 rounded-lg p-2 space-y-1 text-[10px] text-slate-500">
+                      {waLogs.map((l, i) => (
+                        <div key={i} className="flex items-center gap-1.5">
+                          <span className={l.action === 'whatsapp_sent' ? 'text-green-500' : 'text-red-400'}>
+                            {l.action === 'whatsapp_sent' ? '✓' : '✗'}
+                          </span>
+                          <span>{l.phone ?? 'sin tel.'}</span>
+                          <span className="text-slate-300">·</span>
+                          <span>{new Date(l.created_at).toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+                          {l.resend && <span className="bg-amber-50 text-amber-600 px-1 rounded">reenvío</span>}
+                          {l.oficio && <span className="bg-blue-50 text-blue-500 px-1 rounded">oficio</span>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
               {countdown && (
                 <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full ${countdown.color}`}>
                   <Timer className="w-3 h-3" />

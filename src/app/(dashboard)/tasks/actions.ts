@@ -495,6 +495,30 @@ export async function resendTaskNotification(taskId: string): Promise<{ ok: bool
   return { ok: sent > 0, sent }
 }
 
+// ── Historial WhatsApp de una tarea ───────────────────────────────────────────
+
+export async function getTaskWALogs(taskId: string): Promise<{ action: string; phone: string | null; created_at: string; resend: boolean; oficio: boolean }[]> {
+  const { workspaceId } = await getWorkspaceId()
+  const admin = getAdminClient()
+
+  const { data } = await admin
+    .from('activity_logs')
+    .select('action, metadata, created_at')
+    .eq('workspace_id', workspaceId)
+    .eq('entity_id', taskId)
+    .in('action', ['whatsapp_sent', 'whatsapp_error'])
+    .order('created_at', { ascending: false })
+    .limit(20)
+
+  return (data ?? []).map((r: any) => ({
+    action:     r.action,
+    phone:      r.metadata?.phone ?? null,
+    created_at: r.created_at,
+    resend:     !!r.metadata?.resend,
+    oficio:     !!r.metadata?.oficio_id,
+  }))
+}
+
 // ── Drive Temporal ────────────────────────────────────────────────────────────
 
 export async function getOrCreateTempFolder(workspaceId: string): Promise<{ folderId?: string; error?: string }> {
