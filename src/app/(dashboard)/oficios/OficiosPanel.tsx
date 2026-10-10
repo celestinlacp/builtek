@@ -1108,6 +1108,234 @@ function OficioModal({
   )
 }
 
+// ── BulkUploadModal ───────────────────────────────────────────────────────────
+
+type BulkItem = {
+  id:          string
+  file:        File
+  status:      'extracting' | 'done' | 'error'
+  noOficio:    string
+  asunto:      string
+  fechaDoc:    string
+  extractMsg:  string
+}
+
+function BulkUploadModal({ workspaceId, onClose }: {
+  workspaceId: string
+  onClose: (saved?: boolean) => void
+}) {
+  const today = new Date().toISOString().slice(0, 10)
+  const [fechaRecepcion, setFechaRecepcion] = useState(today)
+  const [items,          setItems]          = useState<BulkItem[]>([])
+  const [saving,         setSaving]         = useState(false)
+  const [savedCount,     setSavedCount]     = useState(0)
+  const [dragOver,       setDragOver]       = useState(false)
+
+  function updateItem(id: string, patch: Partial<BulkItem>) {
+    setItems(prev => prev.map(i => i.id === id ? { ...i, ...patch } : i))
+  }
+
+  async function processFiles(files: File[]) {
+    const pdfs = files.filter(f => f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf'))
+    if (!pdfs.length) return
+    const newItems: BulkItem[] = pdfs.map(f => ({
+      id: Math.random().toString(36).slice(2),
+      file: f,
+      status: 'extracting',
+      noOficio: '',
+      asunto: f.name.replace(/\.pdf$/i, ''),
+      fechaDoc: '',
+      extractMsg: '',
+    }))
+    setItems(prev => [...prev, ...newItems])
+
+    await Promise.all(newItems.map(async item => {
+      try {
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader()
+          reader.onload  = () => resolve((reader.result as string).split(',')[1])
+          reader.onerror = reject
+          reader.readAsDataURL(item.file)
+        })
+        const res = await fetch('/api/oficios/extract', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ pdfBase64: base64, fileName: item.file.name }),
+        })
+        if (res.ok) {
+          const ext = await res.json()
+          updateItem(item.id, {
+            status:   'done',
+            noOficio: ext.no_oficio       || '',
+            asunto:   ext.asunto          || item.asunto,
+            fechaDoc: ext.fecha_documento || '',
+            extractMsg: '✓ IA detectó datos',
+          })
+        } else {
+          const parsed = parseOficioFilename(item.file.name)
+          updateItem(item.id, {
+            status:   'done',
+            noOficio: parsed.no_oficio       || '',
+            asunto:   parsed.asunto          || item.asunto,
+            fechaDoc: parsed.fecha_documento || '',
+            extractMsg: 'Del nombre del archivo',
+          })
+        }
+      } catch {
+        updateItem(item.id, { status: 'error', extractMsg: 'Error al procesar' })
+      }
+    }))
+  }
+
+  async function handleSave() {
+    if (!items.length || !fechaRecepcion) return
+    setSaving(true)
+    let count = 0
+    for (const item of items) {
+      try {
+        const upload = await uploadFile(item.file, workspaceId, 'entrada')
+        if (!upload) continue
+        await createOficio({
+          tipo:            'entrada',
+          asunto:          item.asunto || item.file.name,
+          no_oficio:       item.noOficio  || null,
+          fecha_documento: item.fechaDoc  || null,
+          fecha_recepcion: fechaRecepcion,
+          storage_key:     upload.storageKey,
+          file_name:       item.file.name,
+          file_type:       upload.fileType,
+          file_size:       item.file.size,
+        })
+        count++
+        setSavedCount(count)
+      } catch { /* continuar con los demás */ }
+    }
+    setSaving(false)
+    onClose(count > 0)
+  }
+
+  const extracting = items.filter(i => i.status === 'extracting').length
+  const inputCls = 'w-full px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50 focus:border-[#00C2FF] disabled:opacity-50'
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => !saving && onClose()} />
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 flex-shrink-0">
+          <div>
+            <h2 className="text-base font-bold text-[#1A2744]">Subida masiva — Entrada</h2>
+            <p className="text-xs text-slate-400 mt-0.5">Sube varios PDFs · la IA extrae los datos automáticamente</p>
+          </div>
+          <button onClick={() => !saving && onClose()} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100">
+            <X className="w-4 h-4 text-slate-500" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-6 space-y-5">
+          {/* Fecha recepción compartida */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">
+              Fecha de recepción del lote <span className="text-red-500">*</span>
+            </label>
+            <input type="date" value={fechaRecepcion} onChange={e => setFechaRecepcion(e.target.value)}
+              className="px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50 focus:border-[#00C2FF]" />
+            <p className="text-[11px] text-slate-400 mt-1">Todos los oficios de este lote compartirán esta fecha.</p>
+          </div>
+
+          {/* Drop zone */}
+          <label
+            onDragOver={e => { e.preventDefault(); setDragOver(true) }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={e => { e.preventDefault(); setDragOver(false); processFiles(Array.from(e.dataTransfer.files)) }}
+            className={`flex flex-col items-center justify-center gap-2 px-6 py-8 rounded-xl border-2 border-dashed cursor-pointer transition-colors ${dragOver ? 'border-[#00C2FF] bg-[#00C2FF]/5' : 'border-slate-200 bg-slate-50 hover:bg-slate-100'}`}
+          >
+            <Upload className={`w-8 h-8 ${dragOver ? 'text-[#00C2FF]' : 'text-slate-300'}`} />
+            <span className="text-sm font-medium text-slate-500">Arrastra PDFs aquí o clic para seleccionar</span>
+            <span className="text-xs text-slate-400">Puedes seleccionar varios a la vez</span>
+            <input type="file" accept=".pdf" multiple className="hidden"
+              onChange={e => { processFiles(Array.from(e.target.files || [])); e.target.value = '' }} />
+          </label>
+
+          {/* Lista de items */}
+          {items.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">{items.length} archivo{items.length !== 1 ? 's' : ''}</p>
+                <button type="button" onClick={() => setItems([])} className="text-xs text-slate-400 hover:text-red-500 transition-colors">Limpiar todo</button>
+              </div>
+              {items.map(item => (
+                <div key={item.id} className="bg-slate-50 rounded-xl border border-slate-100 p-4">
+                  <div className="flex items-start gap-2 mb-3">
+                    <div className="w-8 h-8 bg-red-50 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <span className="text-[9px] font-bold text-red-500">PDF</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-slate-600 truncate">{item.file.name}</p>
+                      <p className={`text-[10px] mt-0.5 flex items-center gap-1 ${item.extractMsg.startsWith('✓') ? 'text-green-600' : item.status === 'error' ? 'text-red-500' : 'text-slate-400'}`}>
+                        {item.status === 'extracting'
+                          ? <><Loader2 className="w-3 h-3 animate-spin" />Analizando con IA...</>
+                          : item.extractMsg}
+                      </p>
+                    </div>
+                    <button type="button" onClick={() => setItems(prev => prev.filter(i => i.id !== item.id))}
+                      className="w-6 h-6 flex items-center justify-center rounded-lg hover:bg-red-50 text-slate-300 hover:text-red-500 flex-shrink-0">
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">No. oficio</label>
+                      <input value={item.noOficio} onChange={e => updateItem(item.id, { noOficio: e.target.value })}
+                        placeholder="Sin número" disabled={item.status === 'extracting'} className={inputCls} />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Fecha del documento</label>
+                      <input type="date" value={item.fechaDoc} onChange={e => updateItem(item.id, { fechaDoc: e.target.value })}
+                        disabled={item.status === 'extracting'} className={inputCls} />
+                    </div>
+                    <div className="col-span-2">
+                      <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Asunto</label>
+                      <input value={item.asunto} onChange={e => updateItem(item.id, { asunto: e.target.value })}
+                        disabled={item.status === 'extracting'} className={inputCls} />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="px-6 py-4 border-t border-slate-100 flex-shrink-0 flex items-center justify-between gap-3">
+          <p className="text-xs text-slate-400">
+            {saving
+              ? `Guardando ${savedCount} de ${items.length}...`
+              : extracting > 0
+              ? `Procesando ${extracting} archivo${extracting !== 1 ? 's' : ''}...`
+              : items.length > 0
+              ? `${items.length} oficio${items.length !== 1 ? 's' : ''} listos`
+              : 'Selecciona archivos PDF'}
+          </p>
+          <div className="flex gap-3">
+            <button type="button" onClick={() => !saving && onClose()}
+              className="px-4 py-2 rounded-lg border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50">
+              Cancelar
+            </button>
+            <button type="button" onClick={handleSave}
+              disabled={saving || !items.length || !fechaRecepcion || extracting > 0}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#1A2744] text-white text-sm font-bold hover:bg-[#243660] disabled:opacity-50">
+              {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+              {saving
+                ? `Guardando ${savedCount}/${items.length}...`
+                : `Guardar ${items.length || ''} oficio${items.length !== 1 ? 's' : ''}`}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── RespuestaModal ────────────────────────────────────────────────────────────
 
 function RespuestaModal({ oficio, workspaceId, onClose }: {
@@ -1364,7 +1592,7 @@ function OficioRow({
               </p>
             )}
             {(oficio.remitente || oficio.destinatario) && (
-              <p className="text-xs text-slate-400 truncate max-w-[260px]">
+              <p className="text-xs text-slate-400 truncate">
                 {oficio.tipo === 'entrada' ? oficio.remitente : oficio.destinatario}
               </p>
             )}
@@ -1409,7 +1637,7 @@ function OficioRow({
       <td className="px-4 py-3">
         <div className="space-y-0.5">
           {oficio.proyecto?.name && (
-            <p className="text-xs font-medium text-slate-600 truncate max-w-[140px]">{oficio.proyecto.name}</p>
+            <p className="text-xs font-medium text-slate-600 truncate">{oficio.proyecto.name}</p>
           )}
           {oficio.especialidad && (
             <p className="text-[10px] text-slate-400">
@@ -1417,12 +1645,12 @@ function OficioRow({
             </p>
           )}
           {oficio.tema && (
-            <span className="inline-flex items-center gap-0.5 bg-violet-50 text-violet-600 text-[10px] font-medium px-1.5 py-0.5 rounded-full truncate max-w-[140px]">
+            <span className="inline-flex items-center gap-0.5 bg-violet-50 text-violet-600 text-[10px] font-medium px-1.5 py-0.5 rounded-full truncate">
               <Tag className="w-2.5 h-2.5 flex-shrink-0" />{oficio.tema}
             </span>
           )}
           {oficio.mesa_id && (
-            <span className="inline-flex items-center gap-0.5 bg-cyan-50 text-cyan-600 text-[10px] font-medium px-1.5 py-0.5 rounded-full truncate max-w-[140px]" title={mesas.find(m => m.id === oficio.mesa_id)?.nombre}>
+            <span className="inline-flex items-center gap-0.5 bg-cyan-50 text-cyan-600 text-[10px] font-medium px-1.5 py-0.5 rounded-full truncate" title={mesas.find(m => m.id === oficio.mesa_id)?.nombre}>
               {mesas.find(m => m.id === oficio.mesa_id)?.codigo || 'Mesa'}
             </span>
           )}
@@ -1448,8 +1676,10 @@ function OficioRow({
       </td>
 
       {/* No. oficio */}
-      <td className="px-4 py-3 text-xs font-mono text-slate-500 whitespace-nowrap">
-        {oficio.no_oficio || <span className="text-slate-300">—</span>}
+      <td className="px-4 py-3 overflow-hidden">
+        <span className="block truncate text-xs font-mono text-slate-500" title={oficio.no_oficio || ''}>
+          {oficio.no_oficio || <span className="text-slate-300">—</span>}
+        </span>
       </td>
 
       {/* Acciones */}
@@ -1521,7 +1751,8 @@ export default function OficiosPanel({
 }) {
   const router = useRouter()
   const [tab,        setTab]        = useState<Tab>('entrada')
-  const [showModal,  setShowModal]  = useState(false)
+  const [showModal,     setShowModal]     = useState(false)
+  const [showBulkModal, setShowBulkModal] = useState(false)
   const [editOficio, setEditOficio] = useState<Oficio | null>(null)
   const [viewMode,   setViewMode]   = useState<'lista' | 'semana' | 'dia'>('semana')
   const [sortBy,     setSortBy]     = useState<'fecha_documento' | 'fecha_recepcion' | 'asunto' | 'estado' | 'no_oficio'>('fecha_recepcion')
@@ -1735,13 +1966,24 @@ export default function OficiosPanel({
         </div>
 
         {tab !== 'trazabilidad' && (
-          <button
-            onClick={openNew}
-            className="flex items-center gap-2 bg-[#1A2744] text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-[#243660] transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            Nuevo oficio
-          </button>
+          <div className="flex items-center gap-2">
+            {tab === 'entrada' && (
+              <button
+                onClick={() => setShowBulkModal(true)}
+                className="flex items-center gap-2 bg-slate-100 text-slate-700 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-slate-200 transition-colors"
+              >
+                <Upload className="w-4 h-4" />
+                Subir varios
+              </button>
+            )}
+            <button
+              onClick={openNew}
+              className="flex items-center gap-2 bg-[#1A2744] text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-[#243660] transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              Nuevo oficio
+            </button>
+          </div>
         )}
       </div>
 
@@ -1902,8 +2144,7 @@ export default function OficiosPanel({
         </div>
       ) : viewMode === 'lista' ? (
         <div className="bg-white rounded-xl border border-slate-100 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
+            <table className="w-full text-left table-fixed">
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50">
                   {canDelete && (
@@ -1919,21 +2160,21 @@ export default function OficiosPanel({
                   <th className="px-4 py-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
                     <SortHeader label="Asunto" col="asunto" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
                   </th>
-                  <th className="px-4 py-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">
+                  <th className="px-4 py-3 w-[9%] text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
                     <SortHeader label="Fecha doc." col="fecha_documento" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
                   </th>
-                  <th className="px-4 py-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">
+                  <th className="px-4 py-3 w-[9%] text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
                     <SortHeader label="Recepción" col="fecha_recepcion" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
                   </th>
-                  <th className="px-4 py-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Proyecto / Especialidad</th>
-                  <th className="px-4 py-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
+                  <th className="px-4 py-3 w-[18%] text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Proyecto / Esp.</th>
+                  <th className="px-4 py-3 w-[11%] text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
                     <SortHeader label={tab === 'salida' ? 'Subido por' : 'Estado'} col="estado" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
                   </th>
-                  <th className="px-4 py-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Asignado</th>
-                  <th className="px-4 py-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">
+                  <th className="px-4 py-3 w-[8%] text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Asignado</th>
+                  <th className="px-4 py-3 w-[14%] text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
                     <SortHeader label="No. oficio" col="no_oficio" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
                   </th>
-                  <th className="px-4 py-3 w-24"></th>
+                  <th className="px-4 py-3 w-16"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
@@ -1949,7 +2190,6 @@ export default function OficiosPanel({
                 ))}
               </tbody>
             </table>
-          </div>
           <div className="px-4 py-2 border-t border-slate-50 bg-slate-50/30">
             <p className="text-xs text-slate-400">
               {sorted.length} oficio{sorted.length !== 1 ? 's' : ''} · ordenado por {sortBy.replace('_', ' ')} {sortDir === 'desc' ? '↓' : '↑'}
@@ -1978,29 +2218,29 @@ export default function OficiosPanel({
                   </span>
                 </button>
                 {!collapsed && (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left">
+                  <div>
+                    <table className="w-full text-left table-fixed">
                       <thead>
                         <tr className="border-b border-slate-100 bg-slate-50/50">
                           {canDelete && <th className="pl-4 pr-2 py-2 w-8" />}
                           <th className="px-4 py-2 text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
                             <SortHeader label="Asunto" col="asunto" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
                           </th>
-                          <th className="px-4 py-2 text-[10px] font-semibold text-slate-400 uppercase tracking-wide whitespace-nowrap">
+                          <th className="px-4 py-2 w-[9%] text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
                             <SortHeader label="Fecha doc." col="fecha_documento" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
                           </th>
-                          <th className="px-4 py-2 text-[10px] font-semibold text-slate-400 uppercase tracking-wide whitespace-nowrap">
+                          <th className="px-4 py-2 w-[9%] text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
                             <SortHeader label="Recepción" col="fecha_recepcion" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
                           </th>
-                          <th className="px-4 py-2 text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Proyecto / Especialidad</th>
-                          <th className="px-4 py-2 text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
+                          <th className="px-4 py-2 w-[18%] text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Proyecto / Esp.</th>
+                          <th className="px-4 py-2 w-[11%] text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
                             <SortHeader label={tab === 'salida' ? 'Subido por' : 'Estado'} col="estado" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
                           </th>
-                          <th className="px-4 py-2 text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Asignado</th>
-                          <th className="px-4 py-2 text-[10px] font-semibold text-slate-400 uppercase tracking-wide whitespace-nowrap">
+                          <th className="px-4 py-2 w-[8%] text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Asignado</th>
+                          <th className="px-4 py-2 w-[14%] text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
                             <SortHeader label="No. oficio" col="no_oficio" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
                           </th>
-                          <th className="px-4 py-2 w-24" />
+                          <th className="px-4 py-2 w-16" />
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-50">
@@ -2029,7 +2269,7 @@ export default function OficiosPanel({
         </div>
       )}
 
-      {/* Modal */}
+      {/* Modal edición */}
       {showModal && (
         <OficioModal
           oficio={editOficio}
@@ -2043,6 +2283,14 @@ export default function OficiosPanel({
           initialAntecedentes={editOficio ? antecedentes.filter(a => a.oficio_id === editOficio.id) : []}
           initialAnexos={editOficio ? anexos.filter(a => a.oficio_id === editOficio.id) : []}
           onClose={closeModal}
+        />
+      )}
+
+      {/* Modal subida masiva */}
+      {showBulkModal && (
+        <BulkUploadModal
+          workspaceId={workspaceId}
+          onClose={(saved) => { setShowBulkModal(false); if (saved) router.refresh() }}
         />
       )}
       </>)}
