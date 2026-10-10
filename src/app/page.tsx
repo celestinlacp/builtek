@@ -7,6 +7,7 @@ import {
   Layers, Menu, MessageSquare, Sparkles, BookOpen, Wrench
 } from 'lucide-react'
 import PricingSection from '@/components/PricingSection'
+import MobileNav from '@/components/MobileNav'
 
 // ── Blueprint Animation Background ────────────────────────────────────────────
 function ConstructionBg() {
@@ -167,12 +168,13 @@ function Navbar() {
         </div>
 
         <div className="flex items-center gap-3">
-          <Link href="/login" className="text-white/50 hover:text-white text-sm font-normal transition-colors hidden sm:block">
+          <Link href="/login" className="text-white/50 hover:text-white text-sm font-normal transition-colors hidden md:block">
             Iniciar sesión
           </Link>
-          <Link href="/demo" className="bg-[#00C2FF] text-[#0D1729] px-4 py-2 rounded-lg text-sm font-semibold hover:bg-white transition-colors">
+          <Link href="/demo" className="bg-[#00C2FF] text-[#0D1729] px-4 py-2 rounded-lg text-sm font-semibold hover:bg-white transition-colors hidden sm:flex">
             Solicitar demo
           </Link>
+          <MobileNav />
         </div>
       </div>
     </nav>
@@ -264,7 +266,7 @@ function Hero() {
         {/* Badge */}
         <div className="hero-enter inline-flex items-center gap-2 bg-[#00C2FF]/10 border border-[#00C2FF]/20 rounded-full px-3 py-1.5 mb-6" style={{ animationDelay: '0ms' }}>
           <Zap className="w-3 h-3 text-[#00C2FF] flex-shrink-0" />
-          <span className="text-[#00C2FF] text-xs font-medium tracking-wide">Para constructoras, ingenieros y arquitectos en México y LATAM</span>
+          <span className="text-[#00C2FF] text-xs font-medium tracking-wide"><span className="hidden sm:inline">Para constructoras, ingenieros y arquitectos en </span><span className="sm:hidden">Software AEC · </span>México y LATAM</span>
         </div>
 
         {/* Headline */}
@@ -333,7 +335,7 @@ function Hero() {
         </div>
 
         {/* Social proof */}
-        <div className="mt-10 flex flex-wrap items-center justify-center gap-8 text-sm text-white/25 font-light">
+        <div className="mt-8 flex flex-col sm:flex-row flex-wrap items-center justify-center gap-3 sm:gap-8 text-sm text-white/25 font-light">
           <span className="flex items-center gap-2"><Shield className="w-4 h-4 text-[#00C2FF]/40" /> Datos seguros en tu propio workspace</span>
           <span className="flex items-center gap-2"><Users className="w-4 h-4 text-[#00C2FF]/40" /> Multi-usuario con roles y permisos</span>
           <span className="flex items-center gap-2"><TrendingUp className="w-4 h-4 text-[#00C2FF]/40" /> Disponible en todo LATAM</span>
@@ -377,8 +379,8 @@ function Problem() {
         <div className="grid md:grid-cols-3 gap-6">
           {pains.map((p, i) => (
             <AnimateIn key={p.title} delay={i * 100}>
-            <div className="bg-white/3 border border-white/8 rounded-2xl p-8 hover:border-[#00C2FF]/20 hover:scale-[1.02] transition-all duration-200 group">
-              <span className="text-4xl block mb-5">{p.emoji}</span>
+            <div className="bg-white/3 border border-white/8 rounded-2xl p-5 md:p-8 hover:border-[#00C2FF]/20 hover:scale-[1.02] transition-all duration-200 group">
+              <span className="text-3xl md:text-4xl block mb-4 md:mb-5">{p.emoji}</span>
               <h3 className="text-lg font-semibold text-white mb-3">{p.title}</h3>
               <p className="text-white/35 text-sm leading-relaxed font-light">{p.desc}</p>
             </div>
@@ -450,25 +452,25 @@ function Modules() {
         </div>
 
         {/* Pain strip — gestión de proyectos */}
-        <div className="flex flex-wrap justify-center gap-3 mb-12">
+        <div className="flex overflow-x-auto gap-3 mb-10 pb-1 -mx-4 px-4 md:mx-0 md:px-0 md:flex-wrap md:justify-center scrollbar-hide">
           {[
             '¿Delegas tareas y no sabes cuándo terminan?',
             '¿No llevas un registro del avance real de tu equipo?',
             '¿Tus planos viven en correos y grupos de WhatsApp?',
           ].map(q => (
-            <span key={q} className="bg-white/3 border border-white/8 rounded-full px-4 py-2 text-white/35 text-xs font-light italic">{q}</span>
+            <span key={q} className="bg-white/3 border border-white/8 rounded-full px-4 py-2 text-white/35 text-xs font-light italic whitespace-nowrap flex-shrink-0">{q}</span>
           ))}
         </div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 md:gap-5">
           {modules.map((m, i) => (
             <AnimateIn key={m.title} delay={i * 75}>
-              <div className="bg-white/3 border border-white/8 rounded-2xl p-7 hover:border-[#00C2FF]/25 hover:bg-white/5 hover:scale-[1.02] transition-all duration-200 group">
-                <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-5 ${m.color}`}>
-                  <m.icon className="w-6 h-6" />
+              <div className="bg-white/3 border border-white/8 rounded-2xl p-4 md:p-7 hover:border-[#00C2FF]/25 hover:bg-white/5 hover:scale-[1.02] transition-all duration-200 group">
+                <div className={`w-9 h-9 md:w-12 md:h-12 rounded-xl flex items-center justify-center mb-3 md:mb-5 ${m.color}`}>
+                  <m.icon className="w-4 h-4 md:w-6 md:h-6" />
                 </div>
-                <h3 className="text-lg font-semibold text-white mb-2">{m.title}</h3>
-                <p className="text-white/35 text-sm leading-relaxed font-light">{m.desc}</p>
+                <h3 className="text-sm md:text-lg font-semibold text-white mb-1 md:mb-2 leading-tight">{m.title}</h3>
+                <p className="text-white/35 text-xs md:text-sm leading-relaxed font-light hidden sm:block">{m.desc}</p>
               </div>
             </AnimateIn>
           ))}
@@ -485,7 +487,7 @@ function AIFeature() {
       <div className="absolute inset-0 bg-gradient-to-br from-[#00C2FF]/5 via-transparent to-transparent pointer-events-none" />
 
       <AnimateIn>
-      <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-10 lg:gap-16 items-center">
+      <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-8 lg:gap-16 items-center">
         <div>
           <div className="inline-flex items-center gap-2 bg-[#00C2FF]/10 border border-[#00C2FF]/20 rounded-full px-4 py-1.5 mb-8">
             <Bot className="w-3.5 h-3.5 text-[#00C2FF]" />
@@ -605,7 +607,7 @@ function DriveFeature() {
   return (
     <section id="drive" className="bg-[#0D1729] py-14 md:py-24 px-4 md:px-6">
       <AnimateIn>
-      <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-10 lg:gap-16 items-center">
+      <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-8 lg:gap-16 items-center">
         {/* Drive Mock */}
         <div className="bg-[#1A2744]/60 border border-white/10 rounded-2xl overflow-hidden shadow-2xl order-2 lg:order-1">
           <div className="flex items-center gap-2 px-4 py-3 border-b border-white/5 bg-white/3">
@@ -708,7 +710,7 @@ function WhatsAppFeature() {
   return (
     <section id="whatsapp" className="bg-[#0a1220] py-14 md:py-24 px-4 md:px-6">
       <AnimateIn>
-      <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-10 lg:gap-16 items-center">
+      <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-8 lg:gap-16 items-center">
         {/* Text */}
         <div>
           <div className="inline-flex items-center gap-2 bg-emerald-400/10 border border-emerald-400/20 rounded-full px-4 py-1.5 mb-8">
@@ -850,8 +852,8 @@ function PartnerSection() {
             },
           ].map((s, i) => (
             <AnimateIn key={s.num} delay={i * 100}>
-              <div className="bg-white/3 border border-white/8 rounded-2xl p-7 hover:border-[#00C2FF]/20 hover:scale-[1.02] transition-all duration-200">
-                <p className="text-[#00C2FF]/20 text-5xl font-black mb-5 tracking-tight leading-none">{s.num}</p>
+              <div className="bg-white/3 border border-white/8 rounded-2xl p-5 md:p-7 hover:border-[#00C2FF]/20 hover:scale-[1.02] transition-all duration-200">
+                <p className="text-[#00C2FF]/20 text-4xl md:text-5xl font-black mb-4 md:mb-5 tracking-tight leading-none">{s.num}</p>
                 <h3 className="text-white font-semibold text-lg mb-2">{s.title}</h3>
                 <p className="text-white/35 text-sm leading-relaxed font-light">{s.desc}</p>
               </div>
@@ -886,7 +888,7 @@ function CostCallout() {
       <div className="max-w-7xl mx-auto">
 
         {/* Pain hook */}
-        <div className="bg-amber-400/4 border border-amber-400/12 rounded-2xl p-7 mb-14">
+        <div className="bg-amber-400/4 border border-amber-400/12 rounded-2xl p-5 md:p-7 mb-10 md:mb-14">
           <p className="text-amber-400/60 text-[10px] font-semibold uppercase tracking-widest mb-5">¿Te ha pasado esto?</p>
           <div className="grid md:grid-cols-3 gap-5 mb-5">
             {[
@@ -934,7 +936,7 @@ function CostCallout() {
             },
           ].map((c, i) => (
             <AnimateIn key={c.title} delay={i * 100}>
-              <div className="bg-white/3 border border-white/8 rounded-2xl p-7 hover:border-[#00C2FF]/20 hover:scale-[1.02] transition-all duration-200">
+              <div className="bg-white/3 border border-white/8 rounded-2xl p-5 md:p-7 hover:border-[#00C2FF]/20 hover:scale-[1.02] transition-all duration-200">
                 <span className="text-3xl mb-4 block">{c.icon}</span>
                 <h3 className="text-white font-semibold text-base mb-2">{c.title}</h3>
                 <p className="text-white/35 text-sm leading-relaxed font-light">{c.desc}</p>
@@ -1014,7 +1016,7 @@ function Footer() {
           <span className="text-white/20 text-sm ml-2 font-light">El OS de la construcción</span>
         </div>
 
-        <div className="flex items-center gap-6 text-sm text-white/25 font-light">
+        <div className="flex flex-wrap items-center justify-center gap-4 md:gap-6 text-sm text-white/25 font-light">
           <a href="#modulos"  className="hover:text-white/50 transition-colors">Módulos</a>
           <a href="#ia"       className="hover:text-white/50 transition-colors">Agente AI</a>
           <a href="#precios"  className="hover:text-white/50 transition-colors">Precios</a>
@@ -1102,7 +1104,7 @@ function TasksFeature() {
   return (
     <section id="tareas" className="bg-[#0a1220] py-14 md:py-24 px-4 md:px-6">
       <AnimateIn>
-      <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-10 lg:gap-16 items-center">
+      <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-8 lg:gap-16 items-center">
         {/* Text */}
         <div>
           <div className="inline-flex items-center gap-2 bg-emerald-400/10 border border-emerald-400/20 rounded-full px-4 py-1.5 mb-8">

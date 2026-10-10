@@ -61,3 +61,7 @@ body {
 .ticker-track:hover {
   animation-play-state: paused;
 }
+
+/* ── Mobile utilities ──────────────────────────────────────────────────────── */
+.scrollbar-hide { scrollbar-width: none; -ms-overflow-style: none; }
+.scrollbar-hide::-webkit-scrollbar { display: none; }
