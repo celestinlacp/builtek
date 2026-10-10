@@ -387,50 +387,38 @@ export default async function DashboardPage() {
 
       {/* Mi rendimiento */}
       {myTotal > 0 && (
-        <div className={`rounded-xl border p-5 ${scoreBg} border-slate-100`}>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-bold text-[#1A2744] flex items-center gap-2">
-              <User className="w-4 h-4 text-[#00C2FF]" /> Mi rendimiento
+        <div className={`rounded-xl border px-4 py-3 ${scoreBg} border-slate-100`}>
+          <div className="flex items-center gap-4">
+            {/* Título + score */}
+            <h2 className="text-xs font-bold text-[#1A2744] flex items-center gap-1.5 flex-shrink-0">
+              <User className="w-3.5 h-3.5 text-[#00C2FF]" /> Mi rendimiento
             </h2>
-            <span className="text-[10px] text-slate-400 bg-white px-2 py-0.5 rounded-full border border-slate-100">
-              Hecho = 100% · En revisión = 50%
+            <span className={`text-sm font-black ${scoreColor} flex-shrink-0`}>
+              {myScore !== null ? `${myScore}%` : '—'}
             </span>
-          </div>
-
-          <div className="flex items-center gap-6">
-            {/* Score */}
-            <div className="flex-shrink-0 text-center">
-              <p className={`text-5xl font-black ${scoreColor}`}>
-                {myScore !== null ? `${myScore}%` : '—'}
-              </p>
-              <p className="text-[10px] text-slate-400 mt-1 font-medium uppercase tracking-wide">Score de entrega</p>
-            </div>
-
-            <div className="w-px h-14 bg-slate-200 flex-shrink-0" />
-
-            {/* Stats */}
-            <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="w-px h-6 bg-slate-200 flex-shrink-0" />
+            {/* Stats inline */}
+            <div className="flex items-center gap-4 flex-1 flex-wrap">
               {[
-                { label: 'Asignadas',   value: myTotal,                       color: 'text-[#1A2744]' },
-                { label: 'Completadas', value: myDone,                        color: 'text-green-600' },
-                { label: 'En revisión', value: myReview,                      color: 'text-amber-600' },
-                { label: 'Urgentes',    value: myUrgent, icon: myUrgent > 0,  color: myUrgent > 0 ? 'text-red-500' : 'text-slate-400' },
+                { label: 'Asignadas',   value: myTotal,   color: 'text-[#1A2744]' },
+                { label: 'Completadas', value: myDone,    color: 'text-green-600' },
+                { label: 'En revisión', value: myReview,  color: 'text-amber-600' },
+                { label: 'Urgentes',    value: myUrgent,  color: myUrgent > 0 ? 'text-red-500' : 'text-slate-400' },
               ].map(stat => (
-                <div key={stat.label} className="bg-white rounded-lg px-3 py-2.5 border border-slate-100 text-center">
-                  <p className={`text-2xl font-bold ${stat.color}`}>
-                    {stat.value}
-                    {stat.icon && <Zap className="w-3.5 h-3.5 inline ml-0.5 mb-0.5" />}
-                  </p>
-                  <p className="text-[10px] text-slate-400 mt-0.5">{stat.label}</p>
+                <div key={stat.label} className="flex items-center gap-1">
+                  <span className={`text-sm font-bold ${stat.color}`}>{stat.value}</span>
+                  <span className="text-[11px] text-slate-400">{stat.label}</span>
                 </div>
               ))}
             </div>
+            <span className="text-[10px] text-slate-400 flex-shrink-0 hidden sm:block">
+              Hecho = 100% · Revisión = 50%
+            </span>
           </div>
-
           {myUrgent > 0 && (
-            <p className="text-xs text-red-500 mt-3 flex items-center gap-1.5">
-              <AlertCircle className="w-3.5 h-3.5" />
-              Tienes {myUrgent} tarea{myUrgent > 1 ? 's' : ''} que vence{myUrgent > 1 ? 'n' : ''} en los próximos 3 días.
+            <p className="text-[11px] text-red-500 mt-1.5 flex items-center gap-1">
+              <AlertCircle className="w-3 h-3" />
+              {myUrgent} tarea{myUrgent > 1 ? 's' : ''} urgente{myUrgent > 1 ? 's' : ''}
             </p>
           )}
         </div>
