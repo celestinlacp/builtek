@@ -466,12 +466,17 @@ export default function TaskBoard({
         <div className="relative">
           <select
             value={sortBy}
-            onChange={e => setSortBy(e.target.value as typeof sortBy)}
+            onChange={e => {
+              const val = e.target.value as typeof sortBy
+              setSortBy(val)
+              // Al ordenar por fecha, cambiar a Lista para ver el histórico global sin agrupaciones
+              if (val === 'date_desc' || val === 'date_asc') setView('list')
+            }}
             className="text-xs pl-3 pr-7 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 font-medium focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/40 focus:border-[#00C2FF] appearance-none cursor-pointer"
           >
             <option value="default">Orden por defecto</option>
-            <option value="date_desc">Fecha ↓ (más reciente)</option>
-            <option value="date_asc">Fecha ↑ (más antigua)</option>
+            <option value="date_desc">Más recientes primero</option>
+            <option value="date_asc">Más antiguas primero</option>
             <option value="name_asc">Nombre A→Z</option>
           </select>
           <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 text-[10px]">▾</span>
