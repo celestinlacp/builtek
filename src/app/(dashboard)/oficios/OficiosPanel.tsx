@@ -1464,7 +1464,7 @@ function EstadoDropdown({ oficio, workspaceId }: { oficio: Oficio; workspaceId: 
       <button
         onClick={() => setOpen(v => !v)}
         disabled={loading}
-        className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full transition-opacity disabled:opacity-50 ${cfg.color}`}
+        className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full transition-opacity disabled:opacity-50 ${cfg.color}`}
       >
         <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
         {cfg.label}
@@ -1633,8 +1633,30 @@ function OficioRow({
         {formatDate(oficio.fecha_recepcion)}
       </td>
 
+      {/* Estado (entrada) / Subido por (salida) */}
+      <td className="px-3 py-3" onClick={e => e.stopPropagation()}>
+        {oficio.tipo === 'entrada'
+          ? <EstadoDropdown oficio={oficio} workspaceId={workspaceId} />
+          : creatorName
+            ? <span className="text-xs text-slate-500">{creatorName}</span>
+            : <span className="text-slate-300 text-xs">—</span>
+        }
+      </td>
+
+      {/* Asignado */}
+      <td className="px-3 py-3">
+        <AssigneeBadge assignee={oficio.assignee} />
+      </td>
+
+      {/* No. oficio */}
+      <td className="px-3 py-3 overflow-hidden">
+        <span className="block truncate text-[11px] font-mono text-slate-400" title={oficio.no_oficio || ''}>
+          {oficio.no_oficio || <span className="text-slate-300">—</span>}
+        </span>
+      </td>
+
       {/* Proyecto / Especialidad / Tema */}
-      <td className="px-4 py-3 overflow-hidden max-w-0">
+      <td className="px-3 py-3 overflow-hidden max-w-0">
         <div className="space-y-0.5 min-w-0">
           {oficio.proyecto?.name && (
             <p className="text-xs font-medium text-slate-600 truncate">{oficio.proyecto.name}</p>
@@ -1659,28 +1681,6 @@ function OficioRow({
             <span className="text-slate-300 text-xs">—</span>
           )}
         </div>
-      </td>
-
-      {/* Estado (entrada) / Subido por (salida) */}
-      <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
-        {oficio.tipo === 'entrada'
-          ? <EstadoDropdown oficio={oficio} workspaceId={workspaceId} />
-          : creatorName
-            ? <span className="text-xs text-slate-500">{creatorName}</span>
-            : <span className="text-slate-300 text-xs">—</span>
-        }
-      </td>
-
-      {/* Asignado */}
-      <td className="px-4 py-3">
-        <AssigneeBadge assignee={oficio.assignee} />
-      </td>
-
-      {/* No. oficio */}
-      <td className="px-4 py-3 overflow-hidden">
-        <span className="block truncate text-xs font-mono text-slate-500" title={oficio.no_oficio || ''}>
-          {oficio.no_oficio || <span className="text-slate-300">—</span>}
-        </span>
       </td>
 
       {/* Acciones */}
@@ -1759,6 +1759,7 @@ export default function OficiosPanel({
   const [sortBy,     setSortBy]     = useState<'fecha_documento' | 'fecha_recepcion' | 'asunto' | 'estado' | 'no_oficio'>('fecha_recepcion')
   const [sortDir,    setSortDir]    = useState<'asc' | 'desc'>('desc')
   const [collapsedWeeks, setCollapsedWeeks] = useState<Set<string>>(new Set())
+  const [collapsedDays,  setCollapsedDays]  = useState<Set<string>>(new Set())
 
   function toggleSort(col: typeof sortBy) {
     if (sortBy === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
@@ -1768,6 +1769,14 @@ export default function OficiosPanel({
     setCollapsedWeeks(prev => {
       const next = new Set(prev)
       next.has(key) ? next.delete(key) : next.add(key)
+      return next
+    })
+  }
+  function toggleDay(weekKey: string, dayKey: string) {
+    const k = `${weekKey}|${dayKey}`
+    setCollapsedDays(prev => {
+      const next = new Set(prev)
+      next.has(k) ? next.delete(k) : next.add(k)
       return next
     })
   }
@@ -2161,21 +2170,21 @@ export default function OficiosPanel({
                   <th className="px-4 py-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
                     <SortHeader label="Asunto" col="asunto" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
                   </th>
-                  <th className="px-4 py-3 w-[9%] text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
+                  <th className="px-4 py-3 w-[8%] text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
                     <SortHeader label="Fecha doc." col="fecha_documento" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
                   </th>
-                  <th className="px-4 py-3 w-[9%] text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
+                  <th className="px-4 py-3 w-[8%] text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
                     <SortHeader label="Recepción" col="fecha_recepcion" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
                   </th>
-                  <th className="px-4 py-3 w-[18%] text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Proyecto / Esp.</th>
-                  <th className="px-4 py-3 w-[11%] text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
+                  <th className="px-3 py-3 w-[9%] text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
                     <SortHeader label={tab === 'salida' ? 'Subido por' : 'Estado'} col="estado" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
                   </th>
-                  <th className="px-4 py-3 w-[8%] text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Asignado</th>
-                  <th className="px-4 py-3 w-[14%] text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
+                  <th className="px-3 py-3 w-[7%] text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Asignado</th>
+                  <th className="px-3 py-3 w-[10%] text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
                     <SortHeader label="No. oficio" col="no_oficio" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
                   </th>
-                  <th className="px-4 py-3 w-16"></th>
+                  <th className="px-3 py-3 w-[14%] text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Proyecto / Esp.</th>
+                  <th className="px-4 py-3 w-14"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
@@ -2227,21 +2236,21 @@ export default function OficiosPanel({
                           <th className="px-4 py-2 text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
                             <SortHeader label="Asunto" col="asunto" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
                           </th>
-                          <th className="px-4 py-2 w-[9%] text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
+                          <th className="px-4 py-2 w-[8%] text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
                             <SortHeader label="Fecha doc." col="fecha_documento" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
                           </th>
-                          <th className="px-4 py-2 w-[9%] text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
+                          <th className="px-4 py-2 w-[8%] text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
                             <SortHeader label="Recepción" col="fecha_recepcion" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
                           </th>
-                          <th className="px-4 py-2 w-[18%] text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Proyecto / Esp.</th>
-                          <th className="px-4 py-2 w-[11%] text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
+                          <th className="px-3 py-2 w-[9%] text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
                             <SortHeader label={tab === 'salida' ? 'Subido por' : 'Estado'} col="estado" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
                           </th>
-                          <th className="px-4 py-2 w-[8%] text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Asignado</th>
-                          <th className="px-4 py-2 w-[14%] text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
+                          <th className="px-3 py-2 w-[7%] text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Asignado</th>
+                          <th className="px-3 py-2 w-[10%] text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
                             <SortHeader label="No. oficio" col="no_oficio" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
                           </th>
-                          <th className="px-4 py-2 w-16" />
+                          <th className="px-3 py-2 w-[14%] text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Proyecto / Esp.</th>
+                          <th className="px-4 py-2 w-14" />
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-50">
@@ -2254,27 +2263,37 @@ export default function OficiosPanel({
                             dayMap.get(dk)!.push(o)
                           }
                           const dayGroups = [...dayMap.entries()].sort((a, b) => b[0].localeCompare(a[0]))
-                          return dayGroups.flatMap(([dk, dayItems]) => [
-                            <tr key={`day-${dk}`} className="border-b border-slate-100">
-                              <td colSpan={10} className="px-4 py-1.5 bg-slate-50/70">
-                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                                  {dk === 'Sin fecha' ? 'Sin fecha'
-                                    : new Date(dk + 'T12:00:00').toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' })}
-                                </span>
-                                <span className="ml-2 text-[10px] text-slate-300">{dayItems.length}</span>
-                              </td>
-                            </tr>,
-                            ...dayItems.map(o => (
-                              <OficioRow
-                                key={o.id} oficio={o} projects={projects} members={members}
-                                especialidades={especialidades} mesas={mesas} workspaceId={workspaceId}
-                                canEdit={canEdit} canDelete={canDelete}
-                                isSelected={selected.has(o.id)} onToggleSelect={toggleSelect}
-                                onEdit={openEdit} respuesta={respuestasMap[o.id] ?? null}
-                                rowAnexos={anexos.filter(a => a.oficio_id === o.id)}
-                              />
-                            ))
-                          ])
+                          return dayGroups.flatMap(([dk, dayItems]) => {
+                            const dayCollapseKey = `${key}|${dk}`
+                            const dayCollapsed = collapsedDays.has(dayCollapseKey)
+                            return [
+                              <tr key={`day-${dk}`} className="border-b border-slate-100 cursor-pointer hover:bg-slate-100/50 select-none" onClick={() => toggleDay(key, dk)}>
+                                <td colSpan={10} className="px-4 py-1.5 bg-slate-50/70">
+                                  <div className="flex items-center gap-1.5">
+                                    {dayCollapsed
+                                      ? <ChevronRight className="w-3 h-3 text-slate-400 flex-shrink-0" />
+                                      : <ChevronDown className="w-3 h-3 text-slate-400 flex-shrink-0" />
+                                    }
+                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                                      {dk === 'Sin fecha' ? 'Sin fecha'
+                                        : new Date(dk + 'T12:00:00').toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' })}
+                                    </span>
+                                    <span className="ml-1 text-[10px] text-slate-300">{dayItems.length}</span>
+                                  </div>
+                                </td>
+                              </tr>,
+                              ...(dayCollapsed ? [] : dayItems.map(o => (
+                                <OficioRow
+                                  key={o.id} oficio={o} projects={projects} members={members}
+                                  especialidades={especialidades} mesas={mesas} workspaceId={workspaceId}
+                                  canEdit={canEdit} canDelete={canDelete}
+                                  isSelected={selected.has(o.id)} onToggleSelect={toggleSelect}
+                                  onEdit={openEdit} respuesta={respuestasMap[o.id] ?? null}
+                                  rowAnexos={anexos.filter(a => a.oficio_id === o.id)}
+                                />
+                              )))
+                            ]
+                          })
                         })() : items.map(o => (
                           <OficioRow
                             key={o.id} oficio={o} projects={projects} members={members}
