@@ -1634,13 +1634,13 @@ function OficioRow({
       </td>
 
       {/* Proyecto / Especialidad / Tema */}
-      <td className="px-4 py-3">
-        <div className="space-y-0.5">
+      <td className="px-4 py-3 overflow-hidden max-w-0">
+        <div className="space-y-0.5 min-w-0">
           {oficio.proyecto?.name && (
             <p className="text-xs font-medium text-slate-600 truncate">{oficio.proyecto.name}</p>
           )}
           {oficio.especialidad && (
-            <p className="text-[10px] text-slate-400">
+            <p className="text-[10px] text-slate-400 truncate">
               {especialidades.find(e => e.code === oficio.especialidad)?.name || oficio.especialidad}
             </p>
           )}
