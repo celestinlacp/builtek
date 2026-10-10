@@ -24,6 +24,14 @@ const POSTS = [
     date: 'Oct 2026',
   },
   {
+    slug: '/blog/vendor-lock-in-construccion',
+    category: 'Estrategia',
+    title: 'Vendor lock-in en construcción: cómo no quedar atrapado en tu software',
+    excerpt: 'Contratas un software para gestionar tu obra y años después descubres que no puedes salir sin perder todo. Así funciona el vendor lock-in — y así lo evitas.',
+    readTime: '8 min',
+    date: 'Oct 2026',
+  },
+  {
     slug: '/blog/agente-rag',
     category: 'Educación',
     title: 'Tu proyecto tiene 300 planos. ChatGPT no puede leerlos todos.',
