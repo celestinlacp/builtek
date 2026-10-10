@@ -61,25 +61,26 @@ export async function createTask(formData: FormData) {
     )
   }
 
-  // Trigger 1 — notificar al asignado principal por WhatsApp
-  if (primaryAssigneeId && task?.id) {
-    const [assigneeProfile, projectRes] = await Promise.all([
-      admin.from('profiles').select('full_name, phone').eq('id', primaryAssigneeId).single(),
+  // Notificar a TODOS los asignados por WhatsApp
+  if (assigneeIds.length > 0 && task?.id) {
+    const [profilesRes, projectRes] = await Promise.all([
+      admin.from('profiles').select('id, full_name, phone').in('id', assigneeIds),
       admin.from('projects').select('name').eq('id', projectId).single(),
     ])
 
-    const phone = normalizePhone(assigneeProfile.data?.phone)
-    if (phone) {
-      const assigneeName  = assigneeProfile.data?.full_name ?? 'Responsable'
-      const projectName   = projectRes.data?.name           ?? 'Proyecto'
-      const dueDateStr    = dueDate
-        ? new Date(dueDate + 'T00:00:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })
-        : 'Sin fecha'
+    const projectName = projectRes.data?.name ?? 'Proyecto'
+    const dueDateStr  = dueDate
+      ? new Date(dueDate + 'T00:00:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })
+      : 'Sin fecha'
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://builtek.app'
+    const taskUrl = `${baseUrl}/tasks?task=${task.id}`
 
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://builtek.app'
-      const taskUrl = task?.id ? `${baseUrl}/tasks?task=${task.id}` : `${baseUrl}/tasks`
+    for (const profile of (profilesRes.data ?? [])) {
+      const phone = normalizePhone(profile.phone)
+      if (!phone) continue
+      const assigneeName = profile.full_name ?? 'Responsable'
       const waResult = await sendMenvioWhatsApp('tarea_asignada', phone, [assigneeName, taskName, projectName, dueDateStr], taskUrl)
-      if (task?.id && workspaceId) {
+      if (workspaceId) {
         logActivity({ workspace_id: workspaceId, user_id: userId ?? null, action: waResult.ok ? 'whatsapp_sent' : 'whatsapp_error', entity_type: 'task', entity_id: task.id, entity_name: taskName, metadata: { template: 'tarea_asignada', phone, ...(waResult.ok ? { messageSid: waResult.messageSid } : { error: waResult.error }) } })
       }
     }
