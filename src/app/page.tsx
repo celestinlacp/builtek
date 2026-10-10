@@ -163,6 +163,7 @@ function Navbar() {
           <a href="#whatsapp" className="text-white/50 hover:text-white text-sm font-normal transition-colors">WhatsApp</a>
           <a href="#partner"  className="text-white/50 hover:text-white text-sm font-normal transition-colors">Partner</a>
           <a href="#precios"  className="text-white/50 hover:text-white text-sm font-normal transition-colors">Precios</a>
+          <Link href="/blog"  className="text-white/50 hover:text-white text-sm font-normal transition-colors">Blog</Link>
         </div>
 
         <div className="flex items-center gap-3">
