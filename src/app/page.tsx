@@ -283,7 +283,7 @@ function Hero() {
           El sistema operativo de la construcción
         </p>
 
-        <div className="hero-enter flex flex-col sm:flex-row items-center justify-center gap-3 mb-10 md:mb-16" style={{ animationDelay: '430ms' }}>
+        <div className="hero-enter flex flex-col sm:flex-row items-center justify-center gap-3 mb-5" style={{ animationDelay: '430ms' }}>
           <Link href="/demo"
             className="flex items-center gap-2 bg-[#00C2FF] text-[#0D1729] px-7 py-3.5 rounded-xl font-semibold text-base hover:bg-white transition-colors shadow-lg shadow-[#00C2FF]/20">
             Solicitar demo gratis
@@ -294,6 +294,20 @@ function Hero() {
             Ver módulos
             <ChevronRight className="w-4 h-4" />
           </a>
+        </div>
+
+        {/* Trust — vendor lock-in claim */}
+        <div className="hero-enter flex flex-wrap items-center justify-center gap-x-5 gap-y-2 mb-10 md:mb-14" style={{ animationDelay: '520ms' }}>
+          {[
+            'Sin vendor lock-in',
+            'Exporta tus datos cuando quieras',
+            'Sin contratos anuales forzados',
+          ].map(t => (
+            <span key={t} className="flex items-center gap-1.5 text-white/28 text-xs font-light">
+              <span className="text-[#00C2FF]/45 text-[10px]">✓</span>
+              {t}
+            </span>
+          ))}
         </div>
 
         {/* Mock app window — hidden on mobile */}
