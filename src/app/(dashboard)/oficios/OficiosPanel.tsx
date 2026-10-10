@@ -628,7 +628,7 @@ function OficioModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => onClose()} />
-      <div className={`relative bg-white rounded-2xl shadow-2xl w-full max-h-[90vh] flex flex-col ${pdfPreviewUrl ? 'max-w-5xl' : 'max-w-lg'}`}>
+      <div className={`relative bg-white rounded-2xl shadow-2xl w-full max-h-[90vh] flex flex-col ${pdfPreviewUrl ? 'max-w-[92vw]' : 'max-w-lg'}`}>
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 flex-shrink-0">
           <h2 className="text-base font-bold text-[#1A2744]">
             {isEdit ? 'Editar oficio' : `Nuevo oficio de ${tipo}`}
@@ -641,7 +641,7 @@ function OficioModal({
         <div className={`${pdfPreviewUrl ? 'flex flex-1 min-h-0' : 'overflow-y-auto'}`}>
 
         {pdfPreviewUrl && (
-          <div className="w-1/2 flex flex-col border-r border-slate-100 min-h-0 flex-shrink-0">
+          <div className="w-[65%] flex flex-col border-r border-slate-100 min-h-0 flex-shrink-0">
             <div className="flex items-center justify-center gap-2 px-4 py-2 bg-slate-50 border-b border-slate-100 flex-shrink-0">
               <button type="button"
                 onClick={() => setPdfZoom(z => Math.max(0.5, Math.round((z - 0.25) * 100) / 100))}
@@ -1645,8 +1645,9 @@ function OficioRow({
             </p>
           )}
           {oficio.tema && (
-            <span className="inline-flex items-center gap-0.5 bg-violet-50 text-violet-600 text-[10px] font-medium px-1.5 py-0.5 rounded-full truncate">
-              <Tag className="w-2.5 h-2.5 flex-shrink-0" />{oficio.tema}
+            <span className="inline-flex items-center gap-0.5 bg-violet-50 text-violet-600 text-[10px] font-medium px-1.5 py-0.5 rounded-full max-w-full overflow-hidden" title={oficio.tema}>
+              <Tag className="w-2.5 h-2.5 flex-shrink-0" />
+              <span className="truncate">{oficio.tema}</span>
             </span>
           )}
           {oficio.mesa_id && (
@@ -2244,7 +2245,37 @@ export default function OficiosPanel({
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-50">
-                        {items.map(o => (
+                        {viewMode === 'semana' ? (() => {
+                          // Sub-agrupar por día dentro de la semana
+                          const dayMap = new Map<string, Oficio[]>()
+                          for (const o of items) {
+                            const dk = o.fecha_recepcion?.slice(0, 10) || o.fecha_documento?.slice(0, 10) || 'Sin fecha'
+                            if (!dayMap.has(dk)) dayMap.set(dk, [])
+                            dayMap.get(dk)!.push(o)
+                          }
+                          const dayGroups = [...dayMap.entries()].sort((a, b) => b[0].localeCompare(a[0]))
+                          return dayGroups.flatMap(([dk, dayItems]) => [
+                            <tr key={`day-${dk}`} className="border-b border-slate-100">
+                              <td colSpan={10} className="px-4 py-1.5 bg-slate-50/70">
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                                  {dk === 'Sin fecha' ? 'Sin fecha'
+                                    : new Date(dk + 'T12:00:00').toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' })}
+                                </span>
+                                <span className="ml-2 text-[10px] text-slate-300">{dayItems.length}</span>
+                              </td>
+                            </tr>,
+                            ...dayItems.map(o => (
+                              <OficioRow
+                                key={o.id} oficio={o} projects={projects} members={members}
+                                especialidades={especialidades} mesas={mesas} workspaceId={workspaceId}
+                                canEdit={canEdit} canDelete={canDelete}
+                                isSelected={selected.has(o.id)} onToggleSelect={toggleSelect}
+                                onEdit={openEdit} respuesta={respuestasMap[o.id] ?? null}
+                                rowAnexos={anexos.filter(a => a.oficio_id === o.id)}
+                              />
+                            ))
+                          ])
+                        })() : items.map(o => (
                           <OficioRow
                             key={o.id} oficio={o} projects={projects} members={members}
                             especialidades={especialidades} mesas={mesas} workspaceId={workspaceId}
