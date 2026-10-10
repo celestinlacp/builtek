@@ -45,7 +45,7 @@ export default function Sidebar({ workspaceName, features, role }: { workspaceNa
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
+      <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto scrollbar-hide">
         {NAV.map(({ href, icon: Icon, label, badge }) => {
           const active = pathname === href || (href !== '/dashboard' && pathname.startsWith(href))
           return (
