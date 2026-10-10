@@ -662,3 +662,43 @@ export async function replaceDocument(data: {
   revalidatePath('/documents')
   return { success: true }
 }
+
+// ── Document Folders ──────────────────────────────────────────────────────────
+
+export async function createDocumentFolder(data: {
+  project_id:     string
+  specialty_code: string
+  name:           string
+}) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Unauthorized')
+  const { data: folder, error } = await supabase
+    .from('document_folders')
+    .insert({ ...data, created_by: user.id })
+    .select()
+    .single()
+  if (error) throw error
+  revalidatePath('/documents')
+  return folder as { id: string; name: string; specialty_code: string; project_id: string }
+}
+
+export async function renameDocumentFolder(folderId: string, name: string) {
+  const supabase = await createClient()
+  await supabase.from('document_folders').update({ name }).eq('id', folderId)
+  revalidatePath('/documents')
+}
+
+export async function deleteDocumentFolder(folderId: string) {
+  const supabase = await createClient()
+  // Docs dentro de la carpeta quedan sin carpeta (raíz de la disciplina)
+  await supabase.from('documents').update({ folder_id: null }).eq('folder_id', folderId)
+  await supabase.from('document_folders').delete().eq('id', folderId)
+  revalidatePath('/documents')
+}
+
+export async function moveDocumentToFolder(docId: string, folderId: string | null) {
+  const supabase = await createClient()
+  await supabase.from('documents').update({ folder_id: folderId }).eq('id', docId)
+  revalidatePath('/documents')
+}

@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import { Calendar, MapPin } from 'lucide-react'
 import type { Metadata } from 'next'
 import ShareContent from './ShareContent'
-import type { ShareDoc, ShareSubproject } from './ShareContent'
+import type { ShareDoc, ShareSubproject, ShareFolder } from './ShareContent'
 
 export const dynamic = 'force-dynamic'
 
@@ -138,6 +138,19 @@ export default async function SharePage(
     uploaderName:   uploaderNameById[d.uploaded_by] ?? null,
   }))
 
+  // Carpetas de documentos del proyecto
+  const { data: foldersRaw } = await admin
+    .from('document_folders')
+    .select('id, specialty_code, name')
+    .in('project_id', allProjectIds)
+    .order('name')
+
+  const folders: ShareFolder[] = (foldersRaw ?? []).map((f: any) => ({
+    id:             f.id,
+    specialty_code: f.specialty_code,
+    name:           f.name,
+  }))
+
   // ── UI ─────────────────────────────────────────────────────────────────────
 
   const hasCover = !!project.cover_image_url
@@ -252,6 +265,7 @@ export default async function SharePage(
         rootProjectId={share.project_id}
         subprojects={subprojects}
         documents={documents}
+        folders={folders}
         token={token}
       />
 

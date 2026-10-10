@@ -311,3 +311,9 @@ export async function getWorkspaceShares(workspaceId: string) {
 
   return { shares: enriched }
 }
+
+export async function moveFileToFolder(fileId: string, folderId: string | null) {
+  const supabase = await createClient()
+  await supabase.from('drive_files').update({ folder_id: folderId }).eq('id', fileId)
+  revalidatePath('/drive')
+}

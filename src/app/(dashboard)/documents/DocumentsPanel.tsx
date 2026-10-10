@@ -3,11 +3,11 @@
 import React, { useState, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Project, Company } from '@/types'
-import { saveDocument, updateDocumentStatus, requestDeleteDocument, approveDeleteRequest, rejectDeleteRequest, deleteDocument, deleteDocumentVersion, deleteArchivedVersion, submitForReview, approveDocument, rejectDocument, replaceDocument, updateProjectCover, createSubproject, updateProjectClassification } from './actions'
+import { saveDocument, updateDocumentStatus, requestDeleteDocument, approveDeleteRequest, rejectDeleteRequest, deleteDocument, deleteDocumentVersion, deleteArchivedVersion, submitForReview, approveDocument, rejectDocument, replaceDocument, updateProjectCover, createSubproject, updateProjectClassification, createDocumentFolder, renameDocumentFolder, deleteDocumentFolder, moveDocumentToFolder } from './actions'
 import { createOficio } from '../oficios/actions'
 import {
   Upload, Download, Trash2, ChevronDown, ChevronRight, ArrowLeft, Package,
-  FolderOpen, CheckCircle2, Clock, XCircle, Eye, AlertTriangle, ShieldCheck, ShieldX, X, Loader2, History, GitBranch, SlidersHorizontal, Info, RefreshCw, Camera, Plus, Layers, Pencil, Milestone, LayoutList, AlignJustify, Share2,
+  FolderOpen, FolderPlus, Folder, CheckCircle2, Clock, XCircle, Eye, AlertTriangle, ShieldCheck, ShieldX, X, Loader2, History, GitBranch, SlidersHorizontal, Info, RefreshCw, Camera, Plus, Layers, Pencil, Milestone, LayoutList, AlignJustify, Share2,
 } from 'lucide-react'
 import { parseDocKey, TIPO_PLANO_DEFAULT, TIPO_DOC_DEFAULT, detectFileFormat } from './utils'
 import DocumentSlideOver from './DocumentSlideOver'
@@ -15,6 +15,8 @@ import { ShareProjectModal } from '../admin/ShareProjectModal'
 
 type OfiEntry    = { id: string; no_oficio: string | null; asunto: string; tipo: string; proyecto_id: string | null; especialidad: string | null }
 type MesaTecnica = { id: string; nombre: string; codigo: string | null; especialidad: string | null }
+
+type DocFolder = { id: string; project_id: string; specialty_code: string; name: string }
 
 type Specialty = { id: string; name: string; code: string; category: string }
 
@@ -1810,7 +1812,7 @@ function SubprojectHero({
 
 function ProjectDetailView({
   project, documents, workspaceId, userRole, deleteRequests, currentUserId,
-  subprojects, parentProject, onBack, onUpload, onSelectSub, coverUrls,
+  subprojects, parentProject, onBack, onUpload, onSelectSub, coverUrls, docFolders,
 }: {
   project: Project
   documents: Doc[]
@@ -1824,6 +1826,7 @@ function ProjectDetailView({
   onUpload: () => void
   onSelectSub: (id: string) => void
   coverUrls: Record<string, string>
+  docFolders: DocFolder[]
 }) {
   const [selected,         setSelected]         = useState<Set<string>>(new Set())
   const [filterStatus,     setFilterStatus]     = useState('all')
@@ -1839,8 +1842,53 @@ function ProjectDetailView({
   const [newSubDesc,       setNewSubDesc]       = useState('')
   const [newSubType,       setNewSubType]       = useState('')
   const [creatingSub,      setCreatingSub]      = useState(false)
+  // Carpetas por disciplina
+  const [folders,          setFolders]          = useState<DocFolder[]>(docFolders)
+  const [collapsedGroups,  setCollapsedGroups]  = useState<Set<string>>(new Set())
+  const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(new Set())
+  const [newFolderInput,   setNewFolderInput]   = useState<Record<string, string>>({})   // groupKey → nombre en edición
+  const [savingFolder,     setSavingFolder]     = useState<string | null>(null)           // groupKey en proceso
+  const [editingFolderId,  setEditingFolderId]  = useState<string | null>(null)
+  const [editingFolderName,setEditingFolderName]= useState('')
+  // Drag & drop
+  const [draggingDocId,    setDraggingDocId]    = useState<string | null>(null)
+  const [dragOverTarget,   setDragOverTarget]   = useState<string | null>(null)  // folderId | 'root__<groupKey>'
   const isAdmin        = ['owner', 'admin'].includes(userRole)
   const canManageProjects = ['owner', 'admin', 'manager'].includes(userRole)
+
+  // ── Handlers de carpetas ───────────────────────────────────────────────────
+  async function handleCreateFolder(groupKey: string, specialtyCode: string) {
+    const name = (newFolderInput[groupKey] || '').trim()
+    if (!name) return
+    setSavingFolder(groupKey)
+    try {
+      const folder = await createDocumentFolder({ project_id: project.id, specialty_code: specialtyCode, name })
+      setFolders(prev => [...prev, folder])
+      setNewFolderInput(prev => ({ ...prev, [groupKey]: '' }))
+    } finally {
+      setSavingFolder(null)
+    }
+  }
+
+  async function handleRenameFolder(folderId: string, name: string) {
+    await renameDocumentFolder(folderId, name)
+    setFolders(prev => prev.map(f => f.id === folderId ? { ...f, name } : f))
+    setEditingFolderId(null)
+  }
+
+  async function handleDeleteFolder(folderId: string) {
+    if (!confirm('¿Eliminar esta carpeta? Los documentos quedarán sin carpeta.')) return
+    await deleteDocumentFolder(folderId)
+    setFolders(prev => prev.filter(f => f.id !== folderId))
+  }
+
+  // ── Handlers de drag & drop ─────────────────────────────────────────────────
+  async function handleDropOnFolder(docId: string, targetFolderId: string | null) {
+    setDraggingDocId(null)
+    setDragOverTarget(null)
+    await moveDocumentToFolder(docId, targetFolderId)
+    // Actualizar folder_id localmente para feedback inmediato (revalidatePath refresca en background)
+  }
 
   async function handleCreateSubproject() {
     if (!newSubName.trim()) return
@@ -2207,13 +2255,70 @@ function ProjectDetailView({
         </div>
       ) : (
         <div className="space-y-6">
-          {Object.entries(displayGroups).map(([group, docs]) => (
+          {Object.entries(displayGroups).map(([group, docs]) => {
+            const isCollapsed  = collapsedGroups.has(group)
+            // Carpetas de esta disciplina (solo en modo disciplina)
+            const specCode     = docs[0]?.specialty?.code || docs[0]?.doc_key?.split('-')[3] || group
+            const groupFolders = sortMode === 'discipline'
+              ? folders.filter(f => f.project_id === project.id && f.specialty_code === specCode)
+              : []
+            return (
             <div key={group}>
-              {/* Encabezado de disciplina / recientes */}
+              {/* Encabezado de disciplina — colapsable */}
               {sortMode === 'discipline' && (
                 <div className="flex items-center gap-2 mb-2 px-1">
-                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">{group}</span>
-                  <span className="text-xs text-slate-300">{docs.length}</span>
+                  <button
+                    onClick={() => setCollapsedGroups(prev => {
+                      const next = new Set(prev)
+                      next.has(group) ? next.delete(group) : next.add(group)
+                      return next
+                    })}
+                    className="flex items-center gap-1.5 hover:opacity-70 transition-opacity"
+                    title={isCollapsed ? 'Expandir' : 'Colapsar'}
+                  >
+                    {isCollapsed
+                      ? <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+                      : <ChevronDown  className="w-3.5 h-3.5 text-slate-400" />
+                    }
+                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">{group}</span>
+                    <span className="text-xs text-slate-300">{docs.length}</span>
+                  </button>
+                  {/* Botón nueva carpeta */}
+                  {canManageProjects && !isCollapsed && (
+                    newFolderInput[group] !== undefined ? (
+                      <form
+                        className="flex items-center gap-1 ml-2"
+                        onSubmit={e => { e.preventDefault(); handleCreateFolder(group, specCode) }}
+                      >
+                        <input
+                          autoFocus
+                          value={newFolderInput[group]}
+                          onChange={e => setNewFolderInput(prev => ({ ...prev, [group]: e.target.value }))}
+                          onKeyDown={e => { if (e.key === 'Escape') setNewFolderInput(prev => { const n = {...prev}; delete n[group]; return n }) }}
+                          placeholder="Nombre de carpeta"
+                          className="text-xs border border-[#00C2FF] rounded-md px-2 py-0.5 outline-none w-36 bg-white"
+                        />
+                        <button type="submit" disabled={savingFolder === group}
+                          className="text-xs text-white bg-[#1A2744] px-2 py-0.5 rounded-md hover:bg-[#243660] disabled:opacity-50">
+                          {savingFolder === group ? '...' : 'OK'}
+                        </button>
+                        <button type="button"
+                          onClick={() => setNewFolderInput(prev => { const n = {...prev}; delete n[group]; return n })}
+                          className="text-slate-400 hover:text-slate-600">
+                          <X className="w-3 h-3" />
+                        </button>
+                      </form>
+                    ) : (
+                      <button
+                        onClick={() => setNewFolderInput(prev => ({ ...prev, [group]: '' }))}
+                        className="ml-2 flex items-center gap-1 text-[10px] text-slate-400 hover:text-[#00C2FF] transition-colors"
+                        title="Nueva carpeta"
+                      >
+                        <FolderPlus className="w-3.5 h-3.5" />
+                        <span>Nueva carpeta</span>
+                      </button>
+                    )
+                  )}
                 </div>
               )}
               {sortMode === 'recent' && (
@@ -2223,19 +2328,131 @@ function ProjectDetailView({
                 </div>
               )}
 
+              {/* Carpetas + docs (colapsable) */}
+              {!isCollapsed && (
               <div className="bg-white rounded-xl border border-slate-100">
+                {/* Sub-carpetas de esta disciplina */}
+                {groupFolders.map(folder => {
+                  const folderDocs  = docs.filter((d: any) => d.folder_id === folder.id)
+                  const isFolderCollapsed = collapsedFolders.has(folder.id)
+                  const isDragTarget = dragOverTarget === folder.id
+                  return (
+                    <div key={folder.id}
+                      onDragOver={e => { e.preventDefault(); setDragOverTarget(folder.id) }}
+                      onDragLeave={() => setDragOverTarget(null)}
+                      onDrop={e => { e.preventDefault(); if (draggingDocId) handleDropOnFolder(draggingDocId, folder.id) }}
+                      className={`border-b border-slate-100 transition-colors ${isDragTarget ? 'bg-[#00C2FF]/5 ring-2 ring-inset ring-[#00C2FF]/30 rounded-t-xl' : ''}`}
+                    >
+                      {/* Header carpeta */}
+                      <div className="flex items-center gap-2 px-4 py-2 bg-slate-50/80 group">
+                        <button
+                          onClick={() => setCollapsedFolders(prev => { const n = new Set(prev); n.has(folder.id) ? n.delete(folder.id) : n.add(folder.id); return n })}
+                          className="flex items-center gap-1.5 flex-1 text-left hover:opacity-70 transition-opacity"
+                        >
+                          {isFolderCollapsed
+                            ? <ChevronRight className="w-3 h-3 text-slate-400" />
+                            : <ChevronDown  className="w-3 h-3 text-slate-400" />
+                          }
+                          <Folder className="w-3.5 h-3.5 text-[#00C2FF]" />
+                          {editingFolderId === folder.id ? (
+                            <form onSubmit={e => { e.preventDefault(); handleRenameFolder(folder.id, editingFolderName) }} onClick={e => e.stopPropagation()}>
+                              <input autoFocus value={editingFolderName}
+                                onChange={e => setEditingFolderName(e.target.value)}
+                                onKeyDown={e => { if (e.key === 'Escape') setEditingFolderId(null) }}
+                                onBlur={() => handleRenameFolder(folder.id, editingFolderName)}
+                                className="text-xs font-semibold text-slate-700 border-b border-[#00C2FF] bg-transparent outline-none w-32"
+                              />
+                            </form>
+                          ) : (
+                            <span className="text-xs font-semibold text-slate-600">{folder.name}</span>
+                          )}
+                          <span className="text-[10px] text-slate-300 ml-1">{folderDocs.length}</span>
+                          {isDragTarget && <span className="text-[10px] text-[#00C2FF] font-semibold ml-1">Soltar aqui</span>}
+                        </button>
+                        {canManageProjects && editingFolderId !== folder.id && (
+                          <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onClick={() => { setEditingFolderId(folder.id); setEditingFolderName(folder.name) }}
+                              className="w-6 h-6 flex items-center justify-center rounded hover:bg-slate-200 text-slate-400 hover:text-slate-600">
+                              <Pencil className="w-3 h-3" />
+                            </button>
+                            <button onClick={() => handleDeleteFolder(folder.id)}
+                              className="w-6 h-6 flex items-center justify-center rounded hover:bg-red-50 text-slate-400 hover:text-red-500">
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                      {/* Docs de esta carpeta */}
+                      {!isFolderCollapsed && folderDocs.map((doc: any, idx: number) => {
+                        const fileIcon = FILE_ICONS[doc.file_type || 'other'] || '📁'
+                        const isPendingDelete = doc.doc_status === 'pending_delete'
+                        const isLast = idx === folderDocs.length - 1
+                        const docName = doc.display_name || doc.file_name || doc.name
+                        return (
+                        <div key={doc.id}
+                          draggable
+                          onDragStart={() => setDraggingDocId(doc.id)}
+                          onDragEnd={() => { setDraggingDocId(null); setDragOverTarget(null) }}
+                          className={`flex items-center gap-3 px-4 py-3 border-b border-slate-50 hover:bg-slate-50 group cursor-grab active:cursor-grabbing ${isPendingDelete ? 'opacity-60' : ''} ${isLast && !(doc.doc_key && expandedHistory.has(doc.doc_key) && archivedByDocKey[doc.doc_key]?.length) ? 'border-b-0' : ''}`}>
+                          <input type="checkbox" checked={selected.has(doc.id)} onChange={() => toggleDoc(doc.id)} className="w-3.5 h-3.5 accent-[#1A2744] flex-shrink-0" />
+                          <span className="text-base w-5 flex-shrink-0">{fileIcon}</span>
+                          <div className="flex-1 min-w-0">
+                            {doc.file_type === 'pdf' ? (
+                              <button onClick={() => setViewingDoc({ id: doc.id, name: docName })} className="text-sm font-medium text-slate-700 truncate block w-full text-left hover:text-[#00C2FF] transition-colors">{docName}</button>
+                            ) : (
+                              <p className="text-sm font-medium text-slate-700 truncate">{docName}</p>
+                            )}
+                            {doc.file_name && doc.file_name !== docName && <p className="text-[11px] text-slate-400 truncate font-mono leading-tight mb-0.5">{doc.file_name}</p>}
+                            <p className="text-xs text-slate-400 flex items-center gap-1.5 flex-wrap">
+                              {doc.version_number !== null ? <span className="font-mono bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded font-bold">v{String(doc.version_number).padStart(4, '0')}</span> : <span>v{doc.version}</span>}
+                              {doc.doc_view && <span className="font-mono bg-[#00C2FF]/10 text-[#0099CC] px-1.5 py-0.5 rounded font-bold text-[10px]">{doc.doc_view}</span>}
+                              {doc.mic_version && <span className={`px-1.5 py-0.5 rounded font-bold text-[10px] ${doc.mic_version === 'V1' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>{doc.mic_version}</span>}
+                              <span>·</span><span>{doc.file_type?.toUpperCase() || '—'}</span><span>·</span><span>{formatSize(doc.file_size)}</span>
+                            </p>
+                          </div>
+                          <span className="hidden lg:block text-xs text-slate-500 w-28 truncate">{doc.author || '—'}</span>
+                          <span className="hidden lg:block text-xs text-slate-400 w-24">{doc.emission_date ? new Date(doc.emission_date).toLocaleDateString('es-MX') : '—'}</span>
+                          <div className="w-28"><WorkflowBadge doc={doc} userRole={userRole} /></div>
+                          <div className="flex items-center gap-0.5 w-28 justify-end">
+                            <button onClick={() => setSlideDoc(doc)} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-[#00C2FF]/10 text-slate-400 hover:text-[#00C2FF]"><SlidersHorizontal className="w-3.5 h-3.5" /></button>
+                            {doc.storage_key && <a href={`/api/documents/download/${doc.id}`} target="_blank" rel="noopener noreferrer" className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600"><Download className="w-3.5 h-3.5" /></a>}
+                            {canManageProjects && !isPendingDelete && <button onClick={() => setReplaceDoc(doc)} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600"><RefreshCw className="w-3.5 h-3.5" /></button>}
+                            {(isAdmin || !isPendingDelete) && <button onClick={() => handleDelete(doc)} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-500">{isAdmin ? <Trash2 className="w-3.5 h-3.5" /> : <AlertTriangle className="w-3.5 h-3.5" />}</button>}
+                          </div>
+                        </div>
+                        )
+                      })}
+                      {!isFolderCollapsed && folderDocs.length === 0 && (
+                        <div className="px-8 py-3 text-[11px] text-slate-300 italic">Arrastra documentos aqui para organizarlos en esta carpeta</div>
+                      )}
+                    </div>
+                  )
+                })}
+
+                {/* Zona "Sin carpeta" — drop target para sacar de carpeta */}
+                {groupFolders.length > 0 && draggingDocId && (
+                  <div
+                    onDragOver={e => { e.preventDefault(); setDragOverTarget('root__' + group) }}
+                    onDragLeave={() => setDragOverTarget(null)}
+                    onDrop={e => { e.preventDefault(); if (draggingDocId) handleDropOnFolder(draggingDocId, null) }}
+                    className={`px-4 py-2 text-[10px] font-semibold transition-colors ${dragOverTarget === 'root__' + group ? 'bg-slate-50 text-slate-500' : 'text-transparent'}`}
+                  >
+                    Quitar de carpeta
+                  </div>
+                )}
+
                 {/* Header columnas */}
                 <div className="flex items-center gap-3 px-4 py-2.5 bg-slate-50 border-b border-slate-100 text-xs font-bold text-slate-400 uppercase tracking-wide rounded-t-xl">
                   <span className="w-5" />
                   <span className="w-5" />
                   <span className="flex-1">Documento</span>
                   <span className="hidden lg:block w-28">Autor</span>
-                  <span className="hidden lg:block w-24">{sortMode === 'recent' ? 'Subido' : 'Versión'}</span>
+                  <span className="hidden lg:block w-24">{sortMode === 'recent' ? 'Subido' : 'Version'}</span>
                   <span className="w-28">Flujo</span>
                   <span className="w-28 text-right">Acciones</span>
                 </div>
 
-                {docs.map((doc, idx) => {
+                {docs.filter((d: any) => !d.folder_id || !groupFolders.find(f => f.id === d.folder_id)).map((doc, idx) => {
                   const fileIcon = FILE_ICONS[doc.file_type || 'other'] || '📁'
                   const isPendingDelete = doc.doc_status === 'pending_delete'
                   const isLast = idx === docs.length - 1
@@ -2244,7 +2461,10 @@ function ProjectDetailView({
                   return (
                     <React.Fragment key={doc.id}>
                     <div
-                      className={`flex items-center gap-3 px-4 py-3 border-b border-slate-50 hover:bg-slate-50 group ${isPendingDelete ? 'opacity-60' : ''} ${isLast && !(doc.doc_key && expandedHistory.has(doc.doc_key) && archivedByDocKey[doc.doc_key]?.length) ? 'rounded-b-xl border-b-0' : ''}`}>
+                      draggable
+                      onDragStart={() => setDraggingDocId(doc.id)}
+                      onDragEnd={() => { setDraggingDocId(null); setDragOverTarget(null) }}
+                      className={`flex items-center gap-3 px-4 py-3 border-b border-slate-50 hover:bg-slate-50 group cursor-grab active:cursor-grabbing ${isPendingDelete ? 'opacity-60' : ''} ${isLast && !(doc.doc_key && expandedHistory.has(doc.doc_key) && archivedByDocKey[doc.doc_key]?.length) ? 'rounded-b-xl border-b-0' : ''}`}>
                       {/* Checkbox */}
                       <input type="checkbox"
                         checked={selected.has(doc.id)}
@@ -2435,8 +2655,10 @@ function ProjectDetailView({
                   )
                 })}
               </div>
+              )}{/* fin !isCollapsed */}
             </div>
-          ))}
+          )
+          })}
         </div>
       )}
 
@@ -2473,7 +2695,7 @@ function ProjectDetailView({
 // ── Componente principal ───────────────────────────────────────────────────────
 
 export default function DocumentsPanel({
-  documents, projects, workspaceId, userRole, deleteRequests, currentUserId, companies, members, micNomenclatures, workspaceOficios, mesasTecnicas, coverUrls
+  documents, projects, workspaceId, userRole, deleteRequests, currentUserId, companies, members, micNomenclatures, workspaceOficios, mesasTecnicas, docFolders, coverUrls
 }: {
   documents: Doc[]
   projects: Project[]
@@ -2486,6 +2708,7 @@ export default function DocumentsPanel({
   micNomenclatures: MicNomenclature[]
   workspaceOficios: OfiEntry[]
   mesasTecnicas: MesaTecnica[]
+  docFolders: DocFolder[]
   coverUrls: Record<string, string>
 }) {
   const router = useRouter()
@@ -2562,6 +2785,7 @@ export default function DocumentsPanel({
           onUpload={() => setShowUpload(true)}
           onSelectSub={selectProject}
           coverUrls={coverUrls}
+          docFolders={docFolders}
         />
       )}
 

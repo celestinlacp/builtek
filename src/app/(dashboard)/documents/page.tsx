@@ -29,7 +29,7 @@ export default async function DocumentsPage() {
   const wsId    = membership.workspace_id
   const userRole = membership.role as string
 
-  const [projectsRes, docsRes, deleteReqRes, companiesRes, membersRes, nomenclaturesRes, oficiosRes, mesasRes] = await Promise.all([
+  const [projectsRes, docsRes, deleteReqRes, companiesRes, membersRes, nomenclaturesRes, oficiosRes, mesasRes, foldersRes] = await Promise.all([
     supabase
       .from('projects')
       .select('id, name, status, workspace_id, description, start_date, end_date, frente, project_type, cover_image_url, parent_project_id, chainage_start, chainage_end, mic_identifier, created_at, is_inah, cruce_vial, cauces_federales')
@@ -77,6 +77,10 @@ export default async function DocumentsPage() {
       .eq('is_active', true)
       .order('sort_order')
       .order('nombre'),
+    supabase
+      .from('document_folders')
+      .select('id, project_id, specialty_code, name, created_at')
+      .order('name'),
   ])
 
   const projects         = projectsRes.data       || []
@@ -84,8 +88,9 @@ export default async function DocumentsPage() {
   const deleteRequests   = deleteReqRes.data      || []
   const companies        = companiesRes.data      || []
   const micNomenclatures = nomenclaturesRes.data  || []
-  const workspaceOficios  = (oficiosRes.data || []) as { id: string; no_oficio: string | null; asunto: string; tipo: string; proyecto_id: string | null; especialidad: string | null }[]
-  const mesasTecnicas     = (mesasRes.data   || []) as { id: string; nombre: string; codigo: string | null; especialidad: string | null }[]
+  const workspaceOficios  = (oficiosRes.data  || []) as { id: string; no_oficio: string | null; asunto: string; tipo: string; proyecto_id: string | null; especialidad: string | null }[]
+  const mesasTecnicas     = (mesasRes.data    || []) as { id: string; nombre: string; codigo: string | null; especialidad: string | null }[]
+  const docFolders        = (foldersRes.data  || []) as { id: string; project_id: string; specialty_code: string; name: string; created_at: string }[]
 
   // Generar URLs presignadas para portadas de proyectos (evita round-trips individuales por tarjeta)
   const coverUrls: Record<string, string> = {}
@@ -141,6 +146,7 @@ export default async function DocumentsPage() {
         micNomenclatures={micNomenclatures as any}
         workspaceOficios={workspaceOficios}
         mesasTecnicas={mesasTecnicas}
+        docFolders={docFolders}
         coverUrls={coverUrls}
       />
     </div>

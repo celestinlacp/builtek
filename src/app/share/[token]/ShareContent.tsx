@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import {
   FileText, Layers, Image as ImageIcon, FileSpreadsheet, File,
-  Download, Eye, List, LayoutGrid, FolderOpen, Pen, UserRound, Filter,
+  Download, Eye, List, LayoutGrid, FolderOpen, Pen, UserRound, Filter, Folder,
 } from 'lucide-react'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -27,6 +27,7 @@ export type ShareDoc = {
 }
 
 export type ShareSubproject = { id: string; name: string }
+export type ShareFolder     = { id: string; specialty_code: string; name: string }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -225,12 +226,17 @@ function DocRow({ doc, token }: { doc: ShareDoc; token: string }) {
 
 // ── Specialty Section ──────────────────────────────────────────────────────────
 
-function SpecialtySection({ specialty, docs, view, token }: {
+function SpecialtySection({ specialty, docs, folders, view, token }: {
   specialty: string
   docs: ShareDoc[]
+  folders: ShareFolder[]
   view: 'grid' | 'list'
   token: string
 }) {
+  const rootDocs = folders.length > 0
+    ? docs.filter(d => !(d as any).folder_id || !folders.find(f => f.id === (d as any).folder_id))
+    : docs
+
   return (
     <div>
       <div className="flex items-center gap-3 mb-3">
@@ -239,14 +245,42 @@ function SpecialtySection({ specialty, docs, view, token }: {
         <span className="text-[10px] text-slate-300">({docs.length})</span>
         <span className="inline-block h-px flex-1 bg-slate-100" />
       </div>
-      {view === 'grid' ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {docs.map(doc => <DocCard key={doc.id} doc={doc} token={token} />)}
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {docs.map(doc => <DocRow key={doc.id} doc={doc} token={token} />)}
-        </div>
+
+      {/* Carpetas con sus docs */}
+      {folders.map(folder => {
+        const folderDocs = docs.filter(d => (d as any).folder_id === folder.id)
+        if (folderDocs.length === 0) return null
+        return (
+          <div key={folder.id} className="mb-5">
+            <div className="flex items-center gap-2 mb-2">
+              <FolderOpen className="w-3.5 h-3.5 text-[#00C2FF]" />
+              <span className="text-xs font-semibold text-slate-600">{folder.name}</span>
+              <span className="text-[10px] text-slate-300">({folderDocs.length})</span>
+            </div>
+            {view === 'grid' ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pl-5">
+                {folderDocs.map(doc => <DocCard key={doc.id} doc={doc} token={token} />)}
+              </div>
+            ) : (
+              <div className="space-y-2 pl-5">
+                {folderDocs.map(doc => <DocRow key={doc.id} doc={doc} token={token} />)}
+              </div>
+            )}
+          </div>
+        )
+      })}
+
+      {/* Docs sin carpeta */}
+      {rootDocs.length > 0 && (
+        view === 'grid' ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {rootDocs.map(doc => <DocCard key={doc.id} doc={doc} token={token} />)}
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {rootDocs.map(doc => <DocRow key={doc.id} doc={doc} token={token} />)}
+          </div>
+        )
       )}
     </div>
   )
@@ -258,11 +292,13 @@ export default function ShareContent({
   rootProjectId,
   subprojects,
   documents,
+  folders,
   token,
 }: {
   rootProjectId: string
   subprojects: ShareSubproject[]
   documents: ShareDoc[]
+  folders: ShareFolder[]
   token: string
 }) {
   const [activeTab,        setActiveTab]        = useState<string>('all')
@@ -384,7 +420,7 @@ export default function ShareContent({
           </h2>
           <div className="space-y-7">
             {Object.entries(bySpecialty).map(([specialty, docs]) => (
-              <SpecialtySection key={specialty} specialty={specialty} docs={docs} view={view} token={token} />
+              <SpecialtySection key={specialty} specialty={specialty} docs={docs} folders={folders.filter(f => docs.some(d => (d as any).folder_id ? folders.find(fo => fo.id === (d as any).folder_id)?.specialty_code === f.specialty_code : false))} view={view} token={token} />
             ))}
           </div>
         </section>

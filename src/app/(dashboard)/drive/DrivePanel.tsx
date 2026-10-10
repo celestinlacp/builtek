@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { createFolder, saveDriveFile, replaceFile, deleteFolder, deleteDriveFile, renameFolder, createShare, revokeShare, revokeShares, getWorkspaceShares, getWorkspaceProjectShares, getWorkspaceOficiosSalida, updateShare } from './actions'
+import { createFolder, saveDriveFile, replaceFile, deleteFolder, deleteDriveFile, renameFolder, createShare, revokeShare, revokeShares, getWorkspaceShares, getWorkspaceProjectShares, getWorkspaceOficiosSalida, updateShare, moveFileToFolder } from './actions'
 import { FileTypeIcon } from '@/components/ui/FileTypeIcon'
 import QRCode from 'react-qr-code'
 import {
@@ -747,14 +747,16 @@ function PdfViewerModal({ fileId, fileName, onClose }: { fileId: string; fileNam
 
 // ── Folder Card ───────────────────────────────────────────────────────────────
 
-function FolderCard({ folder, onOpen, onDelete, onRename, onShare, isAdmin, viewMode }: {
-  folder:   DriveFolder
-  onOpen:   () => void
-  onDelete: () => void
-  onRename: (name: string) => void
-  onShare:  () => void
-  isAdmin:  boolean
-  viewMode: 'grid' | 'list'
+function FolderCard({ folder, onOpen, onDelete, onRename, onShare, onDrop, isDragOver, isAdmin, viewMode }: {
+  folder:     DriveFolder
+  onOpen:     () => void
+  onDelete:   () => void
+  onRename:   (name: string) => void
+  onShare:    () => void
+  onDrop:     () => void
+  isDragOver: boolean
+  isAdmin:    boolean
+  viewMode:   'grid' | 'list'
 }) {
   const [editing,   setEditing]   = useState(false)
   const [editName,  setEditName]  = useState(folder.name)
@@ -769,8 +771,11 @@ function FolderCard({ folder, onOpen, onDelete, onRename, onShare, isAdmin, view
 
   if (viewMode === 'list') {
     return (
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-50 hover:bg-slate-50 group">
-        <FolderOpen className="w-5 h-5 text-[#00C2FF] flex-shrink-0" />
+      <div className={`flex items-center gap-3 px-4 py-3 border-b border-slate-50 hover:bg-slate-50 group transition-colors ${isDragOver ? 'bg-[#00C2FF]/8 ring-2 ring-inset ring-[#00C2FF]/40' : ''}`}
+        onDragOver={e => { e.preventDefault(); e.stopPropagation() }}
+        onDrop={e => { e.preventDefault(); e.stopPropagation(); onDrop() }}
+      >
+        <FolderOpen className={`w-5 h-5 flex-shrink-0 ${isDragOver ? 'text-[#00C2FF] scale-110' : 'text-[#00C2FF]'} transition-transform`} />
         <div className="flex-1 min-w-0">
           {editing ? (
             <input ref={inputRef} value={editName}
@@ -808,8 +813,11 @@ function FolderCard({ folder, onOpen, onDelete, onRename, onShare, isAdmin, view
   }
 
   return (
-    <div className="group relative bg-white border border-slate-100 rounded-xl p-4 hover:border-[#00C2FF]/40 hover:shadow-sm transition-all cursor-pointer"
-      onClick={onOpen}>
+    <div className={`group relative bg-white border rounded-xl p-4 hover:shadow-sm transition-all cursor-pointer ${isDragOver ? 'border-[#00C2FF] bg-[#00C2FF]/5 shadow-md' : 'border-slate-100 hover:border-[#00C2FF]/40'}`}
+      onClick={onOpen}
+      onDragOver={e => { e.preventDefault(); e.stopPropagation() }}
+      onDrop={e => { e.preventDefault(); e.stopPropagation(); onDrop() }}
+    >
       <div className="flex items-start justify-between mb-3">
         <div className="w-12 h-12 bg-[#00C2FF]/10 rounded-xl flex items-center justify-center">
           <FolderOpen className="w-6 h-6 text-[#00C2FF]" />
@@ -1369,6 +1377,8 @@ export default function DrivePanel({ workspaceId, userRole, currentUserId }: {
   const [showUpload,    setShowUpload]    = useState(false)
   const [dropFiles,     setDropFiles]     = useState<File[] | undefined>(undefined)
   const [dragOverPanel, setDragOverPanel] = useState(false)
+  const [draggingFileId,  setDraggingFileId]  = useState<string | null>(null)
+  const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null)
   const [showNewFolder, setShowNewFolder] = useState(false)
   const [newFolderName, setNewFolderName] = useState('')
   const [creatingFolder, setCreatingFolder] = useState(false)
@@ -1479,6 +1489,13 @@ export default function DrivePanel({ workspaceId, userRole, currentUserId }: {
   })
 
   const isEmpty = !loading && folders.length === 0 && filteredFiles.length === 0
+
+  async function handleMoveFileToFolder(fileId: string, folderId: string) {
+    setDraggingFileId(null)
+    setDragOverFolderId(null)
+    await moveFileToFolder(fileId, folderId)
+    await loadContents(currentFolder.id)
+  }
 
   // Uploaders únicos en el conjunto actual de archivos (para el filtro)
   const uploaderOptions = Array.from(new Set(files.map(f => f.uploaded_by)))
@@ -1708,12 +1725,19 @@ export default function DrivePanel({ workspaceId, userRole, currentUserId }: {
                       </div>
                     )}
                     {myFolders.map(f => (
-                      <FolderCard key={f.id} folder={f} viewMode="list"
-                        onOpen={() => openFolder(f)}
-                        onDelete={() => handleDeleteFolder(f.id, f.name)}
-                        onRename={name => handleRenameFolder(f.id, name)}
-                        onShare={() => setSharingFolder({ id: f.id, name: f.name })}
-                        isAdmin={true} />
+                      <div key={f.id}
+                        onDragEnter={() => { if (draggingFileId) setDragOverFolderId(f.id) }}
+                        onDragLeave={() => setDragOverFolderId(null)}
+                      >
+                        <FolderCard folder={f} viewMode="list"
+                          onOpen={() => openFolder(f)}
+                          onDelete={() => handleDeleteFolder(f.id, f.name)}
+                          onRename={name => handleRenameFolder(f.id, name)}
+                          onShare={() => setSharingFolder({ id: f.id, name: f.name })}
+                          onDrop={() => { if (draggingFileId) handleMoveFileToFolder(draggingFileId, f.id) }}
+                          isDragOver={dragOverFolderId === f.id}
+                          isAdmin={true} />
+                      </div>
                     ))}
                     {Object.entries(othersByOwner).map(([ownerId, ownerFolders]) => (
                       <div key={ownerId}>
@@ -1728,18 +1752,28 @@ export default function DrivePanel({ workspaceId, userRole, currentUserId }: {
                             onDelete={() => handleDeleteFolder(f.id, f.name)}
                             onRename={name => handleRenameFolder(f.id, name)}
                             onShare={() => setSharingFolder({ id: f.id, name: f.name })}
+                            onDrop={() => { if (draggingFileId) handleMoveFileToFolder(draggingFileId, f.id) }}
+                            isDragOver={dragOverFolderId === f.id}
                             isAdmin={isAdmin} />
                         ))}
                       </div>
                     ))}
                     {filteredFiles.map(f => (
-                      <FileCard key={f.id} file={f} viewMode="list"
-                        onView={() => setViewingFile({ id: f.id, name: f.name })}
-                        onDelete={() => handleDeleteFile(f.id, f.name)}
-                        onShare={() => setSharingFile({ id: f.id, name: f.name })}
-                        onReplace={() => setReplacingFile({ id: f.id, name: f.name })}
-                        uploaderName={memberNames[f.uploaded_by] || 'Usuario'}
-                        isAdmin={isSystemFolder ? isAdmin : (f.uploaded_by === currentUserId || isAdmin)} />
+                      <div key={f.id}
+                        draggable
+                        onDragStart={() => { setDraggingFileId(f.id); setDragOverFolderId(null) }}
+                        onDragEnd={() => { setDraggingFileId(null); setDragOverFolderId(null) }}
+                        onDragEnter={() => setDragOverFolderId(null)}
+                        className="cursor-grab active:cursor-grabbing"
+                      >
+                        <FileCard file={f} viewMode="list"
+                          onView={() => setViewingFile({ id: f.id, name: f.name })}
+                          onDelete={() => handleDeleteFile(f.id, f.name)}
+                          onShare={() => setSharingFile({ id: f.id, name: f.name })}
+                          onReplace={() => setReplacingFile({ id: f.id, name: f.name })}
+                          uploaderName={memberNames[f.uploaded_by] || 'Usuario'}
+                          isAdmin={isSystemFolder ? isAdmin : (f.uploaded_by === currentUserId || isAdmin)} />
+                      </div>
                     ))}
                   </div>
                 )
@@ -1765,6 +1799,8 @@ export default function DrivePanel({ workspaceId, userRole, currentUserId }: {
                               onDelete={() => handleDeleteFolder(f.id, f.name)}
                               onRename={name => handleRenameFolder(f.id, name)}
                               onShare={() => setSharingFolder({ id: f.id, name: f.name })}
+                              onDrop={() => { if (draggingFileId) handleMoveFileToFolder(draggingFileId, f.id) }}
+                              isDragOver={dragOverFolderId === f.id}
                               isAdmin={true} />
                           ))}
                         </div>
@@ -1782,6 +1818,8 @@ export default function DrivePanel({ workspaceId, userRole, currentUserId }: {
                               onDelete={() => handleDeleteFolder(f.id, f.name)}
                               onRename={name => handleRenameFolder(f.id, name)}
                               onShare={() => setSharingFolder({ id: f.id, name: f.name })}
+                              onDrop={() => { if (draggingFileId) handleMoveFileToFolder(draggingFileId, f.id) }}
+                              isDragOver={dragOverFolderId === f.id}
                               isAdmin={isAdmin} />
                           ))}
                         </div>
@@ -1795,6 +1833,8 @@ export default function DrivePanel({ workspaceId, userRole, currentUserId }: {
                             onDelete={() => handleDeleteFolder(f.id, f.name)}
                             onRename={name => handleRenameFolder(f.id, name)}
                             onShare={() => setSharingFolder({ id: f.id, name: f.name })}
+                            onDrop={() => { if (draggingFileId) handleMoveFileToFolder(draggingFileId, f.id) }}
+                            isDragOver={dragOverFolderId === f.id}
                             isAdmin={f.created_by === currentUserId || isAdmin} />
                         ))}
                       </div>
