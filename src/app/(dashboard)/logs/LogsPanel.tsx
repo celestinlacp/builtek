@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react'
 import {
   Upload, CheckSquare, Clock, Share2, UserPlus, FileText,
-  HardDrive, RefreshCw, Filter, Users
+  HardDrive, RefreshCw, Filter, Users, MessageCircle, AlertCircle
 } from 'lucide-react'
 
 type LogEntry = {
@@ -57,8 +57,10 @@ function getActionMeta(action: string): ActionMeta {
     case 'drive_upload':     return { label: 'Subió archivo (Drive)',icon: HardDrive,   color: 'text-indigo-500 bg-indigo-50' }
     case 'share_link_created':    return { label: 'Compartió enlace',   icon: Share2,  color: 'text-cyan-600 bg-cyan-50' }
     case 'share_project_created': return { label: 'Compartió proyecto', icon: Share2,  color: 'text-cyan-600 bg-cyan-50' }
-    case 'member_invited':   return { label: 'Invitó a un miembro',  icon: UserPlus,    color: 'text-pink-500 bg-pink-50' }
-    default:                 return { label: action,                  icon: Clock,       color: 'text-slate-400 bg-slate-100' }
+    case 'member_invited':   return { label: 'Invitó a un miembro',  icon: UserPlus,      color: 'text-pink-500 bg-pink-50' }
+    case 'whatsapp_sent':    return { label: 'WhatsApp enviado',     icon: MessageCircle, color: 'text-green-600 bg-green-50' }
+    case 'whatsapp_error':   return { label: 'Error WhatsApp',       icon: AlertCircle,   color: 'text-red-500 bg-red-50' }
+    default:                 return { label: action,                  icon: Clock,         color: 'text-slate-400 bg-slate-100' }
   }
 }
 
@@ -68,6 +70,7 @@ const ACTION_GROUPS: { label: string; values: string[] }[] = [
   { label: 'Drive',      values: ['drive_upload'] },
   { label: 'Compartir',  values: ['share_link_created', 'share_project_created'] },
   { label: 'Equipo',     values: ['member_invited'] },
+  { label: 'WhatsApp',   values: ['whatsapp_sent', 'whatsapp_error'] },
 ]
 
 export default function LogsPanel({ logs, members }: { logs: LogEntry[]; members: Member[] }) {
@@ -154,6 +157,10 @@ export default function LogsPanel({ logs, members }: { logs: LogEntry[]; members
                             ? `Nueva fecha: ${log.metadata.new_date}`
                             : log.action === 'drive_upload' && log.metadata.file_type
                             ? `${log.metadata.file_type}`
+                            : log.action === 'whatsapp_sent' && log.metadata.phone
+                            ? `→ ${log.metadata.phone}`
+                            : log.action === 'whatsapp_error'
+                            ? `Error: ${log.metadata.error ?? 'desconocido'}`
                             : null}
                         </p>
                       )}

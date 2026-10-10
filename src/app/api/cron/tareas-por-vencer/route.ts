@@ -13,6 +13,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { sendMenvioWhatsApp, normalizePhone } from '@/lib/menvio'
+import { logActivity } from '@/lib/activity'
 
 function getAdminClient() {
   return createClient(
@@ -38,7 +39,7 @@ export async function GET(req: NextRequest) {
   // 1. Tareas que vencen HOY y NO son de 1 día (creadas antes de hoy)
   const { data: todayTasks, error: todayError } = await admin
     .from('tasks')
-    .select('id, name, due_date, assignee_id, created_at, projects(name)')
+    .select('id, name, due_date, assignee_id, created_at, workspace_id, projects(name)')
     .eq('due_date', todayDate)
     .not('status', 'in', '(done,blocked)')
     .not('assignee_id', 'is', null)
@@ -52,7 +53,7 @@ export async function GET(req: NextRequest) {
   //    → se les envía el recordatorio al día siguiente (hoy)
   const { data: sameDayTasks } = await admin
     .from('tasks')
-    .select('id, name, due_date, assignee_id, created_at, projects(name)')
+    .select('id, name, due_date, assignee_id, created_at, workspace_id, projects(name)')
     .eq('due_date', yesterdayDate)
     .not('status', 'in', '(done,blocked)')
     .not('assignee_id', 'is', null)
@@ -97,6 +98,11 @@ export async function GET(req: NextRequest) {
       [assigneeName, task.name, projectName, dueDateStr],
       taskUrl
     )
+
+    const wsId = (task as any).workspace_id as string | undefined
+    if (wsId) {
+      logActivity({ workspace_id: wsId, user_id: task.assignee_id as string, action: result.ok ? 'whatsapp_sent' : 'whatsapp_error', entity_type: 'task', entity_id: task.id, entity_name: task.name, metadata: { template: 'tarea_por_vencer', phone, ...(result.ok ? { messageSid: result.messageSid } : { error: result.error }) } })
+    }
 
     if (result.ok) sent++
     else skipped++

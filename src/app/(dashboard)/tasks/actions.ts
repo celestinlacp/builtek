@@ -78,7 +78,10 @@ export async function createTask(formData: FormData) {
 
       const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://builtek.app'
       const taskUrl = task?.id ? `${baseUrl}/tasks?task=${task.id}` : `${baseUrl}/tasks`
-      await sendMenvioWhatsApp('tarea_asignada', phone, [assigneeName, taskName, projectName, dueDateStr], taskUrl)
+      const waResult = await sendMenvioWhatsApp('tarea_asignada', phone, [assigneeName, taskName, projectName, dueDateStr], taskUrl)
+      if (task?.id && workspaceId) {
+        logActivity({ workspace_id: workspaceId, user_id: userId ?? null, action: waResult.ok ? 'whatsapp_sent' : 'whatsapp_error', entity_type: 'task', entity_id: task.id, entity_name: taskName, metadata: { template: 'tarea_asignada', phone, ...(waResult.ok ? { messageSid: waResult.messageSid } : { error: waResult.error }) } })
+      }
     }
   }
 
@@ -411,7 +414,7 @@ export async function unlinkOficioFromTask(oficioId: string) {
 }
 
 export async function updateTaskAssignees(taskId: string, userIds: string[]) {
-  await getWorkspaceId()
+  const { workspaceId } = await getWorkspaceId()
   const admin = getAdminClient()
   const capped = userIds.slice(0, 2)
   await admin.from('task_assignees').delete().eq('task_id', taskId)
@@ -438,7 +441,10 @@ export async function updateTaskAssignees(taskId: string, userIds: string[]) {
         : 'Sin fecha'
       const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://builtek.app'
       const taskUrl = `${baseUrl}/tasks?task=${taskId}`
-      await sendMenvioWhatsApp('tarea_asignada', phone, [assigneeName, taskName, projectName, dueDateStr], taskUrl)
+      const waResult = await sendMenvioWhatsApp('tarea_asignada', phone, [assigneeName, taskName, projectName, dueDateStr], taskUrl)
+      if (workspaceId) {
+        logActivity({ workspace_id: workspaceId, user_id: null, action: waResult.ok ? 'whatsapp_sent' : 'whatsapp_error', entity_type: 'task', entity_id: taskId, entity_name: taskName, metadata: { template: 'tarea_asignada', phone, ...(waResult.ok ? { messageSid: waResult.messageSid } : { error: waResult.error }) } })
+      }
     }
   }
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { sendMenvioTemplate, normalizePhone } from '@/lib/menvio'
+import { logActivity } from '@/lib/activity'
 
 /**
  * GET /api/cron/task-reminders
@@ -29,7 +30,7 @@ export async function GET(req: NextRequest) {
   const { data: tasks, error } = await admin
     .from('tasks')
     .select(`
-      id, name, due_date, assignee_id, created_at,
+      id, name, due_date, assignee_id, created_at, workspace_id,
       project:projects(name),
       assignee:profiles!tasks_assignee_id_fkey(full_name, phone)
     `)
@@ -58,12 +59,17 @@ export async function GET(req: NextRequest) {
     const assigneeName = assignee?.full_name ?? 'Responsable'
     const projectName  = (task.project as unknown as { name: string } | null)?.name ?? 'Proyecto'
 
-    await sendMenvioTemplate({
+    const waResult = await sendMenvioTemplate({
       contacts:      [{ name: assigneeName, phone }],
       template_name: 'builtek_tarea_por_vencer',
       variables:     [projectName, task.name, assigneeName, '24 horas'],
       button_url:    `https://builtek.app/tasks/${task.id}`,
     })
+
+    const wsId = (task as any).workspace_id as string | undefined
+    if (wsId) {
+      logActivity({ workspace_id: wsId, user_id: task.assignee_id as string, action: waResult.ok ? 'whatsapp_sent' : 'whatsapp_error', entity_type: 'task', entity_id: task.id, entity_name: task.name, metadata: { template: 'builtek_tarea_por_vencer', phone, ...(waResult.ok ? {} : { error: waResult.error }) } })
+    }
 
     sent++
   }
