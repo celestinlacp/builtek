@@ -1576,6 +1576,17 @@ function ProjectsView({
   const pkOptions    = [...new Set(rootProjects.map(p => p.chainage_start).filter(v => v != null))] as number[]
   pkOptions.sort((a, b) => a - b)
 
+  // Fecha del documento más reciente por proyecto raíz (incluye subproyectos)
+  const subprojectIds: Record<string, string> = {}
+  projects.forEach(p => { if (p.parent_project_id) subprojectIds[p.id] = p.parent_project_id })
+  const latestDocByRoot: Record<string, number> = {}
+  documents.forEach(d => {
+    if (!d.project_id) return
+    const rootId = subprojectIds[d.project_id] ?? d.project_id
+    const t = new Date(d.created_at).getTime()
+    if (!latestDocByRoot[rootId] || t > latestDocByRoot[rootId]) latestDocByRoot[rootId] = t
+  })
+
   function projectMatchesFilter(p: Project) {
     if (filterFrente !== 'all' && p.frente !== filterFrente) return false
     if (filterType   !== 'all' && p.project_type !== filterType) return false
@@ -1593,10 +1604,15 @@ function ProjectsView({
       return subs.some(s => projectMatchesFilter(s))
     })
     .sort((a, b) => {
-      if (!sortByPK) return 0
-      const pa = a.chainage_start ?? Infinity
-      const pb = b.chainage_start ?? Infinity
-      return pa - pb
+      if (sortByPK) {
+        const pa = a.chainage_start ?? Infinity
+        const pb = b.chainage_start ?? Infinity
+        return pa - pb
+      }
+      // Default: proyectos con docs recientes primero; sin docs al final
+      const ta = latestDocByRoot[a.id] ?? 0
+      const tb = latestDocByRoot[b.id] ?? 0
+      return tb - ta
     })
 
   if (rootProjects.length === 0) {
