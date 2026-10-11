@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { updateTaskStatus, deleteTask } from './actions'
 import { Task, Project } from '@/types'
 import {
@@ -327,13 +328,26 @@ function dueSortKey(task: ExtendedTask): number {
   return new Date(task.due_date + 'T00:00:00').getTime()
 }
 
-function KanbanCard({ task, onOpen }: { task: ExtendedTask; onOpen: (t: ExtendedTask) => void }) {
+function KanbanCard({ task, onOpen, onMarkDone }: { task: ExtendedTask; onOpen: (t: ExtendedTask) => void; onMarkDone: (id: string) => void }) {
   const s = STATUS_BAR[task.status] || STATUS_BAR.pending
   const now = new Date()
   const due = task.due_date ? new Date(task.due_date + 'T00:00:00') : null
   const diffDays = due ? Math.ceil((due.getTime() - now.getTime()) / 86400000) : null
   const isDone = task.status === 'done'
   const isOverdue = !isDone && diffDays !== null && diffDays < 0
+
+  // ── Progress bar: elapsed vs total duration ──────────────────────────────
+  const created = new Date(task.created_at ?? 0)
+  const totalMs  = due ? due.getTime() - created.getTime() : null
+  const elapsedMs = due ? now.getTime() - created.getTime() : null
+  const progress  = totalMs && totalMs > 0 ? Math.max(0, elapsedMs! / totalMs) : null
+
+  function progressBarColor(p: number): string {
+    if (p >= 1)    return 'bg-red-500'
+    if (p >= 0.75) return 'bg-orange-400'
+    if (p >= 0.5)  return 'bg-amber-400'
+    return 'bg-emerald-400'
+  }
 
   let dueBadge: React.ReactNode = null
   if (due) {
@@ -355,14 +369,24 @@ function KanbanCard({ task, onOpen }: { task: ExtendedTask; onOpen: (t: Extended
   }
 
   return (
-    <button
+    <div
       onClick={() => onOpen(task)}
-      className={`w-full text-left bg-white rounded-xl border border-slate-100 shadow-sm hover:shadow-md hover:border-[#00C2FF]/30 transition-all overflow-hidden group ${isDone ? 'opacity-60' : ''}`}
+      className={`relative w-full text-left bg-white rounded-xl border border-slate-100 shadow-sm hover:shadow-md hover:border-[#00C2FF]/30 transition-all overflow-hidden group cursor-pointer ${isDone ? 'opacity-60' : ''}`}
     >
+      {/* Mark as done button — visible on hover */}
+      {!isDone && (
+        <button
+          onClick={e => { e.stopPropagation(); onMarkDone(task.id) }}
+          title="Marcar como hecha"
+          className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 w-5 h-5 rounded-full bg-slate-100 hover:bg-emerald-100 text-slate-300 hover:text-emerald-500 flex items-center justify-center transition-all"
+        >
+          <CheckCircle2 className="w-3 h-3" />
+        </button>
+      )}
       <div className="flex">
         {/* Left status bar */}
         <div className={`w-1 flex-shrink-0 ${s.bar}`} />
-        <div className="flex-1 p-3 min-w-0">
+        <div className="flex-1 p-3 min-w-0 pr-7">
           {/* Task name */}
           <p className={`text-sm font-semibold text-[#1A2744] leading-tight mb-2 group-hover:text-[#00C2FF] transition-colors ${isDone ? 'line-through text-slate-400' : ''}`}>
             {task.name}
@@ -373,8 +397,26 @@ function KanbanCard({ task, onOpen }: { task: ExtendedTask; onOpen: (t: Extended
             <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${s.bg} ${s.text}`}>
               {s.label}
             </span>
-            {/* Due date */}
-            {dueBadge}
+            {/* Due date + progress bar */}
+            {due && (
+              <div className="flex items-center gap-1.5">
+                {dueBadge}
+                {!isDone && progress !== null && (
+                  <div className="flex items-center gap-1">
+                    <div className="w-12 h-1.5 bg-slate-100 rounded-full overflow-hidden flex-shrink-0" title={diffDays !== null ? (diffDays > 0 ? `${diffDays} días restantes` : diffDays === 0 ? 'Vence hoy' : `Vencida hace ${Math.abs(diffDays)} días`) : ''}>
+                      <div
+                        className={`h-full rounded-full transition-all ${progressBarColor(progress)}`}
+                        style={{ width: `${Math.min(progress * 100, 100)}%` }}
+                      />
+                    </div>
+                    {diffDays !== null && diffDays > 0 && (
+                      <span className="text-[9px] text-slate-300 font-medium flex-shrink-0 leading-none">{diffDays}d</span>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+            {!due && dueBadge}
             {/* Priority dot */}
             {task.priority && task.priority !== 'medium' && (
               <span className={`w-2 h-2 rounded-full flex-shrink-0 ${PRIORITY_COLOR[task.priority] || 'bg-slate-300'}`} title={task.priority} />
@@ -386,7 +428,7 @@ function KanbanCard({ task, onOpen }: { task: ExtendedTask; onOpen: (t: Extended
           )}
         </div>
       </div>
-    </button>
+    </div>
   )
 }
 
@@ -397,11 +439,12 @@ const AVATAR_COLORS = [
 ]
 
 function KanbanByPerson({
-  personGroups, showRecent, onOpen,
+  personGroups, showRecent, onOpen, onMarkDone,
 }: {
   personGroups: { member: { user_id: string | null; full_name: string | null; initials: string | null }; tasks: ExtendedTask[] }[]
   showRecent: boolean
   onOpen: (t: ExtendedTask) => void
+  onMarkDone: (id: string) => void
 }) {
   const sevenDaysAgo = Date.now() - 7 * 86400000
 
@@ -452,7 +495,7 @@ function KanbanByPerson({
                 </div>
               ) : (
                 sorted.map(task => (
-                  <KanbanCard key={task.id} task={task} onOpen={onOpen} />
+                  <KanbanCard key={task.id} task={task} onOpen={onOpen} onMarkDone={onMarkDone} />
                 ))
               )}
             </div>
@@ -488,6 +531,12 @@ export default function TaskBoard({
   const [showNew, setShowNew] = useState(false)
   const [editTask, setEditTask] = useState<Task | null>(null)
   const [slideTask, setSlideTask] = useState<ExtendedTask | null>(null)
+  const router = useRouter()
+
+  async function handleMarkDone(taskId: string) {
+    await updateTaskStatus(taskId, 'done')
+    router.refresh()
+  }
 
   // Abrir slide-over automáticamente si viene ?task=<id> desde el dashboard
   useEffect(() => {
@@ -752,6 +801,7 @@ export default function TaskBoard({
             personGroups={personGroups}
             showRecent={showRecent}
             onOpen={setSlideTask}
+            onMarkDone={handleMarkDone}
           />
         )
       ) : (
