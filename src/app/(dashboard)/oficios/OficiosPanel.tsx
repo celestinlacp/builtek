@@ -1537,7 +1537,7 @@ function EstadoDropdown({ oficio, workspaceId }: { oficio: Oficio; workspaceId: 
       <button
         onClick={() => setOpen(v => !v)}
         disabled={loading}
-        className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full transition-opacity disabled:opacity-50 ${cfg.color}`}
+        className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap transition-opacity disabled:opacity-50 ${cfg.color}`}
       >
         <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
         {cfg.label}
