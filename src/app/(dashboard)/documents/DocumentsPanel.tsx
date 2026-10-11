@@ -242,8 +242,8 @@ function UploadModal({
   const [error,          setError]          = useState<string | null>(null)
   const [step,           setStep]           = useState('')
   const [uploadPct,      setUploadPct]      = useState(0)
-  const [versionWarning,   setVersionWarning]   = useState<{ prevVersion: number; newVersion: number } | null>(null)
-  const [overwriteWarning, setOverwriteWarning] = useState<{ existingName: string; version: number } | null>(null)
+  const [versionWarning, setVersionWarning] = useState<{ prevVersion: number; newVersion: number } | null>(null)
+  const [dupDoc,         setDupDoc]         = useState<Doc | null>(null)
   const [docView,        setDocView]        = useState(lastConfig?.docView || '')
   const [docViewNum,     setDocViewNum]     = useState(lastConfig?.docViewNum || '')
   const [docElement,     setDocElement]     = useState(lastConfig?.docElement || '')
@@ -303,14 +303,8 @@ function UploadModal({
     const parsed = parseDocKey(f.name)
     if (parsed) {
       const existing = existingDocs.find(d => d.doc_key === parsed.doc_key && d.is_current)
-      if (existing) {
-        if (existing.version_number !== null && existing.version_number === parsed.version_number) {
-          // Misma versión — sobreescritura directa
-          setOverwriteWarning({ existingName: existing.display_name || existing.file_name || existing.name, version: existing.version_number })
-        } else if (existing.version_number !== null && existing.version_number !== parsed.version_number) {
-          // Versión nueva — archiva la anterior
-          setVersionWarning({ prevVersion: existing.version_number, newVersion: parsed.version_number })
-        }
+      if (existing && existing.version_number !== null && existing.version_number !== parsed.version_number) {
+        setVersionWarning({ prevVersion: existing.version_number, newVersion: parsed.version_number })
       }
     }
     // Si es PDF y el oficio está activado, intentar extracción AI
@@ -368,13 +362,30 @@ function UploadModal({
     authorCompId = cid
   }
 
-  async function handleUpload() {
+  async function handleUpload(skipDupCheck = false) {
     if (!file || !projectId) { setError('Selecciona proyecto y archivo'); return }
     if (!identificador) { setError('Selecciona el identificador'); return }
     if (!specialtyCode) { setError('Selecciona la disciplina / especialidad'); return }
     if (!docType) { setError('Selecciona el tipo de documento'); return }
     if (docType === 'PLA' && !docView) { setError('Selecciona el tipo de plano'); return }
     if (!authorSel) { setError('Selecciona el autor o empresa'); return }
+
+    // Detectar si ya existe un documento con la misma clave AEC en este proyecto
+    if (!skipDupCheck) {
+      const formDocView = docType !== 'PLA' ? 'NA' : (docView + docViewNum).trim()
+      const dup = existingDocs.find(d =>
+        d.project_id === projectId &&
+        d.is_current === true &&
+        d.doc_status !== 'deleted' &&
+        d.doc_status !== 'archived' &&
+        d.specialty?.code === specialtyCode &&
+        (d.doc_type || '') === docType &&
+        (d.doc_view || '') === formDocView &&
+        (d.doc_element?.toLowerCase().trim() || '') === (docElement.toLowerCase().trim() || '')
+      )
+      if (dup) { setDupDoc(dup); return }
+    }
+
     setUploading(true); setError(null); setUploadPct(0)
 
     setStep('Preparando subida...')
@@ -645,16 +656,69 @@ function UploadModal({
             </button>
           </div>
 
-          {overwriteWarning && (
-            <div className="bg-red-50 border border-red-300 rounded-lg px-4 py-3 flex items-start gap-3">
-              <AlertTriangle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="text-sm font-semibold text-red-800">Sobreescritura de versión existente</p>
-                <p className="text-xs text-red-700 mt-0.5">
-                  Ya existe la versión <span className="font-mono font-bold">v{String(overwriteWarning.version).padStart(4, '0')}</span> de este documento:
+          {/* Confirmación bloqueante — el usuario debe confirmar explícitamente antes de continuar */}
+          {dupDoc && (
+            <div className="absolute inset-0 z-20 bg-white/[0.97] rounded-2xl flex flex-col items-center justify-center p-7 text-center">
+              <div className="w-14 h-14 bg-amber-100 rounded-2xl flex items-center justify-center mb-4 flex-shrink-0">
+                <AlertTriangle className="w-7 h-7 text-amber-500" />
+              </div>
+              <h3 className="text-base font-bold text-[#1A2744] mb-1">Documento ya existente</h3>
+              <p className="text-xs text-slate-500 mb-4 max-w-xs">
+                Ya hay una versión vigente con la misma clave en este proyecto.
+              </p>
+
+              {/* Ficha del documento existente */}
+              <div className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-left mb-4">
+                {dupDoc.doc_key && (
+                  <p className="text-[11px] font-mono font-bold text-[#00C2FF] mb-0.5 truncate">{dupDoc.doc_key}</p>
+                )}
+                <p className="text-sm font-semibold text-[#1A2744] leading-snug truncate">
+                  {dupDoc.display_name || dupDoc.name || dupDoc.file_name}
                 </p>
-                <p className="text-xs text-red-800 font-medium mt-1 truncate max-w-xs">{overwriteWarning.existingName}</p>
-                <p className="text-xs text-red-600 mt-1">Si continúas, el archivo actual será reemplazado permanentemente. ¿Estás seguro?</p>
+                <div className="flex items-center gap-2 mt-2 flex-wrap">
+                  <span className="text-[10px] font-mono bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded">
+                    v{String(dupDoc.version_number ?? 1).padStart(4, '0')}
+                  </span>
+                  {dupDoc.specialty?.name && (
+                    <span className="text-[10px] text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded-full">
+                      {dupDoc.specialty.name}
+                    </span>
+                  )}
+                  {dupDoc.status && STATUS_CONFIG[dupDoc.status as keyof typeof STATUS_CONFIG] && (
+                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${STATUS_CONFIG[dupDoc.status as keyof typeof STATUS_CONFIG].color}`}>
+                      {STATUS_CONFIG[dupDoc.status as keyof typeof STATUS_CONFIG].label}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Tip sobre el botón Reemplazar */}
+              <div className="w-full bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-4 text-left">
+                <p className="text-xs font-semibold text-amber-800 mb-0.5">¿Querías reemplazarlo?</p>
+                <p className="text-xs text-amber-700">
+                  Usa el botón <RefreshCw className="w-3 h-3 inline mx-0.5 align-text-top" />
+                  <strong> Reemplazar</strong> en las acciones del documento para una sustitución controlada que conserva el historial.
+                </p>
+              </div>
+
+              <p className="text-xs text-slate-400 mb-5">
+                Si continúas, este archivo se registrará como{' '}
+                <strong className="text-slate-600">nueva versión</strong> y la actual quedará archivada automáticamente.
+              </p>
+
+              <div className="flex gap-3 w-full">
+                <button
+                  onClick={() => setDupDoc(null)}
+                  className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => { setDupDoc(null); handleUpload(true) }}
+                  className="flex-1 px-4 py-2.5 rounded-xl bg-[#1A2744] hover:bg-[#243660] text-white text-sm font-semibold transition-colors"
+                >
+                  Subir de todas formas
+                </button>
               </div>
             </div>
           )}
