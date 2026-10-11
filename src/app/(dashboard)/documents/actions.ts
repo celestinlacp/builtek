@@ -690,16 +690,28 @@ export async function renameDocumentFolder(folderId: string, name: string) {
 }
 
 export async function deleteDocumentFolder(folderId: string) {
-  const supabase = await createClient()
+  const admin = getAdminClient()
   // Docs dentro de la carpeta quedan sin carpeta (raíz de la disciplina)
-  await supabase.from('documents').update({ folder_id: null }).eq('folder_id', folderId)
-  await supabase.from('document_folders').delete().eq('id', folderId)
+  await admin.from('documents').update({ folder_id: null }).eq('folder_id', folderId)
+  await admin.from('document_folders').delete().eq('id', folderId)
   revalidatePath('/documents')
 }
 
 export async function moveDocumentToFolder(docId: string, folderId: string | null) {
-  const supabase = await createClient()
-  const { error } = await supabase.from('documents').update({ folder_id: folderId }).eq('id', docId)
+  const admin = getAdminClient()
+  const { error } = await admin.from('documents').update({ folder_id: folderId }).eq('id', docId)
   if (error) throw new Error(error.message)
+  revalidatePath('/documents')
+}
+
+export async function moveFolderToProject(folderId: string, targetProjectId: string, specialtyCode: string | null) {
+  const admin = getAdminClient()
+  const { error: fe } = await admin
+    .from('document_folders')
+    .update({ project_id: targetProjectId, specialty_code: specialtyCode })
+    .eq('id', folderId)
+  if (fe) throw new Error(fe.message)
+  // Also update all docs inside the folder to the new project
+  await admin.from('documents').update({ project_id: targetProjectId }).eq('folder_id', folderId)
   revalidatePath('/documents')
 }

@@ -685,7 +685,7 @@ export default function FlowsPanel({
             </div>
 
             {/* Steps timeline */}
-            {flowSteps.length === 0 ? (
+            {flowSteps.length === 0 && !showAddStep ? (
               <div className="text-center py-12 border-2 border-dashed border-slate-200 rounded-2xl">
                 <Circle className="w-10 h-10 text-slate-200 mx-auto mb-3" />
                 <p className="text-sm text-slate-400 font-medium">Sin pasos aún</p>

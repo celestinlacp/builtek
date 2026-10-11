@@ -3,7 +3,7 @@
 import React, { useState, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Project, Company } from '@/types'
-import { saveDocument, updateDocumentStatus, requestDeleteDocument, approveDeleteRequest, rejectDeleteRequest, deleteDocument, deleteDocumentVersion, deleteArchivedVersion, submitForReview, approveDocument, rejectDocument, replaceDocument, updateProjectCover, createSubproject, updateProjectClassification, createDocumentFolder, renameDocumentFolder, deleteDocumentFolder, moveDocumentToFolder } from './actions'
+import { saveDocument, updateDocumentStatus, requestDeleteDocument, approveDeleteRequest, rejectDeleteRequest, deleteDocument, deleteDocumentVersion, deleteArchivedVersion, submitForReview, approveDocument, rejectDocument, replaceDocument, updateProjectCover, createSubproject, updateProjectClassification, createDocumentFolder, renameDocumentFolder, deleteDocumentFolder, moveDocumentToFolder, moveFolderToProject } from './actions'
 import { createOficio } from '../oficios/actions'
 import {
   Upload, Download, Trash2, ChevronDown, ChevronRight, ArrowLeft, Package,
@@ -47,6 +47,7 @@ type Doc = {
   file_name: string | null
   display_name: string | null
   project_id: string | null
+  folder_id: string | null
   storage_key: string | null
   file_type: string | null
   file_size: number | null
@@ -1880,6 +1881,11 @@ function ProjectDetailView({
   const [savingFolderModal, setSavingFolderModal] = useState(false)
   const [showMoveMenu,     setShowMoveMenu]     = useState(false)
   const [movingToFolder,   setMovingToFolder]   = useState(false)
+  // Move folder modal
+  const [movingFolder,     setMovingFolder]     = useState<DocFolder | null>(null)
+  const [moveFolderTarget, setMoveFolderTarget] = useState('')  // target projectId
+  const [moveFolderSpec,   setMoveFolderSpec]   = useState('')  // specialty code
+  const [savingMoveFolder, setSavingMoveFolder] = useState(false)
 
   // ── Handler modal global de nueva carpeta ───────────────────────────────────
   async function handleCreateFolderModal() {
@@ -1920,6 +1926,24 @@ function ProjectDetailView({
     if (!confirm('¿Eliminar esta carpeta? Los documentos quedarán sin carpeta.')) return
     await deleteDocumentFolder(folderId)
     setFolders(prev => prev.filter(f => f.id !== folderId))
+  }
+
+  async function handleConfirmMoveFolder() {
+    if (!movingFolder || !moveFolderTarget) return
+    setSavingMoveFolder(true)
+    try {
+      await moveFolderToProject(movingFolder.id, moveFolderTarget, moveFolderSpec || null)
+      setFolders(prev => prev.map(f => f.id === movingFolder.id
+        ? { ...f, project_id: moveFolderTarget, specialty_code: moveFolderSpec }
+        : f
+      ))
+      setMovingFolder(null)
+      router.refresh()
+    } catch (err) {
+      alert('Error al mover carpeta: ' + (err instanceof Error ? err.message : String(err)))
+    } finally {
+      setSavingMoveFolder(false)
+    }
   }
 
   // ── Handlers de drag & drop ─────────────────────────────────────────────────
@@ -1984,6 +2008,16 @@ function ProjectDetailView({
     if (!latestBySpec[code] || t > latestBySpec[code]) latestBySpec[code] = t
   })
   const usedSpecialties = [...specMap.values()].sort((a, b) => (latestBySpec[b.code] || 0) - (latestBySpec[a.code] || 0))
+
+  // All specialties across the entire project tree (for folder move modal)
+  const allTreeSpecialties: { code: string; name: string }[] = []
+  const allTreeSpecCodes = new Set<string>()
+  const allTreeIds = new Set([project.id, ...subprojects.map(s => s.id)])
+  documents.filter(d => d.project_id && allTreeIds.has(d.project_id)).forEach(d => {
+    const code = d.specialty?.code || d.doc_key?.split('-')[3]
+    const name = d.specialty?.name || code
+    if (code && !allTreeSpecCodes.has(code)) { allTreeSpecCodes.add(code); allTreeSpecialties.push({ code, name: name || code }) }
+  })
 
   let filtered = currentDocs
   if (filterStatus !== 'all')    filtered = filtered.filter(d => d.status === filterStatus)
@@ -2496,10 +2530,17 @@ function ProjectDetailView({
                         {canManageProjects && editingFolderId !== folder.id && (
                           <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                             <button onClick={() => { setEditingFolderId(folder.id); setEditingFolderName(folder.name) }}
+                              title="Renombrar carpeta"
                               className="w-6 h-6 flex items-center justify-center rounded hover:bg-slate-200 text-slate-400 hover:text-slate-600">
                               <Pencil className="w-3 h-3" />
                             </button>
+                            <button onClick={() => { setMovingFolder(folder); setMoveFolderTarget(folder.project_id); setMoveFolderSpec(folder.specialty_code) }}
+                              title="Mover carpeta a otro proyecto"
+                              className="w-6 h-6 flex items-center justify-center rounded hover:bg-blue-50 text-slate-400 hover:text-[#00C2FF]">
+                              <FolderOpen className="w-3 h-3" />
+                            </button>
                             <button onClick={() => handleDeleteFolder(folder.id)}
+                              title="Eliminar carpeta"
                               className="w-6 h-6 flex items-center justify-center rounded hover:bg-red-50 text-slate-400 hover:text-red-500">
                               <Trash2 className="w-3 h-3" />
                             </button>
@@ -2811,6 +2852,61 @@ function ProjectDetailView({
           workspaceId={workspaceId}
           onClose={() => setReplaceDoc(null)}
         />
+      )}
+
+      {/* Modal — Mover carpeta a otro proyecto/subproyecto */}
+      {movingFolder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+              <h2 className="text-base font-bold text-[#1A2744]">Mover carpeta</h2>
+              <button onClick={() => setMovingFolder(null)} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-400">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="px-6 py-4 space-y-4">
+              <p className="text-sm text-slate-600">Carpeta: <span className="font-semibold text-slate-800">{movingFolder.name}</span></p>
+              <div>
+                <label className="text-xs font-semibold text-slate-500 mb-1 block">Proyecto destino</label>
+                <select
+                  value={moveFolderTarget}
+                  onChange={e => setMoveFolderTarget(e.target.value)}
+                  className="w-full text-sm px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/40"
+                >
+                  <option value={project.id}>{project.name} (este proyecto)</option>
+                  {subprojects.map(s => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-slate-500 mb-1 block">Disciplina</label>
+                <select
+                  value={moveFolderSpec}
+                  onChange={e => setMoveFolderSpec(e.target.value)}
+                  className="w-full text-sm px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/40"
+                >
+                  {(allTreeSpecialties.length > 0 ? allTreeSpecialties : usedSpecialties).map(s => (
+                    <option key={s.code} value={s.code}>[{s.code}] {s.name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 px-6 pb-5">
+              <button onClick={() => setMovingFolder(null)}
+                className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
+                Cancelar
+              </button>
+              <button
+                onClick={handleConfirmMoveFolder}
+                disabled={savingMoveFolder || !moveFolderTarget}
+                className="px-4 py-2 text-sm font-semibold bg-[#1A2744] text-white rounded-lg hover:bg-[#243660] disabled:opacity-50 transition-colors flex items-center gap-2">
+                {savingMoveFolder && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                Mover carpeta
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
