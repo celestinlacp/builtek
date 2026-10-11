@@ -1858,6 +1858,25 @@ function ProjectDetailView({
   const [dragOverTarget,   setDragOverTarget]   = useState<string | null>(null)  // folderId | 'root__<groupKey>'
   const isAdmin        = ['owner', 'admin'].includes(userRole)
   const canManageProjects = ['owner', 'admin', 'manager'].includes(userRole)
+  const [showFolderModal,  setShowFolderModal]  = useState(false)
+  const [folderModalSpec,  setFolderModalSpec]  = useState('')  // specCode for new folder
+  const [folderModalName,  setFolderModalName]  = useState('')  // folder name
+  const [savingFolderModal, setSavingFolderModal] = useState(false)
+
+  // ── Handler modal global de nueva carpeta ───────────────────────────────────
+  async function handleCreateFolderModal() {
+    if (!folderModalName.trim() || !folderModalSpec) return
+    setSavingFolderModal(true)
+    try {
+      const folder = await createDocumentFolder({ project_id: project.id, specialty_code: folderModalSpec, name: folderModalName.trim() })
+      setFolders(prev => [...prev, folder])
+      setShowFolderModal(false)
+      setFolderModalName('')
+      if (sortMode !== 'discipline') setSortMode('discipline')
+    } finally {
+      setSavingFolderModal(false)
+    }
+  }
 
   // ── Handlers de carpetas ───────────────────────────────────────────────────
   async function handleCreateFolder(groupKey: string, specialtyCode: string) {
@@ -2244,6 +2263,15 @@ function ProjectDetailView({
                 ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
                 : <Package className="w-3.5 h-3.5" />}
               {downloading ? 'Generando ZIP...' : `Descargar ZIP (${selected.size})`}
+            </button>
+          )}
+
+          {/* Nueva carpeta global */}
+          {canManageProjects && (
+            <button onClick={() => { setFolderModalSpec(usedSpecialties[0]?.code || ''); setFolderModalName(''); setShowFolderModal(true) }}
+              className="flex items-center gap-2 border border-slate-200 text-slate-600 px-3 py-2 rounded-lg text-xs font-semibold hover:bg-slate-50 transition-colors">
+              <FolderPlus className="w-3.5 h-3.5" />
+              Nueva carpeta
             </button>
           )}
 
