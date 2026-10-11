@@ -1833,7 +1833,7 @@ function ProjectDetailView({
   const [selected,         setSelected]         = useState<Set<string>>(new Set())
   const [filterStatus,     setFilterStatus]     = useState('all')
   const [filterSpecialty,  setFilterSpecialty]  = useState('all')
-  const [sortMode,         setSortMode]         = useState<'discipline' | 'recent'>('recent')
+  const [sortMode,         setSortMode]         = useState<'discipline' | 'recent'>('discipline')
   const [viewingDoc,       setViewingDoc]       = useState<{ id: string; name: string } | null>(null)
   const [slideDoc,         setSlideDoc]         = useState<Doc | null>(null)
   const [replaceDoc,       setReplaceDoc]       = useState<Doc | null>(null)
@@ -1939,7 +1939,14 @@ function ProjectDetailView({
       if (code && !specMap.has(code)) specMap.set(code, { code, name: code, category: '' })
     }
   })
-  const usedSpecialties = [...specMap.values()].sort((a, b) => a.code.localeCompare(b.code))
+  // Ordenar disciplinas por el doc más recientemente subido en cada una
+  const latestBySpec: Record<string, number> = {}
+  currentDocs.forEach(d => {
+    const code = d.specialty?.code || d.doc_key?.split('-')[3] || '__none__'
+    const t = new Date(d.created_at).getTime()
+    if (!latestBySpec[code] || t > latestBySpec[code]) latestBySpec[code] = t
+  })
+  const usedSpecialties = [...specMap.values()].sort((a, b) => (latestBySpec[b.code] || 0) - (latestBySpec[a.code] || 0))
 
   let filtered = currentDocs
   if (filterStatus !== 'all')    filtered = filtered.filter(d => d.status === filterStatus)
