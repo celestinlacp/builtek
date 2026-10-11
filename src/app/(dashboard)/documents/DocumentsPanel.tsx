@@ -293,7 +293,7 @@ function UploadModal({
   async function handleFileChange(f: File | null) {
     setFile(f)
     setVersionWarning(null)
-    setOverwriteWarning(null)
+    setDupDoc(null)
     if (!f) { setFileFormat(null); return }
     // Pre-rellenar nombre descriptivo con nombre del archivo sin extension
     setDisplayName(f.name.replace(/\.[^.]+$/, ''))
@@ -1916,6 +1916,8 @@ function ProjectDetailView({
   const [selected,         setSelected]         = useState<Set<string>>(new Set())
   const [filterStatus,     setFilterStatus]     = useState('all')
   const [filterSpecialty,  setFilterSpecialty]  = useState('all')
+  const [filterProject,    setFilterProject]    = useState('all')
+  const [filterDocType,    setFilterDocType]    = useState('all')
   const [sortMode,         setSortMode]         = useState<'discipline' | 'recent'>('discipline')
   const [viewingDoc,       setViewingDoc]       = useState<{ id: string; name: string } | null>(null)
   const [slideDoc,         setSlideDoc]         = useState<Doc | null>(null)
@@ -2086,11 +2088,23 @@ function ProjectDetailView({
     if (code && !allTreeSpecCodes.has(code)) { allTreeSpecCodes.add(code); allTreeSpecialties.push({ code, name: name || code }) }
   })
 
-  let filtered = currentDocs
+  // Pool ampliado: proyecto principal + todos sus subproyectos (docs vigentes)
+  const poolDocs = documents.filter(d =>
+    d.project_id != null &&
+    allTreeIds.has(d.project_id) &&
+    d.is_current !== false &&
+    d.doc_status !== 'archived' &&
+    d.doc_status !== 'deleted'
+  )
+  // Tipos de documento disponibles en el pool
+  const usedDocTypes = [...new Set(poolDocs.map(d => d.doc_type).filter((t): t is string => !!t))].sort()
+
+  let filtered = filterProject === 'all' ? poolDocs : poolDocs.filter(d => d.project_id === filterProject)
   if (filterStatus !== 'all')    filtered = filtered.filter(d => d.status === filterStatus)
   if (filterSpecialty !== 'all') filtered = filtered.filter(d =>
     filterSpecialty === 'none' ? !getSpecCode(d) : getSpecCode(d) === filterSpecialty
   )
+  if (filterDocType !== 'all')   filtered = filtered.filter(d => (d.doc_type || '') === filterDocType)
 
   // Agrupar por disciplina (solo versiones vigentes)
   const grouped: Record<string, Doc[]> = {}
@@ -2373,6 +2387,35 @@ function ProjectDetailView({
             Seleccionar todos
           </label>
 
+          {/* Filtro por subproyecto */}
+          {subprojects.length > 0 && (
+            <select
+              value={filterProject}
+              onChange={e => { setFilterProject(e.target.value); setSelected(new Set()) }}
+              className="text-xs px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 font-medium focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/40"
+            >
+              <option value="all">Todos los subproyectos</option>
+              <option value={project.id}>Principal</option>
+              {subprojects.map(s => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
+          )}
+
+          {/* Filtro por tipo de documento */}
+          {usedDocTypes.length > 1 && (
+            <select
+              value={filterDocType}
+              onChange={e => setFilterDocType(e.target.value)}
+              className="text-xs px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 font-medium focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/40"
+            >
+              <option value="all">Todos los tipos</option>
+              {usedDocTypes.map(t => (
+                <option key={t} value={t}>[{t}]</option>
+              ))}
+            </select>
+          )}
+
           {/* Filtro de especialidad */}
           {usedSpecialties.length > 0 && (
             <select value={filterSpecialty} onChange={e => setFilterSpecialty(e.target.value)}
@@ -2381,7 +2424,7 @@ function ProjectDetailView({
               {usedSpecialties.map(s => (
                 <option key={s.code} value={s.code}>[{s.code}] {s.name}</option>
               ))}
-              {currentDocs.some(d => !d.specialty) && (
+              {poolDocs.some(d => !d.specialty) && (
                 <option value="none">Sin disciplina</option>
               )}
             </select>
