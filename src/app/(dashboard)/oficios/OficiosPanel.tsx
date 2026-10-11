@@ -1699,7 +1699,7 @@ function OficioRow({
       </td>
 
       {/* Estado (entrada) / Subido por (salida) */}
-      <td className="px-2 py-3 overflow-visible" onClick={e => e.stopPropagation()}>
+      <td className="pl-5 pr-2 py-3 overflow-visible" onClick={e => e.stopPropagation()}>
         {oficio.tipo === 'entrada'
           ? <EstadoDropdown oficio={oficio} workspaceId={workspaceId} />
           : creatorName
@@ -2241,7 +2241,7 @@ export default function OficiosPanel({
                   <th className="px-3 py-3 w-[6%] text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
                     <SortHeader label="Recepción" col="fecha_recepcion" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
                   </th>
-                  <th className="px-2 py-3 w-[9%] text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
+                  <th className="pl-5 pr-2 py-3 w-[9%] text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
                     <SortHeader label={tab === 'salida' ? 'Subido por' : 'Estado'} col="estado" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
                   </th>
                   <th className="px-2 py-3 w-[6%] text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Asignado</th>
@@ -2307,7 +2307,7 @@ export default function OficiosPanel({
                           <th className="px-3 py-2 w-[6%] text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
                             <SortHeader label="Recepción" col="fecha_recepcion" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
                           </th>
-                          <th className="px-2 py-2 w-[9%] text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
+                          <th className="pl-5 pr-2 py-2 w-[9%] text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
                             <SortHeader label={tab === 'salida' ? 'Subido por' : 'Estado'} col="estado" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
                           </th>
                           <th className="px-2 py-2 w-[6%] text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Asignado</th>
