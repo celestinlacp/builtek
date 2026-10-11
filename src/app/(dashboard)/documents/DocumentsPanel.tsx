@@ -7,8 +7,9 @@ import { saveDocument, updateDocumentStatus, requestDeleteDocument, approveDelet
 import { createOficio } from '../oficios/actions'
 import {
   Upload, Download, Trash2, ChevronDown, ChevronRight, ArrowLeft, Package,
-  FolderOpen, FolderPlus, Folder, CheckCircle2, Clock, XCircle, Eye, AlertTriangle, ShieldCheck, ShieldX, X, Loader2, History, GitBranch, SlidersHorizontal, Info, RefreshCw, Camera, Plus, Layers, Pencil, Milestone, LayoutList, AlignJustify, Share2,
+  FolderOpen, FolderPlus, Folder, CheckCircle2, Clock, XCircle, Eye, AlertTriangle, ShieldCheck, ShieldX, X, Loader2, History, GitBranch, SlidersHorizontal, Info, RefreshCw, Camera, Plus, Layers, Pencil, Milestone, LayoutList, AlignJustify, Share2, BookOpen,
 } from 'lucide-react'
+import ProjectBriefTab, { type BriefSection } from './ProjectBriefTab'
 import { parseDocKey, TIPO_PLANO_DEFAULT, TIPO_DOC_DEFAULT, detectFileFormat } from './utils'
 import DocumentSlideOver from './DocumentSlideOver'
 import { ShareProjectModal } from '../admin/ShareProjectModal'
@@ -1831,7 +1832,7 @@ function SubprojectHero({
 
 function ProjectDetailView({
   project, documents, workspaceId, userRole, deleteRequests, currentUserId,
-  subprojects, parentProject, onBack, onUpload, onSelectSub, coverUrls, docFolders,
+  subprojects, parentProject, onBack, onUpload, onSelectSub, coverUrls, docFolders, docBrief,
 }: {
   project: Project
   documents: Doc[]
@@ -1846,6 +1847,7 @@ function ProjectDetailView({
   onSelectSub: (id: string) => void
   coverUrls: Record<string, string>
   docFolders: DocFolder[]
+  docBrief: { sections: BriefSection[] } | null
 }) {
   const [selected,         setSelected]         = useState<Set<string>>(new Set())
   const [filterStatus,     setFilterStatus]     = useState('all')
@@ -1881,6 +1883,7 @@ function ProjectDetailView({
   const [savingFolderModal, setSavingFolderModal] = useState(false)
   const [showMoveMenu,     setShowMoveMenu]     = useState(false)
   const [movingToFolder,   setMovingToFolder]   = useState(false)
+  const [activeTab,        setActiveTab]        = useState<'documents' | 'brief'>('documents')
   // Move folder modal
   const [movingFolder,     setMovingFolder]     = useState<DocFolder | null>(null)
   const [moveFolderTarget, setMoveFolderTarget] = useState('')  // target projectId
@@ -2264,6 +2267,36 @@ function ProjectDetailView({
         </div>
       )}
 
+      {/* ── Tab switcher ─────────────────────────────────────────────────── */}
+      <div className="flex items-center border-b border-slate-100 mb-5">
+        <button
+          onClick={() => setActiveTab('documents')}
+          className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px transition-colors ${
+            activeTab === 'documents' ? 'border-[#1A2744] text-[#1A2744]' : 'border-transparent text-slate-400 hover:text-slate-600'
+          }`}
+        >
+          Documentos
+        </button>
+        <button
+          onClick={() => setActiveTab('brief')}
+          className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px transition-colors ${
+            activeTab === 'brief' ? 'border-[#1A2744] text-[#1A2744]' : 'border-transparent text-slate-400 hover:text-slate-600'
+          }`}
+        >
+          <BookOpen className="w-3.5 h-3.5" />
+          Brief técnico
+        </button>
+      </div>
+
+      {activeTab === 'brief' ? (
+        <ProjectBriefTab
+          projectId={project.id}
+          workspaceId={workspaceId}
+          initialSections={docBrief?.sections ?? []}
+          canEdit={canManageProjects}
+        />
+      ) : (
+        <>
       {/* Toolbar */}
       <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
         <div className="flex items-center gap-2 flex-wrap">
@@ -2826,6 +2859,8 @@ function ProjectDetailView({
           })}
         </div>
       )}
+        </>
+      )}
 
       {viewingDoc && (
         <PdfViewerModal
@@ -2915,7 +2950,7 @@ function ProjectDetailView({
 // ── Componente principal ───────────────────────────────────────────────────────
 
 export default function DocumentsPanel({
-  documents, projects, workspaceId, userRole, deleteRequests, currentUserId, companies, members, micNomenclatures, workspaceOficios, mesasTecnicas, docFolders, coverUrls
+  documents, projects, workspaceId, userRole, deleteRequests, currentUserId, companies, members, micNomenclatures, workspaceOficios, mesasTecnicas, docFolders, docBriefs, coverUrls
 }: {
   documents: Doc[]
   projects: Project[]
@@ -2929,6 +2964,7 @@ export default function DocumentsPanel({
   workspaceOficios: OfiEntry[]
   mesasTecnicas: MesaTecnica[]
   docFolders: DocFolder[]
+  docBriefs: { project_id: string; sections: BriefSection[] }[]
   coverUrls: Record<string, string>
 }) {
   const router = useRouter()
@@ -3006,6 +3042,7 @@ export default function DocumentsPanel({
           onSelectSub={selectProject}
           coverUrls={coverUrls}
           docFolders={docFolders}
+          docBrief={docBriefs.find(b => b.project_id === selectedProject.id) ?? null}
         />
       )}
 

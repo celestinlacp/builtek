@@ -29,7 +29,7 @@ export default async function DocumentsPage() {
   const wsId    = membership.workspace_id
   const userRole = membership.role as string
 
-  const [projectsRes, docsRes, deleteReqRes, companiesRes, membersRes, nomenclaturesRes, oficiosRes, mesasRes, foldersRes] = await Promise.all([
+  const [projectsRes, docsRes, deleteReqRes, companiesRes, membersRes, nomenclaturesRes, oficiosRes, mesasRes, foldersRes, briefsRes] = await Promise.all([
     supabase
       .from('projects')
       .select('id, name, status, workspace_id, description, start_date, end_date, frente, project_type, cover_image_url, parent_project_id, chainage_start, chainage_end, mic_identifier, created_at, is_inah, cruce_vial, cauces_federales')
@@ -81,6 +81,10 @@ export default async function DocumentsPage() {
       .from('document_folders')
       .select('id, project_id, specialty_code, name, created_at')
       .order('name'),
+    supabase
+      .from('project_briefs')
+      .select('project_id, sections')
+      .eq('workspace_id', wsId),
   ])
 
   const projects         = projectsRes.data       || []
@@ -91,6 +95,7 @@ export default async function DocumentsPage() {
   const workspaceOficios  = (oficiosRes.data  || []) as { id: string; no_oficio: string | null; asunto: string; tipo: string; proyecto_id: string | null; especialidad: string | null }[]
   const mesasTecnicas     = (mesasRes.data    || []) as { id: string; nombre: string; codigo: string | null; especialidad: string | null }[]
   const docFolders        = (foldersRes.data  || []) as { id: string; project_id: string; specialty_code: string; name: string; created_at: string }[]
+  const docBriefs         = (briefsRes.data   || []) as { project_id: string; sections: { id: string; title: string; content: string; order: number }[] }[]
 
   // Generar URLs presignadas para portadas de proyectos (evita round-trips individuales por tarjeta)
   const coverUrls: Record<string, string> = {}
@@ -147,6 +152,7 @@ export default async function DocumentsPage() {
         workspaceOficios={workspaceOficios}
         mesasTecnicas={mesasTecnicas}
         docFolders={docFolders}
+        docBriefs={docBriefs}
         coverUrls={coverUrls}
       />
     </div>

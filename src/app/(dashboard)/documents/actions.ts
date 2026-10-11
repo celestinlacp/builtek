@@ -704,6 +704,26 @@ export async function moveDocumentToFolder(docId: string, folderId: string | nul
   revalidatePath('/documents')
 }
 
+// ── Project Briefs ────────────────────────────────────────────────────────────
+
+type BriefSection = { id: string; title: string; content: string; order: number }
+
+export async function saveProjectBrief(projectId: string, workspaceId: string, sections: BriefSection[]) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Unauthorized')
+  const admin = getAdminClient()
+  const { error } = await admin.from('project_briefs').upsert({
+    project_id:     projectId,
+    workspace_id:   workspaceId,
+    sections:       sections,
+    last_edited_by: user.id,
+    updated_at:     new Date().toISOString(),
+  }, { onConflict: 'project_id' })
+  if (error) throw new Error(error.message)
+  revalidatePath('/documents')
+}
+
 export async function moveFolderToProject(folderId: string, targetProjectId: string, specialtyCode: string | null) {
   const admin = getAdminClient()
   const { error: fe } = await admin
