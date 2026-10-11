@@ -115,7 +115,7 @@ export default async function SharePage(
   // specialty_code no es columna directa en documents — se obtiene via join con specialties
   const { data: rawDocs } = await admin
     .from('documents')
-    .select('id, name, file_name, display_name, doc_key, file_type, status, version_number, project_id, uploaded_by, author, created_at, specialty:specialties(code, name)')
+    .select('id, name, file_name, display_name, doc_key, file_type, status, version_number, project_id, uploaded_by, author, created_at, folder_id, specialty:specialties(code, name)')
     .in('project_id', allProjectIds)
     .or('is_current.is.null,is_current.eq.true')
     .order('doc_key')

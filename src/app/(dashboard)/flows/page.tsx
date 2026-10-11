@@ -65,7 +65,6 @@ export default async function FlowsPage() {
       flows={(flowsRes.data ?? []) as any[]}
       steps={(stepsRes.data ?? []) as any[]}
       projects={(projectsRes.data ?? []) as any[]}
-      specialties={(specialtiesRes.data ?? []) as any[]}
       documents={(flowDocsRes.data ?? []) as any[]}
       workspaceId={wsId}
     />
