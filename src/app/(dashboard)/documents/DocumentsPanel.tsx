@@ -1862,6 +1862,8 @@ function ProjectDetailView({
   const [folderModalSpec,  setFolderModalSpec]  = useState('')  // specCode for new folder
   const [folderModalName,  setFolderModalName]  = useState('')  // folder name
   const [savingFolderModal, setSavingFolderModal] = useState(false)
+  const [showMoveMenu,     setShowMoveMenu]     = useState(false)
+  const [movingToFolder,   setMovingToFolder]   = useState(false)
 
   // ── Handler modal global de nueva carpeta ───────────────────────────────────
   async function handleCreateFolderModal() {
@@ -2028,6 +2030,18 @@ function ProjectDetailView({
       setSelected(new Set())
     } finally {
       setDownloading(false)
+    }
+  }
+
+  async function handleMoveSelected(folderId: string | null) {
+    setShowMoveMenu(false)
+    setMovingToFolder(true)
+    try {
+      await Promise.all(Array.from(selected).map(id => moveDocumentToFolder(id, folderId)))
+      setSelected(new Set())
+      router.refresh()
+    } finally {
+      setMovingToFolder(false)
     }
   }
 
@@ -2264,6 +2278,51 @@ function ProjectDetailView({
                 : <Package className="w-3.5 h-3.5" />}
               {downloading ? 'Generando ZIP...' : `Descargar ZIP (${selected.size})`}
             </button>
+          )}
+
+          {/* Botón Mover a carpeta */}
+          {selected.size > 0 && (
+            <div className="relative">
+              <button
+                onClick={() => setShowMoveMenu(v => !v)}
+                disabled={movingToFolder}
+                className="flex items-center gap-2 bg-[#1A2744] text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-[#243660] disabled:opacity-60 transition-colors"
+              >
+                {movingToFolder
+                  ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  : <FolderOpen className="w-3.5 h-3.5" />}
+                {movingToFolder ? 'Moviendo...' : `Mover (${selected.size})`}
+                {!movingToFolder && <ChevronDown className="w-3 h-3" />}
+              </button>
+              {showMoveMenu && (
+                <>
+                  <div className="fixed inset-0 z-20" onClick={() => setShowMoveMenu(false)} />
+                  <div className="absolute right-0 top-9 z-30 bg-white rounded-xl shadow-lg border border-slate-100 py-1 min-w-[180px]">
+                    {folders.filter(f => f.project_id === project.id).length === 0 ? (
+                      <p className="px-4 py-3 text-xs text-slate-400">No hay carpetas en este proyecto</p>
+                    ) : (
+                      <>
+                        <p className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Mover a carpeta</p>
+                        {folders.filter(f => f.project_id === project.id).map(f => (
+                          <button key={f.id} onClick={() => handleMoveSelected(f.id)}
+                            className="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2">
+                            <Folder className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                            {f.name}
+                          </button>
+                        ))}
+                        <div className="border-t border-slate-100 mt-1 pt-1">
+                          <button onClick={() => handleMoveSelected(null)}
+                            className="w-full text-left px-4 py-2 text-xs text-slate-500 hover:bg-slate-50 flex items-center gap-2">
+                            <X className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                            Sin carpeta (raíz)
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
           )}
 
           {/* Nueva carpeta global */}
