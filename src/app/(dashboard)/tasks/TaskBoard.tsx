@@ -523,7 +523,7 @@ export default function TaskBoard({
   workspaceId: string
   defaultTaskId?: string
 }) {
-  const [view, setView] = useState<'board' | 'list' | 'person' | 'kanban'>('board')
+  const [view, setView] = useState<'board' | 'list' | 'person' | 'kanban'>('kanban')
   const [showRecent, setShowRecent] = useState(false)
   const [filter, setFilter] = useState<string>('all')
   const [userFilter, setUserFilter] = useState<string>('all')
@@ -612,6 +612,7 @@ export default function TaskBoard({
     }
   })
   // Ordenar: sin asignar al final; si hay sort de fecha activo, reordenar grupos también
+  const isEngineer = !['owner', 'admin', 'manager'].includes(currentUserRole)
   if (sortBy === 'date_desc' || sortBy === 'date_asc') {
     personGroups.sort((a, b) => {
       if (a.member.user_id === null) return 1
@@ -624,7 +625,15 @@ export default function TaskBoard({
     personGroups.sort((a, b) => {
       if (a.member.user_id === null) return 1
       if (b.member.user_id === null) return -1
-      return (a.member.full_name ?? '').localeCompare(b.member.full_name ?? '')
+      // Engineers: own column always first
+      if (isEngineer) {
+        if (a.member.user_id === currentUserId) return -1
+        if (b.member.user_id === currentUserId) return 1
+      }
+      // Admin/manager (and tie-break for engineers): sort by most recently assigned task
+      const latestA = Math.max(...a.tasks.map(t => new Date(t.created_at ?? 0).getTime()), 0)
+      const latestB = Math.max(...b.tasks.map(t => new Date(t.created_at ?? 0).getTime()), 0)
+      return latestB - latestA
     })
   }
 
