@@ -15,6 +15,7 @@ export default async function FlowsPage() {
     .single()
 
   if (!membership) redirect('/onboarding')
+  if (membership.role !== 'owner') redirect('/dashboard')
 
   const wsId = membership.workspace_id
 

@@ -17,7 +17,6 @@ const BASE_NAV = [
   { href: '/deliverables',    icon: Package,         label: 'Entregables' },
   { href: '/documents',       icon: FileText,        label: 'Proyectos' },
   { href: '/especificaciones',icon: BookOpen,        label: 'Especificaciones' },
-  { href: '/flows',           icon: GitBranch,       label: 'Flows' },
   { href: '/drive',           icon: HardDrive,       label: 'Drive', badge: 'NEW' },
   { href: '/chat',            icon: MessageSquare,   label: 'Chat / Notificaciones' },
   { href: '/ai-agent',        icon: Bot,             label: 'Agente AI' },
@@ -30,7 +29,10 @@ export default function Sidebar({ workspaceName, features, role }: { workspaceNa
     ...BASE_NAV,
     ...(isManager ? [{ href: '/team', icon: BarChart2, label: 'Equipo' }] : []),
     ...(features?.oficios ? [{ href: '/oficios', icon: Mail, label: 'Oficios' }] : []),
-    ...(isOwner ? [{ href: '/logs', icon: Activity, label: 'Actividad' }] : []),
+    ...(isOwner ? [
+      { href: '/flows', icon: GitBranch, label: 'Flows', badge: 'WIP' as const },
+      { href: '/logs',  icon: Activity,  label: 'Actividad' },
+    ] : []),
   ]
   const pathname = usePathname()
 
