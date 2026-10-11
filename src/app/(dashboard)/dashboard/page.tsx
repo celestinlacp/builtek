@@ -97,8 +97,10 @@ async function getWorkspaceData(userId: string) {
     }
   }
 
-  // Calcular stats por miembro del equipo (todos los roles)
-  const allTasks = tasks.data ?? []
+  // Calcular stats por miembro del equipo (todos los roles) — últimos 30 días, sin archivadas
+  const allTasksRaw = (tasks.data ?? []).filter((t: any) => t.status !== 'archived')
+  const thirtyDaysAgoStats = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+  const allTasks = allTasksRaw.filter((t: any) => new Date(t.created_at ?? 0) >= thirtyDaysAgoStats)
   const nowStats = new Date()
   const teamStats: TeamMemberStats[] = (members.data ?? []).map((m: any) => {
     const profile = profileMap[m.user_id] ?? { full_name: null, initials: null }
@@ -110,9 +112,10 @@ async function getWorkspaceData(userId: string) {
     const overdue    = userTasks.filter((t: any) =>
       t.status !== 'done' && t.due_date && new Date(t.due_date) < nowStats
     ).length
-    const review = userTasks.filter((t: any) => t.status === 'review').length
-    const score  = userTasks.length > 0
-      ? Math.round(((done + review * 0.5) / userTasks.length) * 100)
+    const review  = userTasks.filter((t: any) => t.status === 'review').length
+    const blocked = userTasks.filter((t: any) => t.status === 'blocked').length
+    const score   = userTasks.length > 0
+      ? Math.round(((done * 1 + review * 0.5 + blocked * 0.75) / userTasks.length) * 100)
       : null
     return {
       user_id:     uid,
@@ -178,29 +181,26 @@ export default async function DashboardPage() {
 
   const { workspace, projects, tasks, documents, latestImageByProject, docCountByProject, subprojectCount, teamStats, userRole, specActivity } = data
 
-  const tasksDone = tasks.filter(t => t.status === 'done').length
-  const tasksInProgress = tasks.filter(t => t.status === 'in_progress').length
-  const tasksBlocked = tasks.filter(t => t.status === 'blocked').length
-  const tasksPending = tasks.filter(t => t.status === 'pending').length
-  const progressPct = tasks.length ? Math.round((tasksDone / tasks.length) * 100) : 0
+  // Only active tasks (exclude archived) for team stats
+  const activeTasks = tasks.filter(t => t.status !== 'archived')
+  const tasksDone = activeTasks.filter(t => t.status === 'done').length
+  const tasksInProgress = activeTasks.filter(t => t.status === 'in_progress').length
+  const tasksBlocked = activeTasks.filter(t => t.status === 'blocked').length
+  const tasksPending = activeTasks.filter(t => t.status === 'pending').length
+  const progressPct = activeTasks.length ? Math.round((tasksDone / activeTasks.length) * 100) : 0
 
-  const recentTasks = tasks.slice(0, 6)
-  const myTasks = tasks.filter((t: any) => t.assignee_id === user.id && t.status !== 'done').slice(0, 5)
+  const recentTasks = activeTasks.slice(0, 6)
+  const myTasks = activeTasks.filter((t: any) => t.assignee_id === user.id && t.status !== 'done').slice(0, 5)
 
-  // Performance personal
-  const myAll     = tasks.filter((t: any) => t.assignee_id === user.id)
+  // Performance personal — solo últimos 30 días
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+  const myAll     = activeTasks.filter((t: any) => t.assignee_id === user.id && new Date(t.created_at ?? 0) >= thirtyDaysAgo)
   const myDone    = myAll.filter(t => t.status === 'done').length
   const myReview  = myAll.filter(t => t.status === 'review').length
+  const myBlocked = myAll.filter(t => t.status === 'blocked').length
   const myTotal   = myAll.length
-  const myScore   = myTotal > 0 ? Math.round(((myDone * 1 + myReview * 0.5) / myTotal) * 100) : null
-  const scoreColor = myScore === null ? 'text-slate-400'
-    : myScore >= 70 ? 'text-green-600'
-    : myScore >= 40 ? 'text-amber-500'
-    : 'text-red-500'
-  const scoreBg = myScore === null ? 'bg-slate-50'
-    : myScore >= 70 ? 'bg-green-50'
-    : myScore >= 40 ? 'bg-amber-50'
-    : 'bg-red-50'
+  // Hecho=100%, Revisión=50%, Rechazado/Bloqueado=75%
+  const myScore   = myTotal > 0 ? Math.round(((myDone * 1 + myReview * 0.5 + myBlocked * 0.75) / myTotal) * 100) : null
 
   const now = new Date()
   const myUrgent = myAll.filter((t: any) => {
@@ -387,40 +387,45 @@ export default async function DashboardPage() {
 
       {/* Mi rendimiento */}
       {myTotal > 0 && (
-        <div className={`rounded-xl border px-4 py-3 ${scoreBg} border-slate-100`}>
-          <div className="flex items-center gap-4">
-            {/* Título + score */}
-            <h2 className="text-xs font-bold text-[#1A2744] flex items-center gap-1.5 flex-shrink-0">
-              <User className="w-3.5 h-3.5 text-[#00C2FF]" /> Mi rendimiento
-            </h2>
-            <span className={`text-sm font-black ${scoreColor} flex-shrink-0`}>
-              {myScore !== null ? `${myScore}%` : '—'}
-            </span>
-            <div className="w-px h-6 bg-slate-200 flex-shrink-0" />
-            {/* Stats inline */}
-            <div className="flex items-center gap-4 flex-1 flex-wrap">
-              {[
-                { label: 'Asignadas',   value: myTotal,   color: 'text-[#1A2744]' },
-                { label: 'Completadas', value: myDone,    color: 'text-green-600' },
-                { label: 'En revisión', value: myReview,  color: 'text-amber-600' },
-                { label: 'Urgentes',    value: myUrgent,  color: myUrgent > 0 ? 'text-red-500' : 'text-slate-400' },
-              ].map(stat => (
-                <div key={stat.label} className="flex items-center gap-1">
-                  <span className={`text-sm font-bold ${stat.color}`}>{stat.value}</span>
-                  <span className="text-[11px] text-slate-400">{stat.label}</span>
-                </div>
-              ))}
+        <div className="bg-white rounded-xl border border-slate-100 p-5">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <User className="w-4 h-4 text-[#00C2FF]" />
+              <span className="text-sm font-semibold text-[#1A2744]">Mi rendimiento · últimos 30 días</span>
             </div>
-            <span className="text-[10px] text-slate-400 flex-shrink-0 hidden sm:block">
-              Hecho = 100% · Revisión = 50%
-            </span>
+            <span className="text-lg font-bold text-[#1A2744]">{myScore !== null ? `${myScore}%` : '—'}</span>
           </div>
-          {myUrgent > 0 && (
-            <p className="text-[11px] text-red-500 mt-1.5 flex items-center gap-1">
-              <AlertCircle className="w-3 h-3" />
-              {myUrgent} tarea{myUrgent > 1 ? 's' : ''} urgente{myUrgent > 1 ? 's' : ''}
-            </p>
-          )}
+
+          {/* Barras comparativas */}
+          <div className="space-y-2.5">
+            {/* Personal */}
+            <div className="flex items-center gap-3">
+              <span className="text-[11px] text-slate-400 w-14 flex-shrink-0 text-right">Personal</span>
+              <div className="flex-1 h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                <div className="h-full bg-gradient-to-r from-[#1A2744] to-[#00C2FF] rounded-full transition-all duration-700"
+                  style={{ width: `${myScore ?? 0}%` }} />
+              </div>
+              <span className="text-xs font-bold text-[#1A2744] w-9 text-right flex-shrink-0">{myScore ?? 0}%</span>
+            </div>
+            {/* Equipo */}
+            <div className="flex items-center gap-3">
+              <span className="text-[11px] text-slate-400 w-14 flex-shrink-0 text-right">Equipo</span>
+              <div className="flex-1 h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                <div className="h-full bg-gradient-to-r from-slate-300 to-slate-400 rounded-full transition-all duration-700"
+                  style={{ width: `${progressPct}%` }} />
+              </div>
+              <span className="text-xs font-bold text-slate-400 w-9 text-right flex-shrink-0">{progressPct}%</span>
+            </div>
+          </div>
+
+          {/* Stats row */}
+          <div className="flex gap-4 mt-4 text-xs text-slate-500 flex-wrap">
+            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-green-400 inline-block" />{myDone} hechas</span>
+            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-amber-400 inline-block" />{myReview} en revisión</span>
+            {myBlocked > 0 && <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-slate-400 inline-block" />{myBlocked} bloqueadas</span>}
+            {myUrgent > 0 && <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-orange-400 inline-block" />{myUrgent} urgentes</span>}
+            <span className="text-slate-300 ml-auto hidden sm:block">Hecho=100% · Revisión=50% · Rechazado=75%</span>
+          </div>
         </div>
       )}
 

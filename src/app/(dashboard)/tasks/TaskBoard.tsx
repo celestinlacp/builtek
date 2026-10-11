@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { updateTaskStatus, deleteTask } from './actions'
+import { updateTaskStatus, deleteTask, deleteArchivedTask } from './actions'
 import { Task, Project } from '@/types'
 import {
   ChevronDown, ChevronRight, MoreHorizontal,
@@ -32,7 +32,8 @@ const STATUS_OPTIONS = [
   { value: 'in_progress', label: 'En curso', color: 'bg-blue-100 text-blue-700' },
   { value: 'review', label: 'En revisión', color: 'bg-amber-100 text-amber-700' },
   { value: 'done', label: 'Hecho', color: 'bg-green-100 text-green-700' },
-  { value: 'blocked', label: 'Bloqueado', color: 'bg-red-100 text-red-600' },
+  { value: 'blocked',  label: 'Bloqueado',  color: 'bg-red-100 text-red-600' },
+  { value: 'archived', label: 'Archivada', color: 'bg-slate-100 text-slate-400' },
 ]
 
 const PRIORITY_DOT: Record<string, string> = {
@@ -316,6 +317,7 @@ const STATUS_BAR: Record<string, { bar: string; label: string; bg: string; text:
   review:      { bar: 'bg-amber-400',   label: 'En revisión',  bg: 'bg-amber-50',   text: 'text-amber-700' },
   done:        { bar: 'bg-emerald-400', label: 'Hecho',        bg: 'bg-emerald-50', text: 'text-emerald-700' },
   blocked:     { bar: 'bg-red-400',     label: 'Bloqueada',    bg: 'bg-red-50',     text: 'text-red-600' },
+  archived:    { bar: 'bg-slate-200',   label: 'Archivada',    bg: 'bg-slate-100',  text: 'text-slate-400' },
 }
 
 const PRIORITY_COLOR: Record<string, string> = {
@@ -525,7 +527,7 @@ export default function TaskBoard({
 }) {
   const [view, setView] = useState<'board' | 'list' | 'person' | 'kanban'>('kanban')
   const [showRecent, setShowRecent] = useState(false)
-  const [filter, setFilter] = useState<string>('all')
+  const [filter, setFilter] = useState<string>('active')
   const [userFilter, setUserFilter] = useState<string>('all')
   const [sortBy, setSortBy] = useState<'default' | 'date_desc' | 'date_asc' | 'name_asc'>('default')
   const [showNew, setShowNew] = useState(false)
@@ -538,6 +540,13 @@ export default function TaskBoard({
     router.refresh()
   }
 
+  async function handleDeleteArchived(taskId: string) {
+    if (!confirm('¿Eliminar esta tarea archivada permanentemente? Esta acción no se puede deshacer.')) return
+    const res = await deleteArchivedTask(taskId)
+    if (res?.error) { alert('Error: ' + res.error); return }
+    router.refresh()
+  }
+
   // Abrir slide-over automáticamente si viene ?task=<id> desde el dashboard
   useEffect(() => {
     if (defaultTaskId) {
@@ -547,7 +556,12 @@ export default function TaskBoard({
   }, [defaultTaskId, tasks])
 
   const filtered = tasks
-    .filter(t => filter === 'all' || t.status === filter)
+    .filter(t => {
+      if (filter === 'active') return t.status !== 'done' && t.status !== 'review' && t.status !== 'archived'
+      if (filter === 'all')    return t.status !== 'archived'
+      if (filter === 'archived') return t.status === 'archived'
+      return t.status === filter
+    })
     .filter(t => userFilter === 'all' || t.assignees?.some((a: any) => a.user_id === userFilter) || t.assignee_id === userFilter)
     .sort((a, b) => {
       if (sortBy === 'date_desc') return new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime()
@@ -643,12 +657,14 @@ export default function TaskBoard({
       <div className="flex items-center gap-2 mb-2">
         <div className="flex items-center gap-1.5 flex-1 min-w-0 overflow-x-auto scrollbar-none">
           {[
+            { value: 'active',     label: 'Activas' },
             { value: 'all',        label: 'Todas' },
             { value: 'pending',    label: 'Pendientes' },
             { value: 'in_progress',label: 'En curso' },
             { value: 'review',     label: 'En revisión' },
             { value: 'blocked',    label: 'Bloqueadas' },
             { value: 'done',       label: 'Hechas' },
+            { value: 'archived',   label: 'Archivadas' },
           ].map(f => (
             <button
               key={f.value}
@@ -813,6 +829,46 @@ export default function TaskBoard({
             onMarkDone={handleMarkDone}
           />
         )
+      ) : filter === 'archived' ? (
+        // Vista archivadas
+        <div className="bg-white rounded-xl border border-slate-100 overflow-hidden">
+          <div className="flex items-center gap-3 px-4 py-2.5 bg-slate-50 border-b border-slate-100 text-xs font-bold text-slate-500 uppercase tracking-wide">
+            <span className="flex-1">Tarea archivada</span>
+            <span className="hidden sm:block w-28">Proyecto</span>
+            <span className="hidden md:block w-20">Creada</span>
+            {!isEngineer && <span className="w-7" />}
+          </div>
+          {filtered.length === 0
+            ? <p className="text-center text-sm text-slate-400 py-10">No hay tareas archivadas</p>
+            : filtered.map(task => (
+              <div key={task.id} className="flex items-center gap-3 px-4 py-3 border-b border-slate-50 text-sm opacity-60 hover:opacity-100 transition-opacity">
+                <span className="flex-1 text-slate-500 line-through truncate">{task.name}</span>
+                <span className="hidden sm:block w-28 text-[11px] text-slate-400 truncate">{(task as any).project?.name ?? '—'}</span>
+                <span className="hidden md:block w-20 text-[11px] text-slate-400">{task.created_at ? new Date(task.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' }) : '—'}</span>
+                {!isEngineer && (
+                  <button onClick={() => handleDeleteArchived(task.id)} title="Eliminar permanentemente"
+                    className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-50 text-slate-300 hover:text-red-400 transition-colors">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            ))
+          }
+          {filtered.length > 0 && !isEngineer && (
+            <div className="px-4 py-3 border-t border-slate-100 flex justify-end">
+              <button
+                onClick={async () => {
+                  if (!confirm(`¿Eliminar permanentemente las ${filtered.length} tareas archivadas?`)) return
+                  await Promise.all(filtered.map(t => deleteArchivedTask(t.id)))
+                  router.refresh()
+                }}
+                className="text-xs text-red-400 hover:text-red-600 font-medium"
+              >
+                Eliminar todas ({filtered.length})
+              </button>
+            </div>
+          )}
+        </div>
       ) : (
         // List view — todas sin agrupar
         <div className="bg-white rounded-xl border border-slate-100 overflow-hidden">

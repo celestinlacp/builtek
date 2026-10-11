@@ -2,7 +2,7 @@ export type UserRole = 'owner' | 'admin' | 'manager' | 'engineer' | 'viewer'
 
 export type ProjectStatus = 'active' | 'paused' | 'completed' | 'archived'
 
-export type TaskStatus = 'pending' | 'in_progress' | 'review' | 'done' | 'blocked'
+export type TaskStatus = 'pending' | 'in_progress' | 'review' | 'done' | 'blocked' | 'archived'
 
 export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent'
 

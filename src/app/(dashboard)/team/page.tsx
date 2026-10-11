@@ -42,7 +42,8 @@ export default async function TeamPage() {
   const profileById: Record<string, string> = {}
   for (const p of (profilesData ?? [])) if (p.id && p.full_name) profileById[p.id] = p.full_name
 
-  const allTasks = tasksRes.data ?? []
+  const allTasks = (tasksRes.data ?? []).filter((t: any) => t.status !== 'archived')
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
   const now = new Date()
 
   const teamStats: TeamMemberStats[] = (membersRes.data ?? []).map((m: any) => {
@@ -54,7 +55,8 @@ export default async function TeamPage() {
       .slice(0, 2)
       .map((w: string) => w[0].toUpperCase())
       .join('') || null
-    const userTasks = allTasks.filter((t: any) => t.assignee_id === uid)
+    // Only last 30 days for performance metrics
+    const userTasks = allTasks.filter((t: any) => t.assignee_id === uid && new Date(t.created_at ?? 0) >= thirtyDaysAgo)
     const done       = userTasks.filter((t: any) => t.status === 'done').length
     const inProgress = userTasks.filter((t: any) => t.status === 'in_progress').length
     const pending    = userTasks.filter((t: any) => t.status === 'pending').length
@@ -63,8 +65,9 @@ export default async function TeamPage() {
     const overdue    = userTasks.filter((t: any) =>
       t.status !== 'done' && t.due_date && new Date(t.due_date) < now
     ).length
+    // Hecho=100%, Revisión=50%, Rechazado/Bloqueado=75%
     const score = userTasks.length > 0
-      ? Math.round(((done + review * 0.5) / userTasks.length) * 100)
+      ? Math.round(((done * 1 + review * 0.5 + blocked * 0.75) / userTasks.length) * 100)
       : null
     return {
       user_id:     uid,

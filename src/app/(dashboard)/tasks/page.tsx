@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdmin } from '@supabase/supabase-js'
 import { redirect } from 'next/navigation'
 import TaskBoard from './TaskBoard'
+import { archiveOldDoneTasks } from './actions'
 import { CheckSquare, Plus } from 'lucide-react'
 import Link from 'next/link'
 
@@ -21,6 +22,9 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
   if (!membership) redirect('/onboarding')
 
   const wsId = membership.workspace_id
+
+  // Auto-archive done tasks older than 30 days (fire-and-forget style, non-blocking)
+  await archiveOldDoneTasks()
 
   const [projectsRes, tasksRes, docsRes, driveRes, membersRes] = await Promise.all([
     supabase.from('projects')
@@ -96,7 +100,7 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
             Tareas
           </h1>
           <p className="text-slate-500 text-sm mt-0.5">
-            {tasks.length} tarea{tasks.length !== 1 ? 's' : ''} en total ·{' '}
+            {tasks.filter(t => t.status !== 'archived').length} tarea{tasks.filter(t => t.status !== 'archived').length !== 1 ? 's' : ''} activas ·{' '}
             {tasks.filter(t => t.status === 'in_progress').length} en curso ·{' '}
             {tasks.filter(t => t.status === 'done').length} completadas
           </p>

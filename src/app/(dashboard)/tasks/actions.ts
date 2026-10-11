@@ -364,6 +364,37 @@ export async function rejectEntregable(entregableId: string, taskId: string, not
   return { success: true }
 }
 
+// ── Auto-archive done tasks older than 30 days ─────────────────────────────
+export async function archiveOldDoneTasks() {
+  const admin = getAdminClient()
+  const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+  await admin
+    .from('tasks')
+    .update({ status: 'archived' })
+    .eq('status', 'done')
+    .lt('created_at', cutoff)
+  revalidatePath('/tasks')
+  revalidatePath('/dashboard')
+  revalidatePath('/team')
+}
+
+export async function deleteArchivedTask(taskId: string) {
+  const { userId, workspaceId } = await getWorkspaceId()
+  if (!workspaceId) return { error: 'No workspace' }
+  const supabase = await createClient()
+  // Only allow managers/admins
+  const { data: member } = await supabase.from('workspace_members').select('role').eq('user_id', userId!).eq('workspace_id', workspaceId).single()
+  if (!member || !['owner', 'admin', 'manager'].includes(member.role)) return { error: 'Sin permisos' }
+  const admin = getAdminClient()
+  // Only allow deleting archived tasks
+  const { data: task } = await admin.from('tasks').select('status').eq('id', taskId).single()
+  if (!task || task.status !== 'archived') return { error: 'Solo se pueden eliminar tareas archivadas' }
+  const { error } = await admin.from('tasks').delete().eq('id', taskId)
+  if (error) return { error: error.message }
+  revalidatePath('/tasks')
+  return { success: true }
+}
+
 export async function archiveEntregable(entregableId: string) {
   await getWorkspaceId()
   const admin = getAdminClient()
