@@ -2056,6 +2056,8 @@ function ProjectDetailView({
       await Promise.all(Array.from(selected).map(id => moveDocumentToFolder(id, folderId)))
       setSelected(new Set())
       router.refresh()
+    } catch (err) {
+      alert('Error al mover documentos: ' + (err instanceof Error ? err.message : String(err)))
     } finally {
       setMovingToFolder(false)
     }
@@ -2313,28 +2315,37 @@ function ProjectDetailView({
               {showMoveMenu && (
                 <>
                   <div className="fixed inset-0 z-20" onClick={() => setShowMoveMenu(false)} />
-                  <div className="absolute right-0 top-9 z-30 bg-white rounded-xl shadow-lg border border-slate-100 py-1 min-w-[180px]">
-                    {folders.filter(f => f.project_id === project.id).length === 0 ? (
-                      <p className="px-4 py-3 text-xs text-slate-400">No hay carpetas en este proyecto</p>
-                    ) : (
-                      <>
-                        <p className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Mover a carpeta</p>
-                        {folders.filter(f => f.project_id === project.id).map(f => (
-                          <button key={f.id} onClick={() => handleMoveSelected(f.id)}
-                            className="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2">
-                            <Folder className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
-                            {f.name}
-                          </button>
-                        ))}
-                        <div className="border-t border-slate-100 mt-1 pt-1">
-                          <button onClick={() => handleMoveSelected(null)}
-                            className="w-full text-left px-4 py-2 text-xs text-slate-500 hover:bg-slate-50 flex items-center gap-2">
-                            <X className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
-                            Sin carpeta (raíz)
-                          </button>
-                        </div>
-                      </>
-                    )}
+                  <div className="absolute right-0 top-9 z-30 bg-white rounded-xl shadow-lg border border-slate-100 py-1 min-w-[200px] max-h-72 overflow-y-auto">
+                    {(() => {
+                      const allIds = new Set([project.id, ...subprojects.map(s => s.id)])
+                      const visibleFolders = folders.filter(f => allIds.has(f.project_id))
+                      if (visibleFolders.length === 0) return (
+                        <p className="px-4 py-3 text-xs text-slate-400">No hay carpetas en este proyecto</p>
+                      )
+                      return (
+                        <>
+                          <p className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Mover a carpeta</p>
+                          {visibleFolders.map(f => {
+                            const sub = subprojects.find(s => s.id === f.project_id)
+                            return (
+                              <button key={f.id} onClick={() => handleMoveSelected(f.id)}
+                                className="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2">
+                                <Folder className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                                <span className="flex-1 truncate">{f.name}</span>
+                                {sub && <span className="text-[9px] text-slate-300 flex-shrink-0">{sub.name}</span>}
+                              </button>
+                            )
+                          })}
+                          <div className="border-t border-slate-100 mt-1 pt-1">
+                            <button onClick={() => handleMoveSelected(null)}
+                              className="w-full text-left px-4 py-2 text-xs text-slate-500 hover:bg-slate-50 flex items-center gap-2">
+                              <X className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                              Sin carpeta (raíz)
+                            </button>
+                          </div>
+                        </>
+                      )
+                    })()}
                   </div>
                 </>
               )}

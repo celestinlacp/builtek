@@ -699,6 +699,7 @@ export async function deleteDocumentFolder(folderId: string) {
 
 export async function moveDocumentToFolder(docId: string, folderId: string | null) {
   const supabase = await createClient()
-  await supabase.from('documents').update({ folder_id: folderId }).eq('id', docId)
+  const { error } = await supabase.from('documents').update({ folder_id: folderId }).eq('id', docId)
+  if (error) throw new Error(error.message)
   revalidatePath('/documents')
 }
