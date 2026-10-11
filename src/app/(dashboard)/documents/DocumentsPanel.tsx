@@ -1833,7 +1833,7 @@ function ProjectDetailView({
   const [selected,         setSelected]         = useState<Set<string>>(new Set())
   const [filterStatus,     setFilterStatus]     = useState('all')
   const [filterSpecialty,  setFilterSpecialty]  = useState('all')
-  const [sortMode,         setSortMode]         = useState<'discipline' | 'recent'>('discipline')
+  const [sortMode,         setSortMode]         = useState<'discipline' | 'recent'>('recent')
   const [viewingDoc,       setViewingDoc]       = useState<{ id: string; name: string } | null>(null)
   const [slideDoc,         setSlideDoc]         = useState<Doc | null>(null)
   const [replaceDoc,       setReplaceDoc]       = useState<Doc | null>(null)
@@ -2342,7 +2342,7 @@ function ProjectDetailView({
                   return (
                     <div key={folder.id}
                       onDragOver={e => { e.preventDefault(); setDragOverTarget(folder.id) }}
-                      onDragLeave={() => setDragOverTarget(null)}
+                      onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOverTarget(null) }}
                       onDrop={e => { e.preventDefault(); if (draggingDocId) handleDropOnFolder(draggingDocId, folder.id) }}
                       className={`border-b border-slate-100 transition-colors ${isDragTarget ? 'bg-[#00C2FF]/5 ring-2 ring-inset ring-[#00C2FF]/30 rounded-t-xl' : ''}`}
                     >
@@ -2433,7 +2433,7 @@ function ProjectDetailView({
                 {groupFolders.length > 0 && draggingDocId && (
                   <div
                     onDragOver={e => { e.preventDefault(); setDragOverTarget('root__' + group) }}
-                    onDragLeave={() => setDragOverTarget(null)}
+                    onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOverTarget(null) }}
                     onDrop={e => { e.preventDefault(); if (draggingDocId) handleDropOnFolder(draggingDocId, null) }}
                     className={`px-4 py-2 text-[10px] font-semibold transition-colors ${dragOverTarget === 'root__' + group ? 'bg-slate-50 text-slate-500' : 'text-transparent'}`}
                   >
