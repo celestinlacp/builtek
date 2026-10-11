@@ -373,9 +373,7 @@ export async function archiveOldDoneTasks() {
     .update({ status: 'archived' })
     .eq('status', 'done')
     .lt('created_at', cutoff)
-  revalidatePath('/tasks')
-  revalidatePath('/dashboard')
-  revalidatePath('/team')
+  // No revalidatePath — called during server render; the page handles its own revalidation
 }
 
 export async function deleteArchivedTask(taskId: string) {
