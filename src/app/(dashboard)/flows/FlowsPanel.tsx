@@ -19,6 +19,7 @@ type FlowStep = {
   fecha_documento: string | null; estado: string
   especialidad: string | null; position: number
   is_decision: boolean; note: string | null
+  document_id: string | null
 }
 type Flow = {
   id: string; name: string; description: string | null
@@ -27,6 +28,11 @@ type Flow = {
 }
 type Project  = { id: string; name: string; parent_project_id: string | null }
 type Specialty = { code: string; name: string }
+type Doc = {
+  id: string; name: string; display_name: string | null; file_name: string | null
+  project_id: string | null; emission_date: string | null; doc_key: string | null
+  specialty: { name: string; code: string } | null
+}
 
 // ── Estado config ─────────────────────────────────────────────────────────────
 
@@ -78,31 +84,32 @@ function EstadoBadge({ estado, onChange }: { estado: string; onChange: (v: strin
 // ── StepCard ──────────────────────────────────────────────────────────────────
 
 function StepCard({
-  step, idx, total, specialties,
+  step, idx, total, projectDocs,
   onUpdate, onDelete, onMove,
 }: {
-  step: FlowStep; idx: number; total: number; specialties: Specialty[]
+  step: FlowStep; idx: number; total: number; projectDocs: Doc[]
   onUpdate: (id: string, data: Partial<FlowStep>) => void
   onDelete: (id: string) => void
   onMove: (step: FlowStep, dir: 'up' | 'down') => void
 }) {
-  const [editing, setEditing] = useState(false)
-  const [name, setName]               = useState(step.name)
-  const [fecha, setFecha]             = useState(step.fecha_documento ?? '')
-  const [especialidad, setEspecialidad] = useState(step.especialidad ?? '')
-  const [note, setNote]               = useState(step.note ?? '')
-  const [isDecision, setIsDecision]   = useState(step.is_decision)
-  const [saving, setSaving]           = useState(false)
+  const [editing, setEditing]       = useState(false)
+  const [name, setName]             = useState(step.name)
+  const [documentId, setDocumentId] = useState(step.document_id ?? '')
+  const [note, setNote]             = useState(step.note ?? '')
+  const [isDecision, setIsDecision] = useState(step.is_decision)
+  const [saving, setSaving]         = useState(false)
 
   async function handleSave() {
     if (!name.trim()) return
     setSaving(true)
+    const linked = projectDocs.find(d => d.id === documentId) ?? null
     await onUpdate(step.id, {
-      name: name.trim(),
-      fecha_documento: fecha || null,
-      especialidad: especialidad || null,
-      note: note || null,
-      is_decision: isDecision,
+      name:            name.trim(),
+      fecha_documento: linked?.emission_date ?? null,
+      especialidad:    linked?.specialty?.code ?? null,
+      note:            note || null,
+      is_decision:     isDecision,
+      document_id:     documentId || null,
     })
     setSaving(false)
     setEditing(false)
@@ -110,15 +117,15 @@ function StepCard({
 
   function handleCancel() {
     setName(step.name)
-    setFecha(step.fecha_documento ?? '')
-    setEspecialidad(step.especialidad ?? '')
+    setDocumentId(step.document_id ?? '')
     setNote(step.note ?? '')
     setIsDecision(step.is_decision)
     setEditing(false)
   }
 
-  const cfg = ESTADO[step.estado] ?? ESTADO.pending
-  const specName = specialties.find(s => s.code === step.especialidad)?.name ?? step.especialidad
+  const cfg       = ESTADO[step.estado] ?? ESTADO.pending
+  const linkedDoc = projectDocs.find(d => d.id === step.document_id) ?? null
+  const specName  = linkedDoc?.specialty?.name ?? step.especialidad
 
   return (
     <div className="flex items-stretch gap-3 group">
@@ -170,29 +177,35 @@ function StepCard({
               placeholder="Nombre del paso"
               className="w-full text-sm font-semibold border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-[#00C2FF]"
             />
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide block mb-1">Fecha doc.</label>
-                <input
-                  type="date"
-                  value={fecha}
-                  onChange={e => setFecha(e.target.value)}
-                  className="w-full text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-[#00C2FF]"
-                />
-              </div>
-              <div>
-                <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide block mb-1">Especialidad</label>
+            <div>
+              <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide block mb-1">Documento vinculado</label>
+              {projectDocs.length === 0 ? (
+                <p className="text-xs text-slate-400 italic">Este proyecto no tiene documentos subidos aún</p>
+              ) : (
                 <select
-                  value={especialidad}
-                  onChange={e => setEspecialidad(e.target.value)}
+                  value={documentId}
+                  onChange={e => setDocumentId(e.target.value)}
                   className="w-full text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-[#00C2FF]"
                 >
-                  <option value="">Sin especialidad</option>
-                  {specialties.map(s => (
-                    <option key={s.code} value={s.code}>{s.name}</option>
-                  ))}
+                  <option value="">Sin documento</option>
+                  {projectDocs.map(d => {
+                    const label = d.doc_key || d.display_name || d.file_name || d.name
+                    const spec  = d.specialty?.code ? ` [${d.specialty.code}]` : ''
+                    const date  = d.emission_date ? ` · ${new Date(d.emission_date + 'T00:00:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: '2-digit' })}` : ''
+                    return <option key={d.id} value={d.id}>{label}{spec}{date}</option>
+                  })}
                 </select>
-              </div>
+              )}
+              {documentId && (() => {
+                const d = projectDocs.find(dd => dd.id === documentId)
+                if (!d) return null
+                return (
+                  <div className="flex items-center gap-3 mt-1.5 text-[11px] text-slate-500">
+                    {d.specialty && <span className="bg-slate-100 px-1.5 py-0.5 rounded-full">{d.specialty.name}</span>}
+                    {d.emission_date && <span>{new Date(d.emission_date + 'T00:00:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })}</span>}
+                  </div>
+                )
+              })()}
             </div>
             <div>
               <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide block mb-1">
@@ -237,6 +250,11 @@ function StepCard({
                     estado={step.estado}
                     onChange={v => onUpdate(step.id, { estado: v })}
                   />
+                  {linkedDoc && (
+                    <span className="text-[11px] text-slate-400 font-mono bg-slate-50 border border-slate-100 px-1.5 py-0.5 rounded truncate max-w-[200px]" title={linkedDoc.display_name || linkedDoc.name}>
+                      {linkedDoc.doc_key || linkedDoc.display_name || linkedDoc.file_name || linkedDoc.name}
+                    </span>
+                  )}
                   {step.fecha_documento && (
                     <span className="text-[11px] text-slate-400">
                       {new Date(step.fecha_documento + 'T00:00:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}
@@ -291,31 +309,33 @@ function StepCard({
 // ── AddStepForm ───────────────────────────────────────────────────────────────
 
 function AddStepForm({
-  flowId, nextPosition, specialties,
+  flowId, nextPosition, projectDocs,
   onDone, onCancel,
 }: {
-  flowId: string; nextPosition: number; specialties: Specialty[]
+  flowId: string; nextPosition: number; projectDocs: Doc[]
   onDone: () => void; onCancel: () => void
 }) {
-  const [name, setName]               = useState('')
-  const [fecha, setFecha]             = useState('')
-  const [especialidad, setEspecialidad] = useState('')
-  const [note, setNote]               = useState('')
-  const [isDecision, setIsDecision]   = useState(false)
-  const [saving, setSaving]           = useState(false)
+  const [name, setName]             = useState('')
+  const [documentId, setDocumentId] = useState('')
+  const [note, setNote]             = useState('')
+  const [isDecision, setIsDecision] = useState(false)
+  const [saving, setSaving]         = useState(false)
+
+  const linkedDoc = projectDocs.find(d => d.id === documentId) ?? null
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!name.trim()) return
     setSaving(true)
     await addFlowStep({
-      flow_id: flowId,
-      name: name.trim(),
-      fecha_documento: fecha || null,
-      especialidad: especialidad || null,
-      note: note || null,
-      position: nextPosition,
-      is_decision: isDecision,
+      flow_id:         flowId,
+      name:            name.trim(),
+      fecha_documento: linkedDoc?.emission_date ?? null,
+      especialidad:    linkedDoc?.specialty?.code ?? null,
+      note:            note || null,
+      position:        nextPosition,
+      is_decision:     isDecision,
+      document_id:     documentId || null,
     })
     setSaving(false)
     onDone()
@@ -343,29 +363,32 @@ function AddStepForm({
         required
         className="w-full text-sm font-semibold border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-[#00C2FF]"
       />
-      <div className="grid grid-cols-2 gap-2">
-        <div>
-          <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide block mb-1">Fecha doc.</label>
-          <input
-            type="date"
-            value={fecha}
-            onChange={e => setFecha(e.target.value)}
-            className="w-full text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-[#00C2FF]"
-          />
-        </div>
-        <div>
-          <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide block mb-1">Especialidad</label>
+      {/* Documento vinculado — fecha y especialidad se obtienen automáticamente */}
+      <div>
+        <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide block mb-1">Documento vinculado</label>
+        {projectDocs.length === 0 ? (
+          <p className="text-xs text-slate-400 italic">Este flow no tiene proyecto asociado o el proyecto no tiene documentos aún</p>
+        ) : (
           <select
-            value={especialidad}
-            onChange={e => setEspecialidad(e.target.value)}
+            value={documentId}
+            onChange={e => setDocumentId(e.target.value)}
             className="w-full text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-[#00C2FF]"
           >
-            <option value="">Sin especialidad</option>
-            {specialties.map(s => (
-              <option key={s.code} value={s.code}>{s.name}</option>
-            ))}
+            <option value="">Sin documento</option>
+            {projectDocs.map(d => {
+              const label = d.doc_key || d.display_name || d.file_name || d.name
+              const spec  = d.specialty?.code ? ` [${d.specialty.code}]` : ''
+              const date  = d.emission_date ? ` · ${new Date(d.emission_date + 'T00:00:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: '2-digit' })}` : ''
+              return <option key={d.id} value={d.id}>{label}{spec}{date}</option>
+            })}
           </select>
-        </div>
+        )}
+        {linkedDoc && (
+          <div className="flex items-center gap-3 mt-1.5 text-[11px] text-slate-500">
+            {linkedDoc.specialty && <span className="bg-slate-100 px-1.5 py-0.5 rounded-full">{linkedDoc.specialty.name}</span>}
+            {linkedDoc.emission_date && <span>{new Date(linkedDoc.emission_date + 'T00:00:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })}</span>}
+          </div>
+        )}
       </div>
       {isDecision && (
         <div>
@@ -375,6 +398,18 @@ function AddStepForm({
             onChange={e => setNote(e.target.value)}
             placeholder={"Si: continúa → siguiente paso\nNo: regresa a correcciones"}
             rows={3}
+            className="w-full text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 resize-none focus:outline-none focus:ring-1 focus:ring-[#00C2FF]"
+          />
+        </div>
+      )}
+      {!isDecision && (
+        <div>
+          <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide block mb-1">Nota</label>
+          <textarea
+            value={note}
+            onChange={e => setNote(e.target.value)}
+            placeholder="Nota opcional..."
+            rows={2}
             className="w-full text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 resize-none focus:outline-none focus:ring-1 focus:ring-[#00C2FF]"
           />
         </div>
@@ -487,14 +522,14 @@ export default function FlowsPanel({
   flows: initialFlows,
   steps: initialSteps,
   projects,
-  specialties,
   workspaceId,
+  documents,
 }: {
   flows: Flow[]
   steps: FlowStep[]
   projects: Project[]
-  specialties: Specialty[]
   workspaceId: string
+  documents: Doc[]
 }) {
   const router = useRouter()
   const [, startTransition] = useTransition()
@@ -518,6 +553,10 @@ export default function FlowsPanel({
     .sort((a, b) => a.position - b.position)
 
   const rootProjects = projects.filter(p => !p.parent_project_id)
+
+  const projectDocs = selectedFlow?.project_id
+    ? documents.filter(d => d.project_id === selectedFlow.project_id)
+    : []
 
   // Progress
   const approvedCount = flowSteps.filter(s => s.estado === 'approved').length
@@ -705,7 +744,7 @@ export default function FlowsPanel({
                     step={step}
                     idx={idx}
                     total={flowSteps.length}
-                    specialties={specialties}
+                    projectDocs={projectDocs}
                     onUpdate={handleUpdateStep}
                     onDelete={handleDeleteStep}
                     onMove={handleMoveStep}
@@ -718,7 +757,7 @@ export default function FlowsPanel({
                     <AddStepForm
                       flowId={selectedFlow.id}
                       nextPosition={nextPosition}
-                      specialties={specialties}
+                      projectDocs={projectDocs}
                       onDone={() => { setShowAddStep(false); refresh() }}
                       onCancel={() => setShowAddStep(false)}
                     />

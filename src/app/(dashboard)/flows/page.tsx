@@ -38,13 +38,27 @@ export default async function FlowsPage() {
   ])
 
   const flowIds = (flowsRes.data ?? []).map((f: any) => f.id)
-  const stepsRes = flowIds.length > 0
-    ? await supabase
-        .from('flow_steps')
-        .select('id, flow_id, name, fecha_documento, estado, especialidad, position, is_decision, note')
-        .in('flow_id', flowIds)
-        .order('position', { ascending: true })
-    : { data: [] }
+  const projectIds = [...new Set((flowsRes.data ?? []).map((f: any) => f.project_id).filter(Boolean))] as string[]
+
+  const [stepsRes, flowDocsRes] = await Promise.all([
+    flowIds.length > 0
+      ? supabase
+          .from('flow_steps')
+          .select('id, flow_id, name, fecha_documento, estado, especialidad, position, is_decision, note, document_id')
+          .in('flow_id', flowIds)
+          .order('position', { ascending: true })
+      : Promise.resolve({ data: [] }),
+    projectIds.length > 0
+      ? supabase
+          .from('documents')
+          .select('id, name, display_name, file_name, project_id, emission_date, doc_key, specialty:specialties(name, code)')
+          .in('project_id', projectIds)
+          .eq('is_current', true)
+          .neq('doc_status', 'deleted')
+          .neq('doc_status', 'archived')
+          .order('emission_date', { ascending: false })
+      : Promise.resolve({ data: [] }),
+  ])
 
   return (
     <FlowsPanel
@@ -52,6 +66,7 @@ export default async function FlowsPage() {
       steps={(stepsRes.data ?? []) as any[]}
       projects={(projectsRes.data ?? []) as any[]}
       specialties={(specialtiesRes.data ?? []) as any[]}
+      documents={(flowDocsRes.data ?? []) as any[]}
       workspaceId={wsId}
     />
   )

@@ -82,6 +82,7 @@ export async function addFlowStep(data: {
   position: number
   is_decision?: boolean
   note?: string | null
+  document_id?: string | null
 }) {
   const { workspaceId } = await getCtx()
   const admin = getAdminClient()
@@ -95,6 +96,7 @@ export async function addFlowStep(data: {
     position: data.position,
     is_decision: data.is_decision || false,
     note: data.note?.trim() || null,
+    document_id: data.document_id || null,
   })
   if (error) return { error: error.message }
   revalidatePath('/flows')
@@ -108,6 +110,7 @@ export async function updateFlowStep(stepId: string, data: {
   especialidad?: string | null
   is_decision?: boolean
   note?: string | null
+  document_id?: string | null
 }) {
   await getCtx()
   const admin = getAdminClient()
