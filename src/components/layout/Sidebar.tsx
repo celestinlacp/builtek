@@ -6,7 +6,7 @@ import { logout } from '@/app/(auth)/actions'
 import Logo from '@/components/Logo'
 import {
   LayoutDashboard, CheckSquare, Calendar, Package,
-  FileText, Bot, Settings, LogOut, ChevronRight, HardDrive, Mail, MessageSquare, BookOpen, BarChart2, TrendingUp, Activity
+  FileText, Bot, Settings, LogOut, ChevronRight, HardDrive, Mail, MessageSquare, BookOpen, BarChart2, TrendingUp, Activity, GitBranch
 } from 'lucide-react'
 
 const BASE_NAV = [
@@ -17,6 +17,7 @@ const BASE_NAV = [
   { href: '/deliverables',    icon: Package,         label: 'Entregables' },
   { href: '/documents',       icon: FileText,        label: 'Proyectos' },
   { href: '/especificaciones',icon: BookOpen,        label: 'Especificaciones' },
+  { href: '/flows',           icon: GitBranch,       label: 'Flows' },
   { href: '/drive',           icon: HardDrive,       label: 'Drive', badge: 'NEW' },
   { href: '/chat',            icon: MessageSquare,   label: 'Chat / Notificaciones' },
   { href: '/ai-agent',        icon: Bot,             label: 'Agente AI' },
