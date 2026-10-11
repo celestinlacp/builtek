@@ -5,7 +5,7 @@ import { updateTaskStatus, deleteTask } from './actions'
 import { Task, Project } from '@/types'
 import {
   ChevronDown, ChevronRight, MoreHorizontal,
-  Calendar, CheckCircle2, Trash2, Edit3, Circle
+  Calendar, CheckCircle2, Trash2, Edit3, Circle, Clock, Kanban
 } from 'lucide-react'
 import NewTaskModal from './NewTaskModal'
 import EditTaskModal from './EditTaskModal'
@@ -307,6 +307,162 @@ function SpecialtyGroup({
   )
 }
 
+
+// ── Status config for kanban cards ───────────────────────────────────────────
+const STATUS_BAR: Record<string, { bar: string; label: string; bg: string; text: string }> = {
+  pending:     { bar: 'bg-slate-400',   label: 'Pendiente',    bg: 'bg-slate-100',  text: 'text-slate-600' },
+  in_progress: { bar: 'bg-[#00C2FF]',  label: 'En curso',     bg: 'bg-[#00C2FF]/10', text: 'text-[#007A9F]' },
+  review:      { bar: 'bg-amber-400',   label: 'En revisión',  bg: 'bg-amber-50',   text: 'text-amber-700' },
+  done:        { bar: 'bg-emerald-400', label: 'Hecho',        bg: 'bg-emerald-50', text: 'text-emerald-700' },
+  blocked:     { bar: 'bg-red-400',     label: 'Bloqueada',    bg: 'bg-red-50',     text: 'text-red-600' },
+}
+
+const PRIORITY_COLOR: Record<string, string> = {
+  low: 'bg-slate-300', medium: 'bg-amber-400', high: 'bg-orange-500', urgent: 'bg-red-500',
+}
+
+function dueSortKey(task: ExtendedTask): number {
+  if (task.status === 'done') return 99999999
+  if (!task.due_date) return 9999999
+  return new Date(task.due_date + 'T00:00:00').getTime()
+}
+
+function KanbanCard({ task, onOpen }: { task: ExtendedTask; onOpen: (t: ExtendedTask) => void }) {
+  const s = STATUS_BAR[task.status] || STATUS_BAR.pending
+  const now = new Date()
+  const due = task.due_date ? new Date(task.due_date + 'T00:00:00') : null
+  const diffDays = due ? Math.ceil((due.getTime() - now.getTime()) / 86400000) : null
+  const isDone = task.status === 'done'
+  const isOverdue = !isDone && diffDays !== null && diffDays < 0
+
+  let dueBadge: React.ReactNode = null
+  if (due) {
+    const fmt = due.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })
+    const cls = isDone
+      ? 'text-slate-400 bg-slate-50'
+      : isOverdue  ? 'text-red-500 bg-red-50'
+      : diffDays === 0 ? 'text-orange-600 bg-orange-50'
+      : diffDays! <= 3 ? 'text-orange-500 bg-orange-50'
+      : diffDays! <= 7 ? 'text-amber-600 bg-amber-50'
+      : 'text-slate-500 bg-slate-50'
+    const label = isDone ? fmt : isOverdue ? `Vencida · ${fmt}` : diffDays === 0 ? `Hoy · ${fmt}` : fmt
+    dueBadge = (
+      <span className={`flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${cls}`}>
+        <Calendar className="w-2.5 h-2.5" />
+        {label}
+      </span>
+    )
+  }
+
+  return (
+    <button
+      onClick={() => onOpen(task)}
+      className={`w-full text-left bg-white rounded-xl border border-slate-100 shadow-sm hover:shadow-md hover:border-[#00C2FF]/30 transition-all overflow-hidden group ${isDone ? 'opacity-60' : ''}`}
+    >
+      <div className="flex">
+        {/* Left status bar */}
+        <div className={`w-1 flex-shrink-0 ${s.bar}`} />
+        <div className="flex-1 p-3 min-w-0">
+          {/* Task name */}
+          <p className={`text-sm font-semibold text-[#1A2744] leading-tight mb-2 group-hover:text-[#00C2FF] transition-colors ${isDone ? 'line-through text-slate-400' : ''}`}>
+            {task.name}
+          </p>
+          {/* Badges row */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {/* Status */}
+            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${s.bg} ${s.text}`}>
+              {s.label}
+            </span>
+            {/* Due date */}
+            {dueBadge}
+            {/* Priority dot */}
+            {task.priority && task.priority !== 'medium' && (
+              <span className={`w-2 h-2 rounded-full flex-shrink-0 ${PRIORITY_COLOR[task.priority] || 'bg-slate-300'}`} title={task.priority} />
+            )}
+          </div>
+          {/* Project */}
+          {task.project && (
+            <p className="text-[10px] text-slate-400 mt-1.5 truncate">{task.project.name}</p>
+          )}
+        </div>
+      </div>
+    </button>
+  )
+}
+
+// Avatar colors pool
+const AVATAR_COLORS = [
+  'bg-[#1A2744]', 'bg-[#0099CC]', 'bg-violet-600', 'bg-emerald-600',
+  'bg-orange-500', 'bg-rose-500', 'bg-indigo-600', 'bg-teal-600',
+]
+
+function KanbanByPerson({
+  personGroups, showRecent, onOpen,
+}: {
+  personGroups: { member: { user_id: string | null; full_name: string | null; initials: string | null }; tasks: ExtendedTask[] }[]
+  showRecent: boolean
+  onOpen: (t: ExtendedTask) => void
+}) {
+  const sevenDaysAgo = Date.now() - 7 * 86400000
+
+  return (
+    <div className="flex gap-4 overflow-x-auto pb-4 min-h-[60vh] items-start">
+      {personGroups.map(({ member, tasks: allTasks }, colIdx) => {
+        // Filter by recent if active
+        const tasks = showRecent
+          ? allTasks.filter(t => new Date(t.created_at ?? 0).getTime() >= sevenDaysAgo)
+          : allTasks
+
+        // Sort: pending tasks by due_date asc (overdue first, no-date last), done tasks at bottom
+        const sorted = [...tasks].sort((a, b) => dueSortKey(a) - dueSortKey(b))
+
+        const doneCnt = sorted.filter(t => t.status === 'done').length
+        const activeCnt = sorted.length - doneCnt
+        const initials = member.initials
+          || member.full_name?.split(' ').map(w => w[0]?.toUpperCase() ?? '').slice(0, 2).join('')
+          || '?'
+        const avatarColor = member.user_id ? AVATAR_COLORS[colIdx % AVATAR_COLORS.length] : 'bg-slate-400'
+        const isUnassigned = !member.user_id
+
+        return (
+          <div key={member.user_id ?? '__unassigned__'} className="flex-shrink-0 w-72">
+            {/* Column header */}
+            <div className={`rounded-xl mb-3 px-4 py-3 flex items-center gap-3 ${isUnassigned ? 'bg-slate-200' : 'bg-[#1A2744]'}`}>
+              <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 ring-2 ring-white/20 ${avatarColor}`}>
+                {isUnassigned ? '—' : initials}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className={`text-sm font-bold truncate ${isUnassigned ? 'text-slate-600' : 'text-white'}`}>
+                  {member.full_name || 'Sin asignar'}
+                </p>
+                <p className={`text-[11px] ${isUnassigned ? 'text-slate-400' : 'text-[#00C2FF]'}`}>
+                  {activeCnt} activa{activeCnt !== 1 ? 's' : ''}{doneCnt > 0 ? ` · ${doneCnt} hecha${doneCnt !== 1 ? 's' : ''}` : ''}
+                </p>
+              </div>
+              <span className={`text-xs font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${isUnassigned ? 'bg-slate-300 text-slate-600' : 'bg-white/20 text-white'}`}>
+                {tasks.length}
+              </span>
+            </div>
+
+            {/* Cards */}
+            <div className="space-y-2">
+              {sorted.length === 0 ? (
+                <div className="bg-white/60 rounded-xl border border-dashed border-slate-200 p-6 text-center">
+                  <p className="text-xs text-slate-400">Sin tareas{showRecent ? ' recientes' : ''}</p>
+                </div>
+              ) : (
+                sorted.map(task => (
+                  <KanbanCard key={task.id} task={task} onOpen={onOpen} />
+                ))
+              )}
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 type ExtendedTask = Task & {
   project?: { name: string }
   assignees?: { user_id: string; full_name: string | null; initials: string | null }[]
@@ -324,7 +480,8 @@ export default function TaskBoard({
   workspaceId: string
   defaultTaskId?: string
 }) {
-  const [view, setView] = useState<'board' | 'list' | 'person'>('board')
+  const [view, setView] = useState<'board' | 'list' | 'person' | 'kanban'>('board')
+  const [showRecent, setShowRecent] = useState(false)
   const [filter, setFilter] = useState<string>('all')
   const [userFilter, setUserFilter] = useState<string>('all')
   const [sortBy, setSortBy] = useState<'default' | 'date_desc' | 'date_asc' | 'name_asc'>('default')
@@ -505,6 +662,7 @@ export default function TaskBoard({
             { value: 'board',  label: '⊞ Tablero' },
             { value: 'list',   label: '☰ Lista' },
             { value: 'person', label: '👤 Usuarios' },
+            { value: 'kanban', label: '⊟ Kanban' },
           ] as const).map(v => (
             <button
               key={v.value}
@@ -520,6 +678,24 @@ export default function TaskBoard({
       </div>
 
       {/* Content */}
+      {/* Filtro recientes — solo en kanban */}
+      {view === 'kanban' && (
+        <div className="flex items-center gap-2 mb-3">
+          <button
+            onClick={() => setShowRecent(v => !v)}
+            className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-medium border transition-all ${showRecent ? 'bg-[#1A2744] text-white border-[#1A2744]' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'}`}
+          >
+            <Clock className="w-3.5 h-3.5" />
+            Asignadas recientes (7 días)
+          </button>
+          {showRecent && (
+            <span className="text-xs text-slate-400">
+              Mostrando tareas creadas en los últimos 7 días
+            </span>
+          )}
+        </div>
+      )}
+
       {view === 'person' ? (
         personGroups.length === 0 ? (
           <div className="text-center py-20 bg-white rounded-xl border border-slate-100">
@@ -564,6 +740,19 @@ export default function TaskBoard({
               />
             ))}
           </div>
+        )
+      ) : view === 'kanban' ? (
+        personGroups.length === 0 ? (
+          <div className="text-center py-20 bg-white rounded-xl border border-slate-100">
+            <Circle className="w-12 h-12 text-slate-200 mx-auto mb-3" />
+            <p className="text-slate-400 text-sm">No hay tareas asignadas</p>
+          </div>
+        ) : (
+          <KanbanByPerson
+            personGroups={personGroups}
+            showRecent={showRecent}
+            onOpen={setSlideTask}
+          />
         )
       ) : (
         // List view — todas sin agrupar
