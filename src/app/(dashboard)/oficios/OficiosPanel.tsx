@@ -1650,24 +1650,16 @@ function OficioRow({
       )}
       {/* Asunto */}
       <td className="px-4 py-3">
-        <div className="flex items-start gap-2 min-w-0">
-          <div className="min-w-0">
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <p title={oficio.asunto} className="text-sm font-medium text-[#1A2744] leading-snug line-clamp-2 cursor-default">{oficio.asunto}</p>
-              {oficio.tipo_documento === 'tarjeta' && (
-                <span className="inline-flex items-center text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700 whitespace-nowrap flex-shrink-0">Tarjeta</span>
-              )}
-            </div>
-            {respuesta && (
-              <p className="text-[10px] text-emerald-600 font-medium mt-0.5 flex items-center gap-1">
-                <ArrowUpFromLine className="w-3 h-3" />
-                Resp: {respuesta}
-              </p>
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="min-w-0 flex items-center gap-1.5 flex-1">
+            <p title={oficio.asunto} className="text-sm font-medium text-[#1A2744] truncate cursor-default">{oficio.asunto}</p>
+            {oficio.tipo_documento === 'tarjeta' && (
+              <span className="inline-flex items-center text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700 whitespace-nowrap flex-shrink-0">Tarjeta</span>
             )}
-            {(oficio.remitente || oficio.destinatario) && (
-              <p className="text-xs text-slate-400 truncate">
-                {oficio.tipo === 'entrada' ? oficio.remitente : oficio.destinatario}
-              </p>
+            {respuesta && (
+              <span className="inline-flex items-center gap-0.5 text-[10px] text-emerald-600 font-medium whitespace-nowrap flex-shrink-0">
+                <ArrowUpFromLine className="w-3 h-3" />Resp
+              </span>
             )}
           </div>
           {oficio.storage_key && (
@@ -1707,7 +1699,7 @@ function OficioRow({
       </td>
 
       {/* Estado (entrada) / Subido por (salida) */}
-      <td className="px-3 py-3" onClick={e => e.stopPropagation()}>
+      <td className="px-2 py-3 overflow-visible" onClick={e => e.stopPropagation()}>
         {oficio.tipo === 'entrada'
           ? <EstadoDropdown oficio={oficio} workspaceId={workspaceId} />
           : creatorName
@@ -2240,7 +2232,7 @@ export default function OficiosPanel({
                       />
                     </th>
                   )}
-                  <th className="px-4 py-3 w-[38%] text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
+                  <th className="px-4 py-3 w-[35%] text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
                     <SortHeader label="Asunto" col="asunto" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
                   </th>
                   <th className="px-3 py-3 w-[6%] text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
@@ -2249,10 +2241,10 @@ export default function OficiosPanel({
                   <th className="px-3 py-3 w-[6%] text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
                     <SortHeader label="Recepción" col="fecha_recepcion" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
                   </th>
-                  <th className="px-2 py-3 w-[7%] text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
+                  <th className="px-2 py-3 w-[9%] text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
                     <SortHeader label={tab === 'salida' ? 'Subido por' : 'Estado'} col="estado" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
                   </th>
-                  <th className="px-2 py-3 w-[5%] text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Asignado</th>
+                  <th className="px-2 py-3 w-[6%] text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Asignado</th>
                   <th className="px-2 py-3 w-[8%] text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
                     <SortHeader label="No. oficio" col="no_oficio" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
                   </th>
@@ -2306,7 +2298,7 @@ export default function OficiosPanel({
                       <thead>
                         <tr className="border-b border-slate-100 bg-slate-50/50">
                           {canDelete && <th className="pl-4 pr-2 py-2 w-8" />}
-                          <th className="px-4 py-2 w-[38%] text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
+                          <th className="px-4 py-2 w-[35%] text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
                             <SortHeader label="Asunto" col="asunto" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
                           </th>
                           <th className="px-3 py-2 w-[6%] text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
@@ -2315,10 +2307,10 @@ export default function OficiosPanel({
                           <th className="px-3 py-2 w-[6%] text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
                             <SortHeader label="Recepción" col="fecha_recepcion" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
                           </th>
-                          <th className="px-2 py-2 w-[7%] text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
+                          <th className="px-2 py-2 w-[9%] text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
                             <SortHeader label={tab === 'salida' ? 'Subido por' : 'Estado'} col="estado" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
                           </th>
-                          <th className="px-2 py-2 w-[5%] text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Asignado</th>
+                          <th className="px-2 py-2 w-[6%] text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Asignado</th>
                           <th className="px-2 py-2 w-[8%] text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
                             <SortHeader label="No. oficio" col="no_oficio" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
                           </th>
