@@ -231,7 +231,7 @@ function UploadModal({
   onClose: () => void
   onSaved: (config: LastUploadConfig) => void
 }) {
-  const [projectId,      setProjectId]      = useState(lastConfig?.projectId || defaultProjectId || '')
+  const [projectId,      setProjectId]      = useState(defaultProjectId || lastConfig?.projectId || '')
   const [specialtyCode,  setSpecialtyCode]  = useState(lastConfig?.specialtyCode || '')
   const [displayName,    setDisplayName]    = useState('')
   const [emissionDate,   setEmissionDate]   = useState(lastConfig?.emissionDate || '')
