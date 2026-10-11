@@ -932,7 +932,7 @@ function UploadModal({
               className="flex-1 py-2.5 rounded-lg border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50">
               Cancelar
             </button>
-            <button onClick={handleUpload} disabled={uploading || !file || !projectId || !authorSel || !emissionDate}
+            <button onClick={() => handleUpload()} disabled={uploading || !file || !projectId || !authorSel || !emissionDate}
               className="flex-1 py-2.5 rounded-lg bg-[#1A2744] text-white text-sm font-bold hover:bg-[#243660] disabled:opacity-60">
               {uploading ? 'Subiendo...' : 'Subir a R2'}
             </button>
