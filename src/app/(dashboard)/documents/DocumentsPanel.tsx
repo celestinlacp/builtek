@@ -566,8 +566,8 @@ function UploadModal({
                     ))}
                   </select>
                   <input
-                    type="number" min="1" max="99" value={docViewNum}
-                    onChange={e => setDocViewNum(e.target.value.replace(/\D/g, ''))}
+                    type="text" value={docViewNum}
+                    onChange={e => setDocViewNum(e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase())}
                     placeholder="#"
                     disabled={!docView}
                     className="w-14 flex-shrink-0 px-2 py-2.5 rounded-lg border border-slate-200 text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50 disabled:bg-slate-50 disabled:text-slate-300"
