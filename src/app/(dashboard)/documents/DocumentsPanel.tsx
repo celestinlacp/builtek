@@ -293,6 +293,8 @@ function UploadModal({
     setVersionWarning(null)
     setOverwriteWarning(null)
     if (!f) { setFileFormat(null); return }
+    // Pre-rellenar nombre descriptivo con nombre del archivo sin extension
+    setDisplayName(f.name.replace(/\.[^.]+$/, ''))
     // Auto-detectar formato de archivo
     setFileFormat(detectFileFormat(f.name))
     // Solo usar el filename para detectar si es una versión nueva de un documento existente
