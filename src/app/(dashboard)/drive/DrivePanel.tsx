@@ -747,13 +747,14 @@ function PdfViewerModal({ fileId, fileName, onClose }: { fileId: string; fileNam
 
 // ── Folder Card ───────────────────────────────────────────────────────────────
 
-function FolderCard({ folder, onOpen, onDelete, onRename, onShare, onDrop, isAdmin, viewMode }: {
+function FolderCard({ folder, onOpen, onDelete, onRename, onShare, onDrop, onDownload, isAdmin, viewMode }: {
   folder:     DriveFolder
   onOpen:     () => void
   onDelete:   () => void
   onRename:   (name: string) => void
   onShare:    () => void
   onDrop:     () => void
+  onDownload: () => void
   isAdmin:    boolean
   viewMode:   'grid' | 'list'
 }) {
@@ -796,6 +797,9 @@ function FolderCard({ folder, onOpen, onDelete, onRename, onShare, onDrop, isAdm
           <button onClick={e => { e.stopPropagation(); onShare() }} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-[#00C2FF]/10 text-slate-400 hover:text-[#00C2FF]" title="Compartir carpeta">
             <Share2 className="w-3.5 h-3.5" />
           </button>
+          <button onClick={e => { e.stopPropagation(); onDownload() }} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-200 text-slate-400 hover:text-slate-600" title="Descargar ZIP">
+            <Download className="w-3.5 h-3.5" />
+          </button>
           {isAdmin && (
             <button onClick={() => setEditing(true)} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-200 text-slate-400 hover:text-slate-600">
               <Pencil className="w-3.5 h-3.5" />
@@ -829,6 +833,9 @@ function FolderCard({ folder, onOpen, onDelete, onRename, onShare, onDrop, isAdm
         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
           <button onClick={onShare} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-[#00C2FF]/10 text-slate-400 hover:text-[#00C2FF]" title="Compartir">
             <Share2 className="w-3.5 h-3.5" />
+          </button>
+          <button onClick={e => { e.stopPropagation(); onDownload() }} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-200 text-slate-400 hover:text-slate-600" title="Descargar ZIP">
+            <Download className="w-3.5 h-3.5" />
           </button>
           {isAdmin && (
             <button onClick={() => setEditing(true)} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-400">
@@ -1245,7 +1252,7 @@ function LinksPanel({ workspaceId, isAdmin }: { workspaceId: string; isAdmin: bo
 
 // ── File Card ─────────────────────────────────────────────────────────────────
 
-function FileCard({ file, onView, onDelete, onShare, onReplace, uploaderName, isAdmin, viewMode }: {
+function FileCard({ file, onView, onDelete, onShare, onReplace, uploaderName, isAdmin, viewMode, selected, onToggleSelect }: {
   file:         DriveFile
   onView:       () => void
   onDelete:     () => void
@@ -1254,13 +1261,20 @@ function FileCard({ file, onView, onDelete, onShare, onReplace, uploaderName, is
   uploaderName: string
   isAdmin:      boolean
   viewMode:     'grid' | 'list'
+  selected?:    boolean
+  onToggleSelect?: () => void
 }) {
   const colorClass = FILE_COLORS[file.file_type] || FILE_COLORS.other
   const isPdf      = file.file_type === 'pdf'
 
   if (viewMode === 'list') {
     return (
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-50 hover:bg-slate-50 group">
+      <div className={`flex items-center gap-3 px-4 py-3 border-b border-slate-50 group transition-colors ${selected ? 'bg-[#00C2FF]/5' : 'hover:bg-slate-50'}`}>
+        {onToggleSelect && (
+          <input type="checkbox" checked={!!selected} onChange={onToggleSelect}
+            onClick={e => e.stopPropagation()}
+            className="w-3.5 h-3.5 rounded accent-[#1A2744] flex-shrink-0 cursor-pointer" />
+        )}
         <FileTypeIcon fileType={file.file_type} size={28} />
         <div className="flex-1 min-w-0">
           {isPdf ? (
@@ -1306,7 +1320,13 @@ function FileCard({ file, onView, onDelete, onShare, onReplace, uploaderName, is
   }
 
   return (
-    <div className={`group relative bg-white border rounded-xl overflow-hidden hover:shadow-sm transition-all ${colorClass}`}>
+    <div className={`group relative bg-white border rounded-xl overflow-hidden hover:shadow-sm transition-all ${colorClass}${selected ? ' ring-2 ring-[#00C2FF]' : ''}`}>
+      {onToggleSelect && (
+        <div className="absolute top-2 left-2 z-10" onClick={e => e.stopPropagation()}>
+          <input type="checkbox" checked={!!selected} onChange={onToggleSelect}
+            className="w-4 h-4 rounded accent-[#1A2744] cursor-pointer" />
+        </div>
+      )}
       {/* Preview area */}
       <div className={`h-32 flex items-center justify-center border-b ${colorClass}`}
         onClick={isPdf ? onView : undefined}
@@ -1391,6 +1411,7 @@ export default function DrivePanel({ workspaceId, userRole, currentUserId }: {
   const [sharingFolder, setSharingFolder] = useState<{ id: string; name: string } | null>(null)
   const [replacingFile, setReplacingFile] = useState<{ id: string; name: string } | null>(null)
   const [activeTab,     setActiveTab]     = useState<'drive' | 'links'>('drive')
+  const [selectedFileIds, setSelectedFileIds] = useState<Set<string>>(new Set())
 
   // Filtros de trazabilidad
   const [filterUploader, setFilterUploader] = useState<string>('')
@@ -1492,6 +1513,40 @@ export default function DrivePanel({ workspaceId, userRole, currentUserId }: {
   })
 
   const isEmpty = !loading && folders.length === 0 && filteredFiles.length === 0
+
+  function toggleSelectFile(fileId: string) {
+    setSelectedFileIds(prev => {
+      const next = new Set(prev)
+      if (next.has(fileId)) next.delete(fileId)
+      else next.add(fileId)
+      return next
+    })
+  }
+
+  function toggleSelectAll() {
+    if (selectedFileIds.size === filteredFiles.length) {
+      setSelectedFileIds(new Set())
+    } else {
+      setSelectedFileIds(new Set(filteredFiles.map(f => f.id)))
+    }
+  }
+
+  async function handleBulkDownload() {
+    const ids = [...selectedFileIds]
+    const res = await fetch('/api/drive/download/zip', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fileIds: ids }),
+    })
+    if (!res.ok) { alert('Error al generar el ZIP'); return }
+    const blob = await res.blob()
+    const url  = URL.createObjectURL(blob)
+    const a    = document.createElement('a')
+    a.href     = url
+    a.download = 'seleccion-' + ids.length + '-archivos.zip'
+    a.click()
+    URL.revokeObjectURL(url)
+  }
 
   async function handleMoveFileToFolder(fileId: string, folderId: string) {
     setDraggingFileId(null)
@@ -1604,6 +1659,31 @@ export default function DrivePanel({ workspaceId, userRole, currentUserId }: {
             </div>
             {folderError && (
               <p className="text-xs text-red-600 px-4">{folderError}</p>
+            )}
+          </div>
+        )}
+
+        {/* Barra de seleccion multiple */}
+        {activeTab === 'drive' && filteredFiles.length > 0 && (
+          <div className="flex items-center gap-2 mb-3 flex-wrap">
+            <input type="checkbox"
+              className="w-3.5 h-3.5 rounded accent-[#1A2744] cursor-pointer"
+              checked={filteredFiles.length > 0 && selectedFileIds.size === filteredFiles.length}
+              onChange={toggleSelectAll}
+              title="Seleccionar todos" />
+            <span className="text-xs text-slate-400">{selectedFileIds.size > 0 ? selectedFileIds.size + ' seleccionado(s)' : 'Seleccionar'}</span>
+            {selectedFileIds.size > 0 && (
+              <button onClick={handleBulkDownload}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1A2744] text-white text-xs font-bold hover:bg-[#243660]">
+                <Download className="w-3.5 h-3.5" />
+                Descargar ({selectedFileIds.size})
+              </button>
+            )}
+            {selectedFileIds.size > 0 && (
+              <button onClick={() => setSelectedFileIds(new Set())}
+                className="text-xs text-slate-400 hover:text-slate-600 px-2 py-1.5">
+                Limpiar
+              </button>
             )}
           </div>
         )}
@@ -1733,6 +1813,7 @@ export default function DrivePanel({ workspaceId, userRole, currentUserId }: {
                         onRename={name => handleRenameFolder(f.id, name)}
                         onShare={() => setSharingFolder({ id: f.id, name: f.name })}
                         onDrop={() => { if (draggingFileId) handleMoveFileToFolder(draggingFileId, f.id) }}
+                        onDownload={() => window.open('/api/drive/folder/' + f.id + '/zip', '_blank')}
                         isAdmin={true} />
                     ))}
                     {Object.entries(othersByOwner).map(([ownerId, ownerFolders]) => (
@@ -1749,6 +1830,7 @@ export default function DrivePanel({ workspaceId, userRole, currentUserId }: {
                             onRename={name => handleRenameFolder(f.id, name)}
                             onShare={() => setSharingFolder({ id: f.id, name: f.name })}
                             onDrop={() => { if (draggingFileId) handleMoveFileToFolder(draggingFileId, f.id) }}
+                            onDownload={() => window.open('/api/drive/folder/' + f.id + '/zip', '_blank')}
                             isAdmin={isAdmin} />
                         ))}
                       </div>
@@ -1766,7 +1848,9 @@ export default function DrivePanel({ workspaceId, userRole, currentUserId }: {
                           onShare={() => setSharingFile({ id: f.id, name: f.name })}
                           onReplace={() => setReplacingFile({ id: f.id, name: f.name })}
                           uploaderName={memberNames[f.uploaded_by] || 'Usuario'}
-                          isAdmin={isSystemFolder ? isAdmin : (f.uploaded_by === currentUserId || isAdmin)} />
+                          isAdmin={isSystemFolder ? isAdmin : (f.uploaded_by === currentUserId || isAdmin)}
+                          selected={selectedFileIds.has(f.id)}
+                          onToggleSelect={() => toggleSelectFile(f.id)} />
                       </div>
                     ))}
                   </div>
@@ -1794,6 +1878,7 @@ export default function DrivePanel({ workspaceId, userRole, currentUserId }: {
                               onRename={name => handleRenameFolder(f.id, name)}
                               onShare={() => setSharingFolder({ id: f.id, name: f.name })}
                               onDrop={() => { if (draggingFileId) handleMoveFileToFolder(draggingFileId, f.id) }}
+                              onDownload={() => window.open('/api/drive/folder/' + f.id + '/zip', '_blank')}
                               isAdmin={true} />
                           ))}
                         </div>
@@ -1812,6 +1897,7 @@ export default function DrivePanel({ workspaceId, userRole, currentUserId }: {
                               onRename={name => handleRenameFolder(f.id, name)}
                               onShare={() => setSharingFolder({ id: f.id, name: f.name })}
                               onDrop={() => { if (draggingFileId) handleMoveFileToFolder(draggingFileId, f.id) }}
+                              onDownload={() => window.open('/api/drive/folder/' + f.id + '/zip', '_blank')}
                               isAdmin={isAdmin} />
                           ))}
                         </div>
@@ -1826,6 +1912,7 @@ export default function DrivePanel({ workspaceId, userRole, currentUserId }: {
                             onRename={name => handleRenameFolder(f.id, name)}
                             onShare={() => setSharingFolder({ id: f.id, name: f.name })}
                             onDrop={() => { if (draggingFileId) handleMoveFileToFolder(draggingFileId, f.id) }}
+                            onDownload={() => window.open('/api/drive/folder/' + f.id + '/zip', '_blank')}
                             isAdmin={f.created_by === currentUserId || isAdmin} />
                         ))}
                       </div>
@@ -1839,7 +1926,9 @@ export default function DrivePanel({ workspaceId, userRole, currentUserId }: {
                             onShare={() => setSharingFile({ id: f.id, name: f.name })}
                             onReplace={() => setReplacingFile({ id: f.id, name: f.name })}
                             uploaderName={memberNames[f.uploaded_by] || 'Usuario'}
-                            isAdmin={f.uploaded_by === currentUserId || isAdmin} />
+                            isAdmin={f.uploaded_by === currentUserId || isAdmin}
+                            selected={selectedFileIds.has(f.id)}
+                            onToggleSelect={() => toggleSelectFile(f.id)} />
                         ))}
                       </div>
                     )}
