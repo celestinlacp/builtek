@@ -563,11 +563,19 @@ function UploadModal({
           <div className="grid grid-cols-2 gap-6">
             <div className="min-w-0">
               <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
-                Tipo de plano
+                {docType === 'PLA' ? 'Tipo de plano' : 'Subtipo / #'}
               </label>
               {docType !== 'PLA' ? (
-                <div className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-sm text-slate-400 font-mono">
-                  NA
+                <div className="flex gap-2">
+                  <div className="flex-1 px-3 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-sm text-slate-400 font-mono select-none">
+                    NA
+                  </div>
+                  <input
+                    type="text" value={docViewNum}
+                    onChange={e => setDocViewNum(e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase())}
+                    placeholder="#"
+                    className="w-14 flex-shrink-0 px-2 py-2.5 rounded-lg border border-slate-200 text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50"
+                  />
                 </div>
               ) : (
                 <div className="flex gap-2">
