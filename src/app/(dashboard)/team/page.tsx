@@ -43,7 +43,6 @@ export default async function TeamPage() {
   for (const p of (profilesData ?? [])) if (p.id && p.full_name) profileById[p.id] = p.full_name
 
   const allTasks = (tasksRes.data ?? []).filter((t: any) => t.status !== 'archived')
-  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
   const now = new Date()
 
   const teamStats: TeamMemberStats[] = (membersRes.data ?? []).map((m: any) => {
@@ -55,8 +54,7 @@ export default async function TeamPage() {
       .slice(0, 2)
       .map((w: string) => w[0].toUpperCase())
       .join('') || null
-    // Only last 30 days for performance metrics
-    const userTasks = allTasks.filter((t: any) => t.assignee_id === uid && new Date(t.created_at ?? 0) >= thirtyDaysAgo)
+    const userTasks = allTasks.filter((t: any) => t.assignee_id === uid)
     const done       = userTasks.filter((t: any) => t.status === 'done').length
     const inProgress = userTasks.filter((t: any) => t.status === 'in_progress').length
     const pending    = userTasks.filter((t: any) => t.status === 'pending').length

@@ -97,10 +97,8 @@ async function getWorkspaceData(userId: string) {
     }
   }
 
-  // Calcular stats por miembro del equipo (todos los roles) — últimos 30 días, sin archivadas
-  const allTasksRaw = (tasks.data ?? []).filter((t: any) => t.status !== 'archived')
-  const thirtyDaysAgoStats = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
-  const allTasks = allTasksRaw.filter((t: any) => new Date(t.created_at ?? 0) >= thirtyDaysAgoStats)
+  // Calcular stats por miembro del equipo — todas las tareas activas (sin archivadas)
+  const allTasks = (tasks.data ?? []).filter((t: any) => t.status !== 'archived')
   const nowStats = new Date()
   const teamStats: TeamMemberStats[] = (members.data ?? []).map((m: any) => {
     const profile = profileMap[m.user_id] ?? { full_name: null, initials: null }
@@ -192,9 +190,8 @@ export default async function DashboardPage() {
   const recentTasks = activeTasks.slice(0, 6)
   const myTasks = activeTasks.filter((t: any) => t.assignee_id === user.id && t.status !== 'done').slice(0, 5)
 
-  // Performance personal — solo últimos 30 días
-  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
-  const myAll     = activeTasks.filter((t: any) => t.assignee_id === user.id && new Date(t.created_at ?? 0) >= thirtyDaysAgo)
+  // Performance personal — todas las tareas activas asignadas al usuario
+  const myAll     = activeTasks.filter((t: any) => t.assignee_id === user.id)
   const myDone    = myAll.filter(t => t.status === 'done').length
   const myReview  = myAll.filter(t => t.status === 'review').length
   const myBlocked = myAll.filter(t => t.status === 'blocked').length
@@ -391,7 +388,7 @@ export default async function DashboardPage() {
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <User className="w-4 h-4 text-[#00C2FF]" />
-              <span className="text-sm font-semibold text-[#1A2744]">Mi rendimiento · últimos 30 días</span>
+              <span className="text-sm font-semibold text-[#1A2744]">Mi rendimiento</span>
             </div>
             <span className="text-lg font-bold text-[#1A2744]">{myScore !== null ? `${myScore}%` : '—'}</span>
           </div>
@@ -424,7 +421,7 @@ export default async function DashboardPage() {
             <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-amber-400 inline-block" />{myReview} en revisión</span>
             {myBlocked > 0 && <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-slate-400 inline-block" />{myBlocked} bloqueadas</span>}
             {myUrgent > 0 && <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-orange-400 inline-block" />{myUrgent} urgentes</span>}
-            <span className="text-slate-300 ml-auto hidden sm:block">Hecho=100% · Revisión=50% · Rechazado=75%</span>
+            <span className="text-slate-300 ml-auto hidden sm:block">Hecho=100% · Revisión=50% · Bloqueado=75%</span>
           </div>
         </div>
       )}
