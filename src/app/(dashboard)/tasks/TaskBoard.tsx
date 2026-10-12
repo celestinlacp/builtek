@@ -53,14 +53,16 @@ function CountdownBadge({ due_date }: { due_date: string }) {
   return <span className="hidden md:inline text-[10px] font-semibold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full flex-shrink-0">{diffDays}d</span>
 }
 
-function StatusBadge({ status, taskId }: { status: string; taskId: string }) {
+function StatusBadge({ status, taskId, currentUserRole }: { status: string; taskId: string; currentUserRole: string }) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [dropPos, setDropPos] = useState({ top: 0, left: 0 })
   const btnRef = useRef<HTMLButtonElement>(null)
   const current = STATUS_OPTIONS.find(s => s.value === status)
+  const canChange = ['owner', 'admin', 'manager'].includes(currentUserRole)
 
   function handleOpen() {
+    if (!canChange) return
     if (btnRef.current) {
       const rect = btnRef.current.getBoundingClientRect()
       setDropPos({ top: rect.bottom + 4, left: rect.left })
@@ -80,11 +82,11 @@ function StatusBadge({ status, taskId }: { status: string; taskId: string }) {
       <button
         ref={btnRef}
         onClick={handleOpen}
-        disabled={loading}
-        className={`text-xs px-2.5 py-1 rounded-full font-medium flex items-center gap-1 ${current?.color} hover:opacity-80 transition-opacity`}
+        disabled={loading || !canChange}
+        className={`text-xs px-2.5 py-1 rounded-full font-medium flex items-center gap-1 ${current?.color} ${canChange ? 'hover:opacity-80 transition-opacity' : 'cursor-default'}`}
       >
         {loading ? '...' : current?.label}
-        <ChevronDown className="w-3 h-3" />
+        {canChange && <ChevronDown className="w-3 h-3" />}
       </button>
       {open && (
         <>
@@ -173,7 +175,7 @@ function TaskRow({ task, members, currentUserRole, onEdit, onOpen }: { task: Tas
       })() : null}
 
       {/* Status */}
-      <StatusBadge status={task.status} taskId={task.id} />
+      <StatusBadge status={task.status} taskId={task.id} currentUserRole={currentUserRole} />
 
       {/* Menu */}
       <div className="relative">
