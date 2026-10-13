@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Plus, X, Pencil, Trash2, Eye, Upload, Loader2,
@@ -1518,6 +1518,16 @@ function EstadoDropdown({ oficio, workspaceId }: { oficio: Oficio; workspaceId: 
   const [open,          setOpen]          = useState(false)
   const [loading,       setLoading]       = useState(false)
   const [showRespuesta, setShowRespuesta] = useState(false)
+  const [dropdownPos,   setDropdownPos]   = useState({ top: 0, left: 0 })
+  const btnRef = useRef<HTMLButtonElement>(null)
+
+  function handleOpen() {
+    if (btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect()
+      setDropdownPos({ top: r.bottom + 4, left: r.left })
+    }
+    setOpen(v => !v)
+  }
 
   async function handleChange(estado: string) {
     if (estado === 'respondido') {
@@ -1535,7 +1545,8 @@ function EstadoDropdown({ oficio, workspaceId }: { oficio: Oficio; workspaceId: 
   return (
     <div className="relative">
       <button
-        onClick={() => setOpen(v => !v)}
+        ref={btnRef}
+        onClick={handleOpen}
         disabled={loading}
         className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap transition-opacity disabled:opacity-50 ${cfg.color}`}
       >
@@ -1545,8 +1556,11 @@ function EstadoDropdown({ oficio, workspaceId }: { oficio: Oficio; workspaceId: 
       </button>
       {open && (
         <>
-          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute left-0 top-full mt-1 z-20 bg-white rounded-xl shadow-lg border border-slate-100 py-1 min-w-[150px]">
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div
+            className="fixed z-50 bg-white rounded-xl shadow-lg border border-slate-100 py-1 min-w-[150px]"
+            style={{ top: dropdownPos.top, left: dropdownPos.left }}
+          >
             {Object.entries(ESTADO_CONFIG).map(([key, c]) => (
               <button
                 key={key}
