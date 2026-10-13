@@ -713,6 +713,49 @@ function MesaOficiosSection({
   )
 }
 
+// ── Visor inline de especificación ────────────────────────────────────────────
+
+function SpecViewerModal({ spec, onClose }: { spec: DesignSpec; onClose: () => void }) {
+  const [loading, setLoading] = useState(true)
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col bg-black/90">
+      <div className="flex items-center justify-between px-4 py-3 bg-[#1A2744] flex-shrink-0">
+        <div className="flex items-center gap-3 min-w-0">
+          <span className="text-lg">📄</span>
+          <span className="text-white text-sm font-semibold truncate">{spec.title}</span>
+          {spec.file_type && (
+            <span className="text-xs text-slate-400 uppercase font-medium flex-shrink-0">{spec.file_type}</span>
+          )}
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <a href={`/api/specs/file/${spec.id}?dl=1`} target="_blank" rel="noopener noreferrer"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 text-white text-xs font-medium hover:bg-white/20 transition-colors">
+            <Download className="w-3.5 h-3.5" />
+            Descargar
+          </a>
+          <button onClick={onClose}
+            className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/10 text-white hover:bg-white/20 transition-colors">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+      <div className="flex-1 relative">
+        {loading && (
+          <div className="absolute inset-0 flex items-center justify-center bg-slate-900">
+            <Loader2 className="w-8 h-8 text-[#00C2FF] animate-spin" />
+          </div>
+        )}
+        <iframe
+          src={`/api/specs/file/${spec.id}`}
+          className="w-full h-full border-0"
+          onLoad={() => setLoading(false)}
+          title={spec.title}
+        />
+      </div>
+    </div>
+  )
+}
+
 // ── Vista detalle de una mesa ─────────────────────────────────────────────────
 
 type DetailTab = 'especificaciones' | 'oficios'
@@ -739,6 +782,7 @@ function MesaDetailView({
   const [filterStatus, setFilterStatus] = useState('all')
   const [editingSpec,  setEditingSpec]  = useState<DesignSpec | null>(null)
   const [sharingSpec,  setSharingSpec]  = useState<DesignSpec | null>(null)
+  const [viewingSpec,  setViewingSpec]  = useState<DesignSpec | null>(null)
   const canUpload = ['owner', 'admin', 'manager', 'engineer'].includes(userRole)
   const isAdmin   = ['owner', 'admin'].includes(userRole)
   const palette   = getPalette(mesaIdx)
@@ -888,7 +932,10 @@ function MesaDetailView({
                     className="flex items-center gap-3 px-4 py-3 border-b border-slate-50 hover:bg-slate-50 group last:border-b-0">
                     <span className="text-base w-5 flex-shrink-0">{spec.storage_key ? '📄' : '📋'}</span>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-slate-700 truncate">{spec.title}</p>
+                      <p
+                        className={`text-sm font-medium truncate ${spec.storage_key ? 'text-[#1A2744] hover:text-[#00C2FF] cursor-pointer' : 'text-slate-700'}`}
+                        onClick={() => spec.storage_key && setViewingSpec(spec)}
+                      >{spec.title}</p>
                       <p className="text-xs text-slate-400 flex items-center gap-1.5 flex-wrap mt-0.5">
                         {spec.spec_code && (
                           <span className="font-mono bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded font-bold">{spec.spec_code}</span>
@@ -956,6 +1003,10 @@ function MesaDetailView({
 
       {sharingSpec && (
         <ShareSpecModal spec={sharingSpec} onClose={() => setSharingSpec(null)} />
+      )}
+
+      {viewingSpec && (
+        <SpecViewerModal spec={viewingSpec} onClose={() => setViewingSpec(null)} />
       )}
     </div>
   )
