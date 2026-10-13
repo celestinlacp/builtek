@@ -61,7 +61,7 @@ export function detectFileFormat(fileName: string): string | null {
   const ext = fileName.split('.').pop()?.toLowerCase()
   if (!ext) return null
   const MAP: Record<string, string> = {
-    pdf: 'PDF', dwg: 'DWG', dxf: 'DXF',
+    pdf: 'PDF', dwg: 'DWG', dxf: 'DXF', kmz: 'KMZ', kml: 'KML',
     xlsx: 'XLSX', xls: 'XLS',
     docx: 'DOCX', doc: 'DOC',
     pptx: 'PPTX', ppt: 'PPT',
