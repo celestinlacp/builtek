@@ -30,7 +30,7 @@ const STATUS_CONFIG = {
 
 const FILE_ICONS: Record<string, string> = {
   pdf: '📄', dwg: '📐', dxf: '📐', xlsx: '📊', xls: '📊',
-  docx: '📝', doc: '📝', img: '🖼️', other: '📁',
+  docx: '📝', doc: '📝', img: '🖼️', kmz: '🗺️', kml: '🗺️', other: '📁',
 }
 
 type DeleteRequest = {
@@ -255,7 +255,7 @@ function UploadModal({
     if (defaultProjectId) {
       const proj   = projects.find(p => p.id === defaultProjectId)
       const parent = proj?.parent_project_id ? projects.find(p => p.id === proj.parent_project_id) : null
-      const derived = proj?.mic_identifier || parent?.mic_identifier || ''
+      const derived = (proj ? extractIdentifier(proj) : '') || (parent ? extractIdentifier(parent) : '') || ''
       if (derived) return derived
     }
     // Solo usar lastConfig si no hay proyecto de contexto
@@ -342,11 +342,23 @@ function UploadModal({
 
   // Catálogo ESPECIALIDAD desde mic_nomenclatures (fuente de verdad del workspace)
   const especialidadOptions  = micNomenclatures.filter(n => n.segment === 'ESPECIALIDAD')
-  // IDENTIFICADOR: derivado directo de projects para no depender del sync de mic_nomenclatures
-  const identificadorOptions = projects
-    .filter(p => p.mic_identifier)
-    .map(p => ({ code: p.mic_identifier!, name: p.name }))
-    .sort((a, b) => a.code.localeCompare(b.code))
+
+  // Deriva el identificador desde mic_identifier o, como fallback, del primer (CÓDIGO) en el nombre
+  function extractIdentifier(proj: { mic_identifier?: string | null; name: string }) {
+    if (proj.mic_identifier) return proj.mic_identifier
+    const m = proj.name.match(/^\(([A-Z0-9]+)\)/)
+    return m ? m[1] : ''
+  }
+
+  // IDENTIFICADOR: incluye proyectos con mic_identifier o con código parseable del nombre
+  const identificadorOptions = Array.from(
+    new Map(
+      projects
+        .map(p => ({ code: extractIdentifier(p), name: p.name }))
+        .filter(o => o.code)
+        .map(o => [o.code, o])
+    ).values()
+  ).sort((a, b) => a.code.localeCompare(b.code))
 
   // Decodificar selección de autor
   let authorText   = ''
@@ -496,7 +508,7 @@ function UploadModal({
                 setProjectId(e.target.value)
                 const proj   = projects.find(p => p.id === e.target.value)
                 const parent = proj?.parent_project_id ? projects.find(p => p.id === proj.parent_project_id) : null
-                const mic    = proj?.mic_identifier || parent?.mic_identifier || ''
+                const mic    = (proj ? extractIdentifier(proj) : '') || (parent ? extractIdentifier(parent) : '') || ''
                 if (mic) setIdentificador(mic)
               }}
               className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50">
@@ -643,7 +655,7 @@ function UploadModal({
               Archivo <span className="text-red-400">*</span>
             </label>
             <input ref={inputRef} type="file" className="hidden"
-              accept=".pdf,.dwg,.dxf,.xlsx,.xls,.pptx,.ppt,.docx,.doc,.png,.jpg,.jpeg,.zip"
+              accept=".pdf,.dwg,.dxf,.xlsx,.xls,.pptx,.ppt,.docx,.doc,.png,.jpg,.jpeg,.zip,.kmz,.kml"
               onChange={e => handleFileChange(e.target.files?.[0] || null)} />
             <button onClick={() => inputRef.current?.click()}
               className={`w-full border-2 border-dashed rounded-lg py-6 text-center transition-colors ${
@@ -654,7 +666,7 @@ function UploadModal({
                 {file ? file.name : 'Clic para seleccionar archivo'}
               </p>
               <p className="text-xs text-slate-400 mt-1">
-                {file ? formatSize(file.size) : 'PDF, DWG, DXF, Excel, Word, imágenes'}
+                {file ? formatSize(file.size) : 'PDF, DWG, DXF, KMZ, Excel, Word, imágenes'}
               </p>
               {fileFormat && (
                 <span className="inline-block mt-2 px-2 py-0.5 rounded font-mono font-bold text-[11px] bg-[#1A2744] text-white">
@@ -1055,7 +1067,7 @@ function ReplaceDocModal({
               Nuevo archivo <span className="text-red-400">*</span>
             </label>
             <input ref={inputRef} type="file" className="hidden"
-              accept=".pdf,.dwg,.dxf,.xlsx,.xls,.pptx,.ppt,.docx,.doc,.png,.jpg,.jpeg,.zip"
+              accept=".pdf,.dwg,.dxf,.xlsx,.xls,.pptx,.ppt,.docx,.doc,.png,.jpg,.jpeg,.zip,.kmz,.kml"
               onChange={e => setFile(e.target.files?.[0] || null)} />
             <button onClick={() => inputRef.current?.click()}
               className={`w-full border-2 border-dashed rounded-lg py-5 text-center transition-colors ${
@@ -1066,7 +1078,7 @@ function ReplaceDocModal({
                 {file ? file.name : 'Clic para seleccionar archivo'}
               </p>
               <p className="text-xs text-slate-400 mt-0.5">
-                {file ? formatSize(file.size) : 'PDF, DWG, DXF, Excel, Word, imágenes'}
+                {file ? formatSize(file.size) : 'PDF, DWG, DXF, KMZ, Excel, Word, imágenes'}
               </p>
             </button>
           </div>
@@ -1924,9 +1936,9 @@ function ProjectDetailView({
   const [selected,         setSelected]         = useState<Set<string>>(new Set())
   const [filterStatus,     setFilterStatus]     = useState('all')
   const [filterSpecialty,  setFilterSpecialty]  = useState('all')
-  const [filterProject,    setFilterProject]    = useState('all')
+  const [filterProject,    setFilterProject]    = useState(project.id)
   const [filterDocType,    setFilterDocType]    = useState('all')
-  const [sortMode,         setSortMode]         = useState<'discipline' | 'recent'>('discipline')
+  const [sortMode,         setSortMode]         = useState<'discipline' | 'recent' | 'folder'>('discipline')
   const [viewingDoc,       setViewingDoc]       = useState<{ id: string; name: string } | null>(null)
   const [slideDoc,         setSlideDoc]         = useState<Doc | null>(null)
   const [replaceDoc,       setReplaceDoc]       = useState<Doc | null>(null)
@@ -2397,17 +2409,18 @@ function ProjectDetailView({
 
           {/* Filtro por subproyecto */}
           {subprojects.length > 0 && (
-            <select
-              value={filterProject}
-              onChange={e => { setFilterProject(e.target.value); setSelected(new Set()) }}
-              className="text-xs px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 font-medium focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/40"
-            >
-              <option value="all">Todos los subproyectos</option>
-              <option value={project.id}>Principal</option>
-              {subprojects.map(s => (
-                <option key={s.id} value={s.id}>{s.name}</option>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {[{ id: project.id, label: 'Principal' }, ...subprojects.map(s => ({ id: s.id, label: s.name })), { id: 'all', label: 'Todos' }].map(opt => (
+                <button key={opt.id} onClick={() => { setFilterProject(opt.id); setSelected(new Set()) }}
+                  className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-all ${
+                    filterProject === opt.id
+                      ? 'bg-[#1A2744] text-white'
+                      : 'bg-white border border-slate-200 text-slate-600 hover:border-slate-300'
+                  }`}>
+                  {opt.label}
+                </button>
               ))}
-            </select>
+            </div>
           )}
 
           {/* Filtro por tipo de documento */}
@@ -2457,11 +2470,15 @@ function ProjectDetailView({
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Toggle vista disciplina / recientes */}
+          {/* Toggle vista disciplina / carpetas / recientes */}
           <div className="flex items-center rounded-lg border border-slate-200 overflow-hidden">
             <button onClick={() => setSortMode('discipline')} title="Agrupar por disciplina"
               className={`px-2.5 py-1.5 transition-colors ${sortMode === 'discipline' ? 'bg-[#1A2744] text-white' : 'bg-white text-slate-400 hover:bg-slate-50'}`}>
               <AlignJustify className="w-3.5 h-3.5" />
+            </button>
+            <button onClick={() => setSortMode('folder')} title="Vista por carpetas"
+              className={`px-2.5 py-1.5 transition-colors ${sortMode === 'folder' ? 'bg-[#1A2744] text-white' : 'bg-white text-slate-400 hover:bg-slate-50'}`}>
+              <FolderOpen className="w-3.5 h-3.5" />
             </button>
             <button onClick={() => setSortMode('recent')} title="Recientes primero"
               className={`px-2.5 py-1.5 transition-colors ${sortMode === 'recent' ? 'bg-[#1A2744] text-white' : 'bg-white text-slate-400 hover:bg-slate-50'}`}>
@@ -2558,6 +2575,126 @@ function ProjectDetailView({
           <FolderOpen className="w-8 h-8 text-slate-300 mx-auto mb-3" />
           <p className="font-bold text-[#1A2744] mb-1">Sin documentos</p>
           <p className="text-slate-400 text-sm">Sube el primer documento de este proyecto con el botón de arriba.</p>
+        </div>
+      ) : sortMode === 'folder' ? (
+        /* ── Vista por carpetas ── */
+        <div className="space-y-3">
+          {(() => {
+            const allProjectIds = new Set([project.id, ...subprojects.map(s => s.id)])
+            const allFolders    = folders.filter(f => allProjectIds.has(f.project_id))
+            const folderIds     = new Set(allFolders.map(f => f.id))
+            const currentDocs   = filtered.filter(d => d.is_current !== false)
+            const sinCarpeta    = currentDocs.filter(d => !d.folder_id || !folderIds.has(d.folder_id))
+
+            return (
+              <>
+                {allFolders.length === 0 && sinCarpeta.length === 0 && (
+                  <p className="text-sm text-slate-400 text-center py-10">No hay carpetas en este proyecto.</p>
+                )}
+
+                {allFolders.map(folder => {
+                  const folderDocs   = currentDocs.filter(d => d.folder_id === folder.id)
+                  const isCollapsed  = collapsedFolders.has(folder.id)
+                  const sub          = subprojects.find(s => s.id === folder.project_id)
+                  return (
+                    <div key={folder.id} className="bg-white rounded-xl border border-slate-100 overflow-hidden">
+                      <button
+                        onClick={() => setCollapsedFolders(prev => { const n = new Set(prev); n.has(folder.id) ? n.delete(folder.id) : n.add(folder.id); return n })}
+                        className="flex items-center gap-2.5 w-full px-4 py-3 hover:bg-slate-50 transition-colors text-left"
+                      >
+                        {isCollapsed
+                          ? <Folder     className="w-4 h-4 text-[#00C2FF] flex-shrink-0" />
+                          : <FolderOpen className="w-4 h-4 text-[#00C2FF] flex-shrink-0" />}
+                        <span className="font-semibold text-sm text-[#1A2744] flex-1 truncate">{folder.name}</span>
+                        {folder.specialty_code && (
+                          <span className="text-[10px] font-mono bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded">{folder.specialty_code}</span>
+                        )}
+                        {sub && (
+                          <span className="text-[10px] text-slate-400 truncate max-w-[120px]">{sub.name}</span>
+                        )}
+                        <span className="text-xs text-slate-400 flex-shrink-0">{folderDocs.length}</span>
+                        {isCollapsed
+                          ? <ChevronRight className="w-3.5 h-3.5 text-slate-300 flex-shrink-0" />
+                          : <ChevronDown  className="w-3.5 h-3.5 text-slate-300 flex-shrink-0" />}
+                      </button>
+                      {!isCollapsed && (
+                        <div className="border-t border-slate-50">
+                          {folderDocs.length === 0 ? (
+                            <p className="px-4 py-3 text-xs text-slate-400 italic">Carpeta vacía</p>
+                          ) : (
+                            <div>
+                              {folderDocs.map((doc, idx) => (
+                                <div key={doc.id}
+                                  className={`flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 transition-colors ${idx > 0 ? 'border-t border-slate-50' : ''}`}>
+                                  <span className="text-base flex-shrink-0">{FILE_ICONS[doc.file_type || 'other'] || '📁'}</span>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium text-[#1A2744] truncate">{doc.display_name || doc.file_name}</p>
+                                    <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                                      {doc.doc_key && <span className="font-mono text-[10px] text-slate-400">{doc.doc_key}</span>}
+                                      {doc.file_type && <span className="text-[10px] text-slate-300">{doc.file_type.toUpperCase()}</span>}
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-1 flex-shrink-0">
+                                    <button onClick={() => setSlideDoc(doc)} title="Detalles"
+                                      className="p-1.5 text-slate-400 hover:text-[#1A2744] rounded-lg hover:bg-slate-100 transition-colors">
+                                      <Eye className="w-3.5 h-3.5" />
+                                    </button>
+                                    {doc.storage_key && (
+                                      <button onClick={() => setViewingDoc({ id: doc.id, name: doc.display_name || doc.file_name || '' })} title="Ver archivo"
+                                        className="p-1.5 text-slate-400 hover:text-[#1A2744] rounded-lg hover:bg-slate-100 transition-colors">
+                                        <Download className="w-3.5 h-3.5" />
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+
+                {sinCarpeta.length > 0 && (
+                  <div className="bg-white rounded-xl border border-dashed border-slate-200 overflow-hidden">
+                    <div className="flex items-center gap-2.5 px-4 py-3">
+                      <Folder className="w-4 h-4 text-slate-300 flex-shrink-0" />
+                      <span className="font-semibold text-sm text-slate-400 flex-1">Sin carpeta</span>
+                      <span className="text-xs text-slate-400">{sinCarpeta.length}</span>
+                    </div>
+                    <div className="border-t border-slate-50">
+                      {sinCarpeta.map((doc, idx) => (
+                        <div key={doc.id}
+                          className={`flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 transition-colors ${idx > 0 ? 'border-t border-slate-50' : ''}`}>
+                          <span className="text-base flex-shrink-0">{FILE_ICONS[doc.file_type || 'other'] || '📁'}</span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-[#1A2744] truncate">{doc.display_name || doc.file_name}</p>
+                            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                              {doc.doc_key && <span className="font-mono text-[10px] text-slate-400">{doc.doc_key}</span>}
+                              {doc.file_type && <span className="text-[10px] text-slate-300">{doc.file_type.toUpperCase()}</span>}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1 flex-shrink-0">
+                            <button onClick={() => setSlideDoc(doc)} title="Detalles"
+                              className="p-1.5 text-slate-400 hover:text-[#1A2744] rounded-lg hover:bg-slate-100 transition-colors">
+                              <Eye className="w-3.5 h-3.5" />
+                            </button>
+                            {doc.storage_key && (
+                              <button onClick={() => setViewingDoc({ id: doc.id, name: doc.display_name || doc.file_name || '' })} title="Ver archivo"
+                                className="p-1.5 text-slate-400 hover:text-[#1A2744] rounded-lg hover:bg-slate-100 transition-colors">
+                                <Download className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            )
+          })()}
         </div>
       ) : (
         <div className="space-y-6">
