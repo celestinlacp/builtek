@@ -96,7 +96,7 @@ export default async function SharePage(
   // 2. Proyecto raíz
   const { data: project } = await admin
     .from('projects')
-    .select('id, name, description, frente, project_type, start_date, end_date, mic_identifier, cover_image_url')
+    .select('id, name, description, frente, project_type, start_date, end_date, builtek_id, cover_image_url')
     .eq('id', share.project_id)
     .single()
 
@@ -200,9 +200,9 @@ export default async function SharePage(
 
         <div className="relative max-w-6xl mx-auto px-4 py-10 flex flex-col justify-end" style={{ minHeight: 200 }}>
           <div className="flex flex-wrap items-center gap-2 mb-3">
-            {project.mic_identifier && (
+            {project.builtek_id && (
               <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-white/15 text-white border border-white/20 backdrop-blur-sm">
-                {project.mic_identifier}
+                {project.builtek_id}
               </span>
             )}
             {project.frente && (

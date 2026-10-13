@@ -611,7 +611,7 @@ function ProjectModal({
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">ID Builtek</label>
-                <input name="mic_identifier" defaultValue={project?.mic_identifier || ''}
+                <input name="builtek_id" defaultValue={project?.builtek_id || ''}
                   placeholder="Ej: 0001 o 0001.02"
                   className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50 focus:border-[#00C2FF]" />
               </div>
@@ -626,7 +626,7 @@ function ProjectModal({
                 className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50 focus:border-[#00C2FF]">
                 <option value="">Ninguno (proyecto raíz)</option>
                 {projects.filter(p => !p.parent_project_id && p.status === 'active').map(p => (
-                  <option key={p.id} value={p.id}>{p.mic_identifier ? `${p.mic_identifier} — ` : ''}{p.name}</option>
+                  <option key={p.id} value={p.id}>{p.builtek_id ? `${p.builtek_id} — ` : ''}{p.name}</option>
                 ))}
               </select>
               <p className="text-[10px] text-slate-400 mt-1">Si es subproyecto, el ID Builtek se hereda automáticamente.</p>
@@ -696,9 +696,9 @@ function ProjectCard({ project, onEdit, onShare }: { project: Project; onEdit: (
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <h3 className="font-bold text-[#1A2744] text-sm leading-tight truncate">{project.name}</h3>
-              {project.mic_identifier && (
+              {project.builtek_id && (
                 <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-[#1A2744]/8 text-[#1A2744]/60 flex-shrink-0">
-                  {project.mic_identifier}
+                  {project.builtek_id}
                 </span>
               )}
             </div>
@@ -2437,7 +2437,7 @@ export default function AdminPanel({
           .sort()
         const q = searchProjects.toLowerCase().trim()
         const rootProjects = allRootProjects
-          .filter(p => !q || [p.name, p.mic_identifier, p.frente, p.project_type, p.description].some(v => v?.toLowerCase().includes(q)))
+          .filter(p => !q || [p.name, p.builtek_id, p.frente, p.project_type, p.description].some(v => v?.toLowerCase().includes(q)))
           .filter(p => !filterInah           || p.is_inah)
           .filter(p => !filterCaucesFederales || p.cauces_federales)
           .filter(p => !filterCruceVial      || p.cruce_vial === filterCruceVial)

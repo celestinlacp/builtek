@@ -557,6 +557,23 @@ export async function createSubproject(data: {
 }) {
   await getUser()
   const admin = getAdminClient()
+
+  // Auto-asignar builtek_id: padre.N (ej: 0020 → 0020.1, 0020.2...)
+  const { data: parent } = await admin
+    .from('projects')
+    .select('builtek_id')
+    .eq('id', data.parent_project_id)
+    .single()
+
+  let builtek_id: string | null = null
+  if (parent?.builtek_id) {
+    const { count } = await admin
+      .from('projects')
+      .select('id', { count: 'exact', head: true })
+      .eq('parent_project_id', data.parent_project_id)
+    builtek_id = `${parent.builtek_id}.${(count ?? 0) + 1}`
+  }
+
   const { error } = await admin.from('projects').insert({
     workspace_id:      data.workspace_id,
     parent_project_id: data.parent_project_id,
@@ -564,6 +581,7 @@ export async function createSubproject(data: {
     description:       data.description,
     project_type:      data.project_type || null,
     status:            'active',
+    builtek_id,
   })
   if (error) return { error: error.message }
   revalidatePath('/documents')

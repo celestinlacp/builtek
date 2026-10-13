@@ -343,22 +343,15 @@ function UploadModal({
   // Catálogo ESPECIALIDAD desde mic_nomenclatures (fuente de verdad del workspace)
   const especialidadOptions  = micNomenclatures.filter(n => n.segment === 'ESPECIALIDAD')
 
-  // Deriva el identificador desde mic_identifier o, como fallback, del primer (CÓDIGO) en el nombre
-  function extractIdentifier(proj: { mic_identifier?: string | null; name: string }) {
-    if (proj.mic_identifier) return proj.mic_identifier
-    const m = proj.name.match(/^\(([A-Z0-9]+)\)/)
-    return m ? m[1] : ''
+  function extractIdentifier(proj: { builtek_id?: string | null; name: string }) {
+    return proj.builtek_id || ''
   }
 
-  // IDENTIFICADOR: incluye proyectos con mic_identifier o con código parseable del nombre
-  const identificadorOptions = Array.from(
-    new Map(
-      projects
-        .map(p => ({ code: extractIdentifier(p), name: p.name }))
-        .filter(o => o.code)
-        .map(o => [o.code, o])
-    ).values()
-  ).sort((a, b) => a.code.localeCompare(b.code))
+  // IDENTIFICADOR: derivado directo de projects para no depender del sync de mic_nomenclatures
+  const identificadorOptions = projects
+    .filter(p => p.builtek_id)
+    .map(p => ({ code: p.builtek_id!, name: p.name }))
+    .sort((a, b) => a.code.localeCompare(b.code))
 
   // Decodificar selección de autor
   let authorText   = ''

@@ -33,16 +33,16 @@ async function nextMicIdentifier(workspaceId: string, parentProjectId: string | 
   const admin = getAdminClient()
 
   if (!parentProjectId) {
-    // Proyectos raíz: buscar el MAX numérico de mic_identifier raíz
+    // Proyectos raíz: buscar el MAX numérico de builtek_id raíz
     const { data } = await admin
       .from('projects')
-      .select('mic_identifier')
+      .select('builtek_id')
       .eq('workspace_id', workspaceId)
       .is('parent_project_id', null)
-      .not('mic_identifier', 'is', null)
+      .not('builtek_id', 'is', null)
 
     const max = (data || []).reduce((acc, p) => {
-      const n = parseInt(p.mic_identifier ?? '0', 10)
+      const n = parseInt(p.builtek_id ?? '0', 10)
       return isNaN(n) ? acc : Math.max(acc, n)
     }, 0)
     return String(max + 1).padStart(4, '0')
@@ -50,21 +50,21 @@ async function nextMicIdentifier(workspaceId: string, parentProjectId: string | 
     // Subproyecto: heredar número del padre + siguiente sub-índice
     const { data: parent } = await admin
       .from('projects')
-      .select('mic_identifier')
+      .select('builtek_id')
       .eq('id', parentProjectId)
       .single()
 
-    const parentNum = parent?.mic_identifier?.split('.')[0] ?? '0000'
+    const parentNum = parent?.builtek_id?.split('.')[0] ?? '0000'
 
     const { data: siblings } = await admin
       .from('projects')
-      .select('mic_identifier')
+      .select('builtek_id')
       .eq('workspace_id', workspaceId)
       .eq('parent_project_id', parentProjectId)
-      .not('mic_identifier', 'is', null)
+      .not('builtek_id', 'is', null)
 
     const maxSub = (siblings || []).reduce((acc, p) => {
-      const parts = p.mic_identifier?.split('.')
+      const parts = p.builtek_id?.split('.')
       const sub = parts?.[1] ? parseInt(parts[1], 10) : 0
       return isNaN(sub) ? acc : Math.max(acc, sub)
     }, 0)
@@ -79,7 +79,7 @@ export async function createProject(formData: FormData) {
   const admin = getAdminClient()
 
   const parentProjectId = formData.get('parent_project_id') as string || null
-  const mic_identifier  = await nextMicIdentifier(workspaceId, parentProjectId)
+  const builtek_id  = await nextMicIdentifier(workspaceId, parentProjectId)
 
   const { error } = await admin.from('projects').insert({
     workspace_id:     workspaceId,
@@ -91,7 +91,7 @@ export async function createProject(formData: FormData) {
     frente:           formData.get('frente') as string || null,
     project_type:     formData.get('project_type') as string || null,
     parent_project_id: parentProjectId,
-    mic_identifier,
+    builtek_id,
     is_inah:          formData.get('is_inah') === 'on',
     cruce_vial:       formData.get('cruce_vial') as string || null,
     cauces_federales: formData.get('cauces_federales') === 'on',
@@ -110,12 +110,12 @@ export async function updateProject(projectId: string, formData: FormData) {
   await getWorkspaceId()
   const admin = getAdminClient()
 
-  const micIdentifierRaw = (formData.get('mic_identifier') as string)?.trim() || null
+  const micIdentifierRaw = (formData.get('builtek_id') as string)?.trim() || null
   // Si el campo vino vacío, leer el valor actual para no borrar un identificador existente
   let micIdentifier = micIdentifierRaw
   if (!micIdentifier) {
-    const { data: current } = await admin.from('projects').select('mic_identifier').eq('id', projectId).single()
-    micIdentifier = current?.mic_identifier ?? null
+    const { data: current } = await admin.from('projects').select('builtek_id').eq('id', projectId).single()
+    micIdentifier = current?.builtek_id ?? null
   }
 
   const { error } = await admin.from('projects').update({
@@ -126,7 +126,7 @@ export async function updateProject(projectId: string, formData: FormData) {
     end_date: formData.get('end_date') as string || null,
     frente: formData.get('frente') as string || null,
     project_type: formData.get('project_type') as string || null,
-    mic_identifier: micIdentifier,
+    builtek_id: micIdentifier,
     is_inah:          formData.get('is_inah') === 'on',
     cruce_vial:       formData.get('cruce_vial') as string || null,
     cauces_federales: formData.get('cauces_federales') === 'on',
@@ -484,7 +484,7 @@ export async function seedMicTipoPlano() {
   return seedAllMicNomenclatures()
 }
 
-// Asigna mic_identifier a todos los proyectos que no lo tienen aún
+// Asigna builtek_id a todos los proyectos que no lo tienen aún
 export async function backfillMicIdentifiers() {
   const { workspaceId } = await getWorkspaceId()
   if (!workspaceId) return { error: 'Sin workspace' }
@@ -493,19 +493,19 @@ export async function backfillMicIdentifiers() {
   // Obtener todos los proyectos del workspace ordenados por created_at
   const { data: projects } = await admin
     .from('projects')
-    .select('id, parent_project_id, mic_identifier, created_at')
+    .select('id, parent_project_id, builtek_id, created_at')
     .eq('workspace_id', workspaceId)
     .order('created_at', { ascending: true })
 
   if (!projects) return { error: 'No se pudieron obtener proyectos' }
 
-  const missing = projects.filter(p => !p.mic_identifier)
+  const missing = projects.filter(p => !p.builtek_id)
   if (missing.length === 0) return { success: true, assigned: 0 }
 
   let assigned = 0
   for (const p of missing) {
     const newId = await nextMicIdentifier(workspaceId, p.parent_project_id)
-    await admin.from('projects').update({ mic_identifier: newId }).eq('id', p.id)
+    await admin.from('projects').update({ builtek_id: newId }).eq('id', p.id)
     assigned++
   }
 
@@ -520,21 +520,21 @@ export async function syncIdentificadoresFromProjects() {
   if (!workspaceId) return { error: 'Sin workspace' }
   const admin = getAdminClient()
 
-  // Leer mic_identifier directamente desde el campo del proyecto — nunca recalcular
+  // Leer builtek_id directamente desde el campo del proyecto — nunca recalcular
   const { data: projects } = await admin
     .from('projects')
-    .select('id, name, mic_identifier')
+    .select('id, name, builtek_id')
     .eq('workspace_id', workspaceId)
     .eq('status', 'active')
-    .not('mic_identifier', 'is', null)
-    .order('mic_identifier', { ascending: true })
+    .not('builtek_id', 'is', null)
+    .order('builtek_id', { ascending: true })
 
   if (!projects?.length) return { success: true, count: 0 }
 
   const rows = projects.map((p, i) => ({
     workspace_id: workspaceId,
     segment:      'IDENTIFICADOR',
-    code:         p.mic_identifier!,
+    code:         p.builtek_id!,
     name:         p.name,
     sort_order:   i + 1,
   }))

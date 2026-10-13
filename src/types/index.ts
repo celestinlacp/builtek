@@ -72,7 +72,7 @@ export interface Project {
   parent_project_id: string | null
   chainage_start: number | null
   chainage_end: number | null
-  mic_identifier: string | null
+  builtek_id: string | null
   is_inah: boolean
   cruce_vial: string | null
   cauces_federales: boolean
