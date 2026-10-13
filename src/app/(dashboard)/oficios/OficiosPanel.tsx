@@ -2219,7 +2219,8 @@ export default function OficiosPanel({
         </div>
       ) : viewMode === 'lista' ? (
         <div className="bg-white rounded-xl border border-slate-100 overflow-hidden">
-            <table className="w-full text-left table-fixed">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left table-fixed min-w-[900px]">
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50">
                   {canDelete && (
@@ -2232,13 +2233,13 @@ export default function OficiosPanel({
                       />
                     </th>
                   )}
-                  <th className="px-4 py-3 w-[35%] text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
+                  <th className="px-4 py-3 w-[29%] text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
                     <SortHeader label="Asunto" col="asunto" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
                   </th>
-                  <th className="px-3 py-3 w-[6%] text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
+                  <th className="px-3 py-3 w-[9%] text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
                     <SortHeader label="Fecha doc." col="fecha_documento" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
                   </th>
-                  <th className="px-3 py-3 w-[6%] text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
+                  <th className="px-3 py-3 w-[9%] text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
                     <SortHeader label="Recepción" col="fecha_recepcion" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
                   </th>
                   <th className="pl-5 pr-2 py-3 w-[9%] text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
@@ -2265,6 +2266,7 @@ export default function OficiosPanel({
                 ))}
               </tbody>
             </table>
+          </div>
           <div className="px-4 py-2 border-t border-slate-50 bg-slate-50/30">
             <p className="text-xs text-slate-400">
               {sorted.length} oficio{sorted.length !== 1 ? 's' : ''} · ordenado por {sortBy.replace('_', ' ')} {sortDir === 'desc' ? '↓' : '↑'}
@@ -2293,18 +2295,18 @@ export default function OficiosPanel({
                   </span>
                 </button>
                 {!collapsed && (
-                  <div>
-                    <table className="w-full text-left table-fixed">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left table-fixed min-w-[900px]">
                       <thead>
                         <tr className="border-b border-slate-100 bg-slate-50/50">
                           {canDelete && <th className="pl-4 pr-2 py-2 w-8" />}
-                          <th className="px-4 py-2 w-[35%] text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
+                          <th className="px-4 py-2 w-[29%] text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
                             <SortHeader label="Asunto" col="asunto" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
                           </th>
-                          <th className="px-3 py-2 w-[6%] text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
+                          <th className="px-3 py-2 w-[9%] text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
                             <SortHeader label="Fecha doc." col="fecha_documento" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
                           </th>
-                          <th className="px-3 py-2 w-[6%] text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
+                          <th className="px-3 py-2 w-[9%] text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
                             <SortHeader label="Recepción" col="fecha_recepcion" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
                           </th>
                           <th className="pl-5 pr-2 py-2 w-[9%] text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
