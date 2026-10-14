@@ -3292,6 +3292,7 @@ export default function DocumentsPanel({
       {/* Vista detalle: documentos del proyecto seleccionado */}
       {selectedProject && (
         <ProjectDetailView
+          key={selectedProject.id}
           project={selectedProject}
           documents={documents}
           workspaceId={workspaceId}
