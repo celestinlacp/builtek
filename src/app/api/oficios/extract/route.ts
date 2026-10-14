@@ -113,7 +113,8 @@ Extrae del documento los siguientes campos y responde ÚNICAMENTE con JSON váli
   "remitente": "La empresa, dependencia o persona que firma o envía el documento",
   "antecedentes_texto": ["referencias textuales a documentos previos mencionados como antecedente, tal como aparecen: ejemplo 'ARQ.1354/AIFA de 24 Oct. 2025', 'AIFA-MC-26-928 de 28 Jul. 2026'"],
   "copia_a": "Texto completo de la sección 'Con copia a:' o 'Copia a:' si existe en el documento, null si no",
-  "para_conocimiento": "Texto completo de la sección 'Para efectos y conocimiento de:' o similar si existe, null si no"
+  "para_conocimiento": "Texto completo de la sección 'Para efectos y conocimiento de:' o similar si existe, null si no",
+  "link_entrega": "Si el documento contiene una URL que empiece con 'builtek' o 'https://builtek' (por ejemplo https://builtek.app/share/... o https://builtek.app/drive/...), extráela exactamente como aparece. null si no hay ninguna URL de builtek."
 }
 
 Si no puedes extraer un campo, usa null. antecedentes_texto debe ser un array vacío [] si no hay antecedentes.`,

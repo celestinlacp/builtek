@@ -321,6 +321,7 @@ function OficioModal({
   const [copiaA,         setCopiaA]         = useState(oficio?.copia_a || '')
   const [tipoDoc,        setTipoDoc]        = useState<'oficio' | 'tarjeta'>(oficio?.tipo_documento === 'tarjeta' ? 'tarjeta' : 'oficio')
   const [paraConocimiento, setParaConocimiento] = useState(oficio?.para_conocimiento || '')
+  const [linkEntrega,    setLinkEntrega]    = useState(oficio?.link_entrega || '')
 
   // Auto-tarea (nueva) / Crear tarea desde oficio existente
   const [autoTask,       setAutoTask]       = useState(false)
@@ -422,6 +423,7 @@ function OficioModal({
           if (ext.tipo_documento === 'tarjeta') setTipoDoc('tarjeta')
           if (ext.copia_a)           setCopiaA(ext.copia_a)
           if (ext.para_conocimiento) setParaConocimiento(ext.para_conocimiento)
+          if (ext.link_entrega && tipo === 'salida') setLinkEntrega(ext.link_entrega)
           // Pre-cargar antecedentes extraídos por IA como refs de texto
           if (ext.antecedentes_texto?.length) {
             const aiAntes: Antecedente[] = ext.antecedentes_texto.map((ref: string) => {
@@ -441,7 +443,8 @@ function OficioModal({
               return [...prev, ...aiAntes.filter(a => !existing.includes(a.ref_texto.toLowerCase()))]
             })
           }
-          setExtractMsg(ext.source === 'ai' ? '✓ Datos extraídos con IA' : '✓ Datos extraídos del nombre del archivo')
+          const linkMsg = (ext.link_entrega && tipo === 'salida') ? ' · link Builtek detectado' : ''
+          setExtractMsg(ext.source === 'ai' ? `✓ Datos extraídos con IA${linkMsg}` : '✓ Datos extraídos del nombre del archivo')
         }
       } catch {
         setExtractMsg('Extracción manual — verifica los campos')
@@ -486,6 +489,7 @@ function OficioModal({
       assignee_id:       assigneeId         || null,
       assignee2_id:      assignee2Id        || null,
       notas:             notas              || null,
+      link_entrega:      linkEntrega        || null,
       mesa_id:           mesaId             || null,
       copia_a:           copiaA             || null,
       para_conocimiento: paraConocimiento   || null,
@@ -530,7 +534,7 @@ function OficioModal({
           especialidad: especialidad || null,
           remitente: remitente || null, destinatario: destinatario || null,
           assignee_id: assigneeId || null, assignee2_id: assignee2Id || null,
-          notas: notas || null, mesa_id: mesaId || null,
+          notas: notas || null, link_entrega: linkEntrega || null, mesa_id: mesaId || null,
           copia_a: copiaA || null, para_conocimiento: paraConocimiento || null,
           storage_key: storageKey, file_name: fileName, file_type: fileType, file_size: fileSize,
         }

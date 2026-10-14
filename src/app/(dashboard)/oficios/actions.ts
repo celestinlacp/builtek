@@ -54,6 +54,7 @@ export async function createOficio(data: {
   copia_a?:         string | null
   para_conocimiento?: string | null
   antecedentes?:    Array<{ ref_texto: string; antecedente_oficio_id?: string | null }>
+  link_entrega?:    string | null
   anexos?:          Array<{ tipo: 'link' | 'archivo'; nombre: string; url?: string | null; storage_key?: string | null; file_name?: string | null; file_size?: number | null }>
   auto_task?:       { name: string; priority: string; due_date?: string | null; description?: string | null } | null
 }) {
@@ -83,6 +84,7 @@ export async function createOficio(data: {
     file_type:       data.file_type       || null,
     file_size:       data.file_size       || null,
     notas:           data.notas           || null,
+    link_entrega:    data.link_entrega    || null,
     mesa_id:         data.mesa_id         || null,
     copia_a:         data.copia_a         || null,
     para_conocimiento: data.para_conocimiento || null,
@@ -176,6 +178,7 @@ export async function updateOficio(id: string, data: {
   assignee_id?:       string | null
   assignee2_id?:      string | null
   notas?:             string | null
+  link_entrega?:      string | null
   mesa_id?:           string | null
   copia_a?:           string | null
   para_conocimiento?: string | null
