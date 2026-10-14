@@ -559,7 +559,7 @@ export default function TaskBoard({
 
   const filtered = tasks
     .filter(t => {
-      if (filter === 'active') return t.status !== 'done' && t.status !== 'review' && t.status !== 'archived'
+      if (filter === 'active') return t.status !== 'done' && t.status !== 'archived'
       if (filter === 'all')    return t.status !== 'archived'
       if (filter === 'archived') return t.status === 'archived'
       return t.status === filter
