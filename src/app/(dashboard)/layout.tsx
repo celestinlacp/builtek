@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import Sidebar from '@/components/layout/Sidebar'
 import Topbar from '@/components/layout/Topbar'
+import ChatShell from '@/components/layout/ChatShell'
 
 const MOCK_WORKSPACE = { id: 'dev', name: 'Builtek Dev', features: {} as Record<string, boolean> }
 const MOCK_USER = 'Celestin'
@@ -32,14 +33,16 @@ export default async function DashboardLayout({ children }: { children: React.Re
   }
 
   return (
-    <div className="flex h-screen bg-slate-50 overflow-hidden">
-      <Sidebar workspaceName={workspace.name} features={workspace.features} role={userRole} />
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <Topbar userName={fullName} workspaceId={workspace.id} />
-        <main className="flex-1 overflow-y-auto p-6">
-          {children}
-        </main>
+    <ChatShell workspaceId={workspace.id}>
+      <div className="flex h-screen bg-slate-50 overflow-hidden">
+        <Sidebar workspaceName={workspace.name} features={workspace.features} role={userRole} />
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+          <Topbar userName={fullName} workspaceId={workspace.id} />
+          <main className="flex-1 overflow-y-auto p-6">
+            {children}
+          </main>
+        </div>
       </div>
-    </div>
+    </ChatShell>
   )
 }

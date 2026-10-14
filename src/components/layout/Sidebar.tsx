@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { logout } from '@/app/(auth)/actions'
 import Logo from '@/components/Logo'
+import { useChat } from '@/components/chat/ChatContext'
 import {
   LayoutDashboard, CheckSquare, Calendar, Package,
   FileText, Bot, Settings, LogOut, ChevronRight, HardDrive, Mail, MessageSquare, BookOpen, BarChart2, TrendingUp, Activity, GitBranch
@@ -18,13 +19,13 @@ const BASE_NAV = [
   { href: '/documents',       icon: FileText,        label: 'Proyectos' },
   { href: '/especificaciones',icon: BookOpen,        label: 'Especificaciones' },
   { href: '/drive',           icon: HardDrive,       label: 'Drive', badge: 'NEW' },
-  { href: '/chat',            icon: MessageSquare,   label: 'Chat / Notificaciones' },
   { href: '/ai-agent',        icon: Bot,             label: 'Agente AI' },
 ]
 
 export default function Sidebar({ workspaceName, features, role }: { workspaceName: string; features?: Record<string, boolean>; role?: string }) {
   const isManager = ['owner', 'admin', 'manager'].includes(role ?? '')
   const isOwner   = role === 'owner'
+  const { toggleChat, unreadTotal } = useChat()
   const NAV = [
     ...BASE_NAV,
     ...(isManager ? [{ href: '/team', icon: BarChart2, label: 'Equipo' }] : []),
@@ -76,6 +77,18 @@ export default function Sidebar({ workspaceName, features, role }: { workspaceNa
 
       {/* Footer */}
       <div className="px-3 pb-4 border-t border-white/10 pt-3 space-y-0.5">
+        <button
+          onClick={toggleChat}
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-white/60 hover:text-white hover:bg-white/8 transition-all"
+        >
+          <MessageSquare className="w-4 h-4 flex-shrink-0" />
+          <span className="flex-1 text-left">Chat</span>
+          {unreadTotal > 0 && (
+            <span className="bg-[#00C2FF] text-[#1A2744] text-[9px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center px-1">
+              {unreadTotal > 9 ? '9+' : unreadTotal}
+            </span>
+          )}
+        </button>
         <Link
           href="/admin"
           className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-white/60 hover:text-white hover:bg-white/8 transition-all"
