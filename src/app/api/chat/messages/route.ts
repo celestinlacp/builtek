@@ -25,18 +25,26 @@ export async function GET(req: NextRequest) {
   const db = admin()
   const { data } = await db
     .from('chat_messages')
-    .select('id, sender_id, content, created_at, profiles:profiles!chat_messages_sender_id_fkey(full_name, initials)')
+    .select('id, sender_id, content, created_at')
     .eq('conversation_id', conversationId)
     .order('created_at', { ascending: true })
     .limit(60)
 
+  // Fetch profiles separately (FK apunta a auth.users, no a profiles directamente)
+  const senderIds = [...new Set((data ?? []).map(m => m.sender_id))]
+  const profileMap: Record<string, { full_name: string; initials: string | null }> = {}
+  if (senderIds.length) {
+    const { data: profiles } = await db.from('profiles').select('id, full_name, initials').in('id', senderIds)
+    for (const p of profiles ?? []) profileMap[p.id] = { full_name: p.full_name, initials: p.initials }
+  }
+
   const messages = (data ?? []).map(m => ({
-    id:               m.id,
-    sender_id:        m.sender_id,
-    sender_name:      (m.profiles as any)?.full_name  ?? 'Usuario',
-    sender_initials:  (m.profiles as any)?.initials   ?? '?',
-    content:          m.content,
-    created_at:       m.created_at,
+    id:              m.id,
+    sender_id:       m.sender_id,
+    sender_name:     profileMap[m.sender_id]?.full_name  ?? 'Usuario',
+    sender_initials: profileMap[m.sender_id]?.initials   ?? '?',
+    content:         m.content,
+    created_at:      m.created_at,
   }))
 
   // Marcar como leído

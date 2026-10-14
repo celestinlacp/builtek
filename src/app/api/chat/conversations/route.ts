@@ -99,26 +99,40 @@ export async function GET() {
     if (data) lastMsgMap[cid] = data
   }))
 
-  // Miembros DM (perfiles de otros)
+  // Miembros DM (perfiles de otros) — dos pasos para evitar dependencia de FK
   const dmConvIds = (convs ?? []).filter(c => c.type === 'dm').map(c => c.id)
   const dmPartnersMap: Record<string, { id: string; full_name: string; initials: string | null }> = {}
   if (dmConvIds.length) {
     const { data: dmMembers } = await db
       .from('chat_members')
-      .select('conversation_id, user_id, profiles(id, full_name, initials)')
+      .select('conversation_id, user_id')
       .in('conversation_id', dmConvIds)
       .neq('user_id', user.id)
+
+    const dmUserIds = [...new Set((dmMembers ?? []).map(m => m.user_id))]
+    const dmProfileMap: Record<string, { id: string; full_name: string; initials: string | null }> = {}
+    if (dmUserIds.length) {
+      const { data: dmProfiles } = await db.from('profiles').select('id, full_name, initials').in('id', dmUserIds)
+      for (const p of dmProfiles ?? []) dmProfileMap[p.id] = p
+    }
     for (const dm of dmMembers ?? []) {
-      if (dm.profiles) dmPartnersMap[dm.conversation_id] = dm.profiles as any
+      if (dmProfileMap[dm.user_id]) dmPartnersMap[dm.conversation_id] = dmProfileMap[dm.user_id]
     }
   }
 
-  // Todos los miembros del workspace (para iniciar DM)
+  // Todos los miembros del workspace (para iniciar DM) — dos pasos
   const { data: wsMembers } = await db
     .from('workspace_members')
-    .select('user_id, role, profiles(id, full_name, initials)')
+    .select('user_id, role')
     .eq('workspace_id', workspaceId)
     .neq('user_id', user.id)
+
+  const memberUserIds = (wsMembers ?? []).map(m => m.user_id)
+  const memberProfileMap: Record<string, { full_name: string; initials: string | null }> = {}
+  if (memberUserIds.length) {
+    const { data: memberProfiles } = await db.from('profiles').select('id, full_name, initials').in('id', memberUserIds)
+    for (const p of memberProfiles ?? []) memberProfileMap[p.id] = { full_name: p.full_name, initials: p.initials }
+  }
 
   const conversations = (convs ?? []).map(c => ({
     id:          c.id,
@@ -139,9 +153,9 @@ export async function GET() {
   })
 
   const members = (wsMembers ?? []).map(m => ({
-    id:       (m.profiles as any)?.id       ?? m.user_id,
-    full_name:(m.profiles as any)?.full_name ?? 'Usuario',
-    initials: (m.profiles as any)?.initials  ?? null,
+    id:        m.user_id,
+    full_name: memberProfileMap[m.user_id]?.full_name ?? 'Usuario',
+    initials:  memberProfileMap[m.user_id]?.initials  ?? null,
     role:      m.role,
   }))
 
