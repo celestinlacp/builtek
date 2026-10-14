@@ -111,21 +111,19 @@ export default async function SharePage(
   const subprojects: ShareSubproject[] = subprojectsRaw ?? []
   const allProjectIds = [share.project_id, ...subprojects.map(s => s.id)]
 
-  // 4. Documentos vigentes — solo filtrar por is_current; doc_status varía por proyecto
-  // specialty_code no es columna directa en documents — se obtiene via join con specialties
+  // 4. Documentos vigentes — specialty_code es columna directa en documents
   const { data: rawDocs } = await admin
     .from('documents')
-    .select('id, name, file_name, display_name, doc_key, file_type, status, version_number, project_id, uploaded_by, author, created_at, folder_id, specialty:specialties(code, name)')
+    .select('id, name, file_name, display_name, doc_key, file_type, status, version_number, project_id, uploaded_by, author, created_at, folder_id, specialty_code, specialty:specialties(code, name)')
     .in('project_id', allProjectIds)
     .or('is_current.is.null,is_current.eq.true')
-    .order('doc_key')
-    .order('version_number', { ascending: false })
+    .order('created_at', { ascending: false })
 
-  // 5. Fetch nombres de uploaders
+  // 5. Fetch nombres de uploaders via profiles
   const uploaderIds = [...new Set((rawDocs ?? []).map((d: any) => d.uploaded_by).filter(Boolean))]
   const uploaderNameById: Record<string, string> = {}
   if (uploaderIds.length > 0) {
-    const { data: uploaders } = await admin.from('users').select('id, full_name').in('id', uploaderIds)
+    const { data: uploaders } = await admin.from('profiles').select('id, full_name').in('id', uploaderIds)
     for (const u of (uploaders ?? [])) {
       if (u.id && u.full_name) uploaderNameById[u.id] = u.full_name
     }
@@ -133,8 +131,9 @@ export default async function SharePage(
 
   const documents: ShareDoc[] = (rawDocs ?? []).map((d: any) => ({
     ...d,
-    specialty_code: (d.specialty as any)?.code ?? null,
-    specialty_name: (d.specialty as any)?.name ?? null,
+    // specialty_code directamente de la columna; specialty join como fallback
+    specialty_code: d.specialty_code ?? (d.specialty as any)?.code ?? null,
+    specialty_name: (d.specialty as any)?.name ?? d.specialty_code ?? null,
     uploaderName:   uploaderNameById[d.uploaded_by] ?? null,
   }))
 

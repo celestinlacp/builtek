@@ -528,37 +528,54 @@ export default function ShareContent({
 
         {!isEmpty && (
           <div className="flex items-center gap-2 flex-wrap justify-between">
-            {/* Left: tabs + specialty filter */}
-            <div className="flex items-center gap-2 flex-wrap">
-              {hasSubprojects && tabs.map(tab => (
-                <button
-                  key={tab.id}
-                  onClick={() => { setActiveTab(tab.id); setFilterSpecialty('all'); setSelected(new Set()) }}
-                  className={`text-xs px-3.5 py-1.5 rounded-full font-semibold transition-all ${
-                    activeTab === tab.id
-                      ? 'bg-[#1A2744] text-white shadow-sm'
-                      : 'bg-white border border-slate-200 text-slate-600 hover:border-[#1A2744]/40'
-                  }`}
-                >
-                  {tab.label}
-                  <span className={`ml-1.5 ${activeTab === tab.id ? 'opacity-60' : 'text-slate-400'}`}>
-                    ({tab.count})
-                  </span>
-                </button>
-              ))}
+            {/* Left: subproject tabs + specialty pills */}
+            <div className="flex flex-col gap-2 w-full">
+              {hasSubprojects && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  {tabs.map(tab => (
+                    <button
+                      key={tab.id}
+                      onClick={() => { setActiveTab(tab.id); setFilterSpecialty('all'); setSelected(new Set()) }}
+                      className={`text-xs px-3.5 py-1.5 rounded-full font-semibold transition-all ${
+                        activeTab === tab.id
+                          ? 'bg-[#1A2744] text-white shadow-sm'
+                          : 'bg-white border border-slate-200 text-slate-600 hover:border-[#1A2744]/40'
+                      }`}
+                    >
+                      {tab.label}
+                      <span className={`ml-1.5 ${activeTab === tab.id ? 'opacity-60' : 'text-slate-400'}`}>
+                        ({tab.count})
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
               {specialtyOptions.length > 1 && (
-                <div className="flex items-center gap-1.5">
-                  <Filter className="w-3 h-3 text-slate-400" />
-                  <select
-                    value={filterSpecialty}
-                    onChange={e => setFilterSpecialty(e.target.value)}
-                    className="text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white text-slate-600 focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/40 focus:border-[#00C2FF]"
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <Filter className="w-3 h-3 text-slate-400 flex-shrink-0" />
+                  <button
+                    onClick={() => setFilterSpecialty('all')}
+                    className={`text-xs px-3 py-1 rounded-full font-semibold transition-all border ${
+                      filterSpecialty === 'all'
+                        ? 'bg-[#00C2FF]/15 border-[#00C2FF]/40 text-[#00C2FF]'
+                        : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'
+                    }`}
                   >
-                    <option value="all">Todas las disciplinas</option>
-                    {specialtyOptions.map(s => (
-                      <option key={s.code} value={s.code}>{s.label}</option>
-                    ))}
-                  </select>
+                    Todas
+                  </button>
+                  {specialtyOptions.map(s => (
+                    <button
+                      key={s.code}
+                      onClick={() => setFilterSpecialty(s.code)}
+                      className={`text-xs px-3 py-1 rounded-full font-semibold transition-all border ${
+                        filterSpecialty === s.code
+                          ? 'bg-[#00C2FF]/15 border-[#00C2FF]/40 text-[#00C2FF]'
+                          : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'
+                      }`}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
                 </div>
               )}
             </div>
