@@ -5,6 +5,7 @@ import {
   Upload, FileText, Loader2, AlertCircle, CheckCircle2,
   ChevronDown, ChevronRight, Zap, Bot, RotateCcw, X,
   FolderOpen, Clock, Sparkles, Tag, ChevronUp, BookOpen, Save,
+  MessageCircle, Send,
 } from 'lucide-react'
 
 // ── Tipos ──────────────────────────────────────────────────────────────────────
@@ -24,6 +25,15 @@ type DocMeta  = {
 type Elemento = { tipo: string; cantidad: number | null; unidad: string; descripcion?: string }
 type Especialidad = { nombre: string; elementos: Elemento[] }
 type Extraction = { titulo: string; especialidades: Especialidad[]; notas: string; confianza: 'alta' | 'media' | 'baja' }
+
+type CotaQuery = {
+  id?:        string
+  question:   string
+  answer:     string | null
+  sources:    Array<{ doc_key: string; titulo: string }> | null
+  loading?:   boolean
+  created_at?: string
+}
 
 type SavedExtraction = {
   id:             string
@@ -84,7 +94,14 @@ export default function AiAgentPanel({
   const [saving,         setSaving]         = useState(false)
 
   // Tab activo
-  const [activeTab,      setActiveTab]      = useState<'extraction' | 'brief'>('extraction')
+  const [activeTab,      setActiveTab]      = useState<'extraction' | 'brief' | 'query'>('extraction')
+
+  // Consultas RAG
+  const [queryInput,     setQueryInput]     = useState('')
+  const [queries,        setQueries]        = useState<CotaQuery[]>([])
+  const [queryHistory,   setQueryHistory]   = useState<CotaQuery[]>([])
+  const [expandedSource, setExpandedSource] = useState<number | null>(null)
+  const queryEndRef = useRef<HTMLDivElement>(null)
 
   // Brief técnico
   const [brief,          setBrief]          = useState('')
@@ -135,6 +152,20 @@ export default function AiAgentPanel({
       .then(d => { setBrief(d.brief ?? ''); setBriefOrig(d.brief ?? '') })
       .catch(() => {})
   }, [projectId])
+
+  // Cargar historial de consultas al cambiar proyecto
+  useEffect(() => {
+    if (!projectId) { setQueryHistory([]); setQueries([]); return }
+    fetch(`/api/ai-agent/query?projectId=${projectId}`)
+      .then(r => r.json())
+      .then(d => setQueryHistory(d.queries ?? []))
+      .catch(() => {})
+  }, [projectId])
+
+  // Scroll al último mensaje
+  useEffect(() => {
+    if (activeTab === 'query') queryEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [queries, activeTab])
 
   // Reset doc al cambiar proyecto
   useEffect(() => { setDocId(''); setManualFile(null); setUseManual(false) }, [projectId])
@@ -259,6 +290,39 @@ export default function AiAgentPanel({
     setTimeout(() => setBriefSaved(false), 2500)
   }
 
+  const sendQuery = async () => {
+    const q = queryInput.trim()
+    if (!q || !projectId) return
+
+    const placeholder: CotaQuery = { question: q, answer: null, sources: null, loading: true }
+    setQueries(prev => [...prev, placeholder])
+    setQueryInput('')
+    setExpandedSource(null)
+
+    try {
+      const res  = await fetch('/api/ai-agent/query', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ projectId, question: q }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Error al consultar')
+
+      setQueries(prev => prev.map((item, idx) =>
+        idx === prev.length - 1
+          ? { question: q, answer: data.answer, sources: data.sources ?? [], loading: false }
+          : item
+      ))
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Error inesperado'
+      setQueries(prev => prev.map((item, idx) =>
+        idx === prev.length - 1
+          ? { question: q, answer: `Error: ${msg}`, sources: [], loading: false }
+          : item
+      ))
+    }
+  }
+
   const reset = () => {
     setExtraction(null)
     setExtractionId(null)
@@ -325,6 +389,17 @@ export default function AiAgentPanel({
               <span className="w-1.5 h-1.5 rounded-full bg-[#00C2FF] flex-shrink-0" />
             )}
           </button>
+          <button
+            onClick={() => setActiveTab('query')}
+            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-all ${
+              activeTab === 'query'
+                ? 'bg-white text-[#1A2744] shadow-sm'
+                : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            <MessageCircle className="w-3.5 h-3.5" />
+            Consultar
+          </button>
         </div>
       )}
 
@@ -383,6 +458,146 @@ export default function AiAgentPanel({
               Guardar Brief
             </button>
           </div>
+        </div>
+      )}
+
+      {/* ── Consultar Cota (RAG) ─────────────────────────────────────────── */}
+      {projectId && activeTab === 'query' && (
+        <div className="space-y-4">
+
+          {/* Chat session */}
+          {queries.length === 0 && queryHistory.length === 0 ? (
+            <div className="bg-white border border-slate-100 rounded-2xl p-8 text-center">
+              <div className="w-12 h-12 bg-[#00C2FF]/10 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                <MessageCircle className="w-6 h-6 text-[#00C2FF]" />
+              </div>
+              <p className="text-sm font-semibold text-[#1A2744] mb-1">Pregúntale a Cota</p>
+              <p className="text-xs text-slate-400 mb-5 leading-relaxed">
+                Cota responde basándose en las extracciones aprobadas del proyecto.
+              </p>
+              <div className="flex flex-wrap gap-2 justify-center">
+                {[
+                  '¿Cuánto concreto f\'c=250 hay en total?',
+                  '¿Qué elementos estructurales tiene el proyecto?',
+                  '¿Cuántos m³ de excavación hay?',
+                ].map(ex => (
+                  <button
+                    key={ex}
+                    onClick={() => setQueryInput(ex)}
+                    className="text-xs px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-600 hover:border-[#00C2FF]/50 hover:bg-[#00C2FF]/5 transition-colors"
+                  >
+                    {ex}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="bg-white border border-slate-100 rounded-2xl overflow-hidden">
+              <div className="divide-y divide-slate-50 max-h-[500px] overflow-y-auto">
+                {/* Session queries */}
+                {queries.map((q, i) => (
+                  <div key={i} className="p-5 space-y-3">
+                    {/* Question */}
+                    <div className="flex items-start gap-2.5">
+                      <div className="w-6 h-6 rounded-full bg-[#1A2744] text-white text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">
+                        Tú
+                      </div>
+                      <p className="text-sm text-[#1A2744] font-medium leading-relaxed">{q.question}</p>
+                    </div>
+
+                    {/* Answer */}
+                    {q.loading ? (
+                      <div className="flex items-center gap-2 pl-8.5 text-slate-400">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span className="text-xs">Consultando extracciones...</span>
+                      </div>
+                    ) : q.answer && (
+                      <div className="pl-8">
+                        <div className="flex items-start gap-2.5">
+                          <div className="w-6 h-6 rounded-full bg-[#00C2FF]/20 text-[#007A9E] text-[9px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">
+                            <Bot className="w-3.5 h-3.5" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
+                              {q.answer}
+                            </div>
+                            {/* Sources */}
+                            {q.sources && q.sources.length > 0 && (
+                              <button
+                                onClick={() => setExpandedSource(expandedSource === i ? null : i)}
+                                className="mt-2 flex items-center gap-1 text-[11px] text-slate-400 hover:text-slate-600 transition-colors"
+                              >
+                                <FileText className="w-3 h-3" />
+                                {q.sources.length} fuente{q.sources.length > 1 ? 's' : ''}
+                                <ChevronDown className={`w-3 h-3 transition-transform ${expandedSource === i ? 'rotate-180' : ''}`} />
+                              </button>
+                            )}
+                            {expandedSource === i && q.sources && (
+                              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                                {q.sources.map((s, si) => (
+                                  <span key={si} className="text-[10px] font-mono px-2 py-0.5 bg-slate-100 text-slate-500 rounded">
+                                    {s.doc_key}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+
+                {/* Query history from DB (collapsed) */}
+                {queryHistory.length > 0 && queries.length === 0 && (
+                  <div className="px-5 py-3 bg-slate-50/60">
+                    <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-3">
+                      Consultas anteriores
+                    </p>
+                    <div className="space-y-3">
+                      {queryHistory.slice(0, 5).map((q, i) => (
+                        <div key={q.id || i} className="space-y-1.5">
+                          <p className="text-xs font-medium text-slate-600">{q.question}</p>
+                          <p className="text-xs text-slate-400 line-clamp-2">{q.answer}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div ref={queryEndRef} />
+              </div>
+            </div>
+          )}
+
+          {/* Input */}
+          <div className="bg-white border border-slate-200 rounded-2xl p-3 flex items-end gap-2 focus-within:border-[#00C2FF] focus-within:ring-2 focus-within:ring-[#00C2FF]/20 transition-all">
+            <textarea
+              value={queryInput}
+              onChange={e => setQueryInput(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  sendQuery()
+                }
+              }}
+              placeholder="Pregunta sobre los metrados del proyecto… (Enter para enviar)"
+              rows={2}
+              className="flex-1 resize-none text-sm text-[#1A2744] placeholder-slate-300 focus:outline-none leading-relaxed"
+            />
+            <button
+              onClick={sendQuery}
+              disabled={!queryInput.trim() || queries.some(q => q.loading)}
+              className="flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-xl bg-[#1A2744] text-white hover:bg-[#243660] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <Send className="w-4 h-4" />
+            </button>
+          </div>
+
+          <p className="text-[11px] text-slate-400 text-center">
+            Cota consulta las <strong className="text-slate-500">{/* */}</strong> extracciones aprobadas del proyecto.
+            Aprueba más planos para mejores respuestas.
+          </p>
         </div>
       )}
 
