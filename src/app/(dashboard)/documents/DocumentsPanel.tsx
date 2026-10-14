@@ -378,15 +378,22 @@ function UploadModal({
     // Detectar si ya existe un documento con la misma clave AEC en este proyecto
     if (!skipDupCheck) {
       const formDocView = docType !== 'PLA' ? 'NA' : (docView + docViewNum).trim()
+      const troncal = micNomenclatures.find(n => n.segment === 'TRONCAL')?.code
+      // Construir doc_key exactamente igual que el backend para detectar versión
+      const candidateKey = (troncal && identificador && docType && specialtyCode && formDocView)
+        ? `${troncal}-${identificador}-${docType}-${specialtyCode}-${formDocView}`
+        : null
       const dup = existingDocs.find(d =>
-        d.project_id === projectId &&
         d.is_current === true &&
         d.doc_status !== 'deleted' &&
         d.doc_status !== 'archived' &&
-        d.specialty?.code === specialtyCode &&
-        (d.doc_type || '') === docType &&
-        (d.doc_view || '') === formDocView &&
-        (d.doc_element?.toLowerCase().trim() || '') === (docElement.toLowerCase().trim() || '')
+        (candidateKey
+          ? d.doc_key === candidateKey
+          : d.project_id === projectId &&
+            d.specialty?.code === specialtyCode &&
+            (d.doc_type || '') === docType &&
+            (d.doc_view || '') === formDocView &&
+            (d.doc_element?.toLowerCase().trim() || '') === (docElement.toLowerCase().trim() || ''))
       )
       if (dup) { setDupDoc(dup); return }
     }
@@ -714,25 +721,33 @@ function UploadModal({
                 </p>
               </div>
 
-              <p className="text-xs text-slate-400 mb-5">
-                Si continúas, este archivo se registrará como{' '}
-                <strong className="text-slate-600">nueva versión</strong> y la actual quedará archivada automáticamente.
-              </p>
-
-              <div className="flex gap-3 w-full">
-                <button
-                  onClick={() => setDupDoc(null)}
-                  className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={() => { setDupDoc(null); handleUpload(true) }}
-                  className="flex-1 px-4 py-2.5 rounded-xl bg-[#1A2744] hover:bg-[#243660] text-white text-sm font-semibold transition-colors"
-                >
-                  Subir de todas formas
-                </button>
-              </div>
+              {(() => {
+                const nextVer = (dupDoc.version_number ?? 0) + 1
+                const nextVerStr = `v${String(nextVer).padStart(4, '0')}`
+                return (
+                  <>
+                    <p className="text-xs text-slate-400 mb-5">
+                      Si continúas, se guardará como{' '}
+                      <strong className="text-[#1A2744] font-mono">{nextVerStr}</strong>
+                      {' '}y la versión actual quedará archivada automáticamente.
+                    </p>
+                    <div className="flex gap-3 w-full">
+                      <button
+                        onClick={() => setDupDoc(null)}
+                        className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        onClick={() => { setDupDoc(null); handleUpload(true) }}
+                        className="flex-1 px-4 py-2.5 rounded-xl bg-[#1A2744] hover:bg-[#243660] text-white text-sm font-semibold transition-colors"
+                      >
+                        Guardar como {nextVerStr}
+                      </button>
+                    </div>
+                  </>
+                )
+              })()}
             </div>
           )}
 
