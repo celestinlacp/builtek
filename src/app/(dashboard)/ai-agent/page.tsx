@@ -79,8 +79,37 @@ export default async function AiAgentPage() {
           <span className="text-[10px] bg-[#00C2FF] text-[#1A2744] px-2 py-0.5 rounded-full font-bold ml-1">AI</span>
         </h1>
         <p className="text-slate-500 text-sm mt-0.5">
-          Extrae metrados de planos por proyecto — el conocimiento se acumula y mejora con cada revisión
+          Agente de inteligencia artificial especializado en proyectos de construcción AEC
         </p>
+      </div>
+
+      {/* ── Intro card ── */}
+      <div className="bg-gradient-to-br from-[#1A2744] to-[#243660] rounded-2xl p-6 mb-6 text-white">
+        <div className="flex items-start gap-4">
+          <div className="w-12 h-12 bg-[#00C2FF]/20 rounded-2xl flex items-center justify-center flex-shrink-0">
+            <Sparkles className="w-6 h-6 text-[#00C2FF]" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-base font-bold text-white mb-1">¿Qué es Cota?</p>
+            <p className="text-sm text-white/70 leading-relaxed mb-4">
+              Cota lee los planos técnicos de tus proyectos y extrae automáticamente los metrados —
+              cantidades, materiales y especificaciones — acumulando conocimiento que mejora con cada revisión.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {[
+                { num: '01', title: 'Extracción', desc: 'Lee planos PDF y extrae metrados por especialidad automáticamente.' },
+                { num: '02', title: 'Aprende', desc: 'Cada corrección aprobada entrena a Cota para ser más preciso en tu proyecto.' },
+                { num: '03', title: 'Consultar', desc: 'Pregunta en lenguaje natural sobre las cantidades acumuladas del proyecto.' },
+              ].map(f => (
+                <div key={f.num} className="bg-white/10 rounded-xl px-4 py-3">
+                  <span className="text-[10px] font-black text-[#00C2FF] tracking-widest">{f.num}</span>
+                  <p className="text-sm font-bold text-white mt-0.5">{f.title}</p>
+                  <p className="text-[11px] text-white/60 mt-0.5 leading-relaxed">{f.desc}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
 
       <AiAgentPanel
