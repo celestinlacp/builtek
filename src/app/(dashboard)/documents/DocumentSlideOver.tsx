@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import {
   X, Send, Trash2, Download, GitBranch, User,
   Calendar, Weight, Tag, FileText, MessageSquare, Loader2, History, CheckCircle2, XCircle, Clock, Eye,
-  Share2, Pencil, Check, Upload, Edit2,
+  Share2, Pencil, Check, Upload, Edit2, Zap,
 } from 'lucide-react'
 import { addDocumentComment, deleteDocumentComment, getDocumentVersions, createDocumentShare, renameDocument, updateDocumentMeta, deleteArchivedVersion } from './actions'
 
@@ -31,6 +31,7 @@ type Doc = {
   mic_version: string | null
   specialty?: { name: string; code: string } | null
   project?: { name: string } | null
+  project_id?: string | null
   approved_by?: string | null
   approved_at?: string | null
   review_requested_at?: string | null
@@ -108,6 +109,10 @@ export default function DocumentSlideOver({
   // Edit metadata
   const [editingMeta,   setEditingMeta]   = useState(false)
   const [savingMeta,    setSavingMeta]    = useState(false)
+  // Cota extraction
+  const [cotaLoading,   setCotaLoading]   = useState(false)
+  const [cotaDone,      setCotaDone]      = useState(false)
+  const [cotaError,     setCotaError]     = useState<string | null>(null)
   // PDF preview
   const [pdfZoom,       setPdfZoom]       = useState(1)
   const [metaError,     setMetaError]     = useState<string | null>(null)
@@ -200,6 +205,32 @@ export default function DocumentSlideOver({
     if (tab === 'comments') loadComments()
     if (tab === 'versions') loadVersions()
   }, [tab])
+
+  async function analyzeWithCota() {
+    if (!doc.project_id) return
+    setCotaLoading(true)
+    setCotaError(null)
+    setCotaDone(false)
+    try {
+      const fd = new FormData()
+      fd.append('projectId', doc.project_id)
+      fd.append('documentId', doc.id)
+      const hints: Record<string, string> = {}
+      if (doc.doc_key)          hints.doc_key      = doc.doc_key
+      if (doc.doc_type)         hints.tipo_plano   = doc.doc_type
+      if (doc.mic_version)      hints.version      = doc.mic_version
+      if (doc.specialty?.name)  hints.especialidad = doc.specialty.name
+      fd.append('docHints', JSON.stringify(hints))
+      const res  = await fetch('/api/ai-agent', { method: 'POST', body: fd })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Error al analizar')
+      setCotaDone(true)
+    } catch (err: unknown) {
+      setCotaError(err instanceof Error ? err.message : 'Error inesperado')
+    } finally {
+      setCotaLoading(false)
+    }
+  }
 
   async function handleSend() {
     if (!newComment.trim()) return
@@ -665,6 +696,32 @@ export default function DocumentSlideOver({
                   <FileText className="w-3.5 h-3.5" />
                   Ver PDF
                 </a>
+              )}
+
+              {/* ── Analizar con Cota — solo owner, solo PDF ── */}
+              {userRole === 'owner' && doc.file_type === 'pdf' && doc.project_id && (
+                <div className="mt-2">
+                  {cotaDone ? (
+                    <div className="flex items-center gap-2 text-xs text-green-600 bg-green-50 rounded-xl px-3 py-2.5 border border-green-100">
+                      <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" />
+                      Extracción enviada a Agente AI
+                    </div>
+                  ) : (
+                    <button
+                      onClick={analyzeWithCota}
+                      disabled={cotaLoading}
+                      className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-[#00C2FF]/10 text-[#007A9E] text-xs font-bold hover:bg-[#00C2FF]/20 transition-colors disabled:opacity-50 border border-[#00C2FF]/20"
+                    >
+                      {cotaLoading
+                        ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />Analizando con Cota...</>
+                        : <><Zap className="w-3.5 h-3.5" />Analizar con Cota</>
+                      }
+                    </button>
+                  )}
+                  {cotaError && (
+                    <p className="text-[11px] text-red-500 mt-1.5 text-center">{cotaError}</p>
+                  )}
+                </div>
               )}
             </div>
           )}
