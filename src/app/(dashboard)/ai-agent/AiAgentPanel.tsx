@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import {
   Upload, FileText, Loader2, AlertCircle, CheckCircle2,
   ChevronDown, ChevronRight, Zap, Bot, RotateCcw, X,
-  FolderOpen, Clock, Sparkles, Tag, ChevronUp,
+  FolderOpen, Clock, Sparkles, Tag, ChevronUp, BookOpen, Save,
 } from 'lucide-react'
 
 // ── Tipos ──────────────────────────────────────────────────────────────────────
@@ -83,6 +83,15 @@ export default function AiAgentPanel({
   const [corrNote,       setCorrNote]       = useState('')
   const [saving,         setSaving]         = useState(false)
 
+  // Tab activo
+  const [activeTab,      setActiveTab]      = useState<'extraction' | 'brief'>('extraction')
+
+  // Brief técnico
+  const [brief,          setBrief]          = useState('')
+  const [briefOrig,      setBriefOrig]      = useState('')
+  const [briefSaving,    setBriefSaving]    = useState(false)
+  const [briefSaved,     setBriefSaved]     = useState(false)
+
   const inputRef = useRef<HTMLInputElement>(null)
 
   // Refresh historial
@@ -117,6 +126,15 @@ export default function AiAgentPanel({
     if (!projectId) { setHistory([]); return }
     refreshHistory()
   }, [projectId, extraction, refreshHistory])
+
+  // Cargar brief al cambiar proyecto
+  useEffect(() => {
+    if (!projectId) { setBrief(''); setBriefOrig(''); return }
+    fetch(`/api/ai-agent/brief?projectId=${projectId}`)
+      .then(r => r.json())
+      .then(d => { setBrief(d.brief ?? ''); setBriefOrig(d.brief ?? '') })
+      .catch(() => {})
+  }, [projectId])
 
   // Reset doc al cambiar proyecto
   useEffect(() => { setDocId(''); setManualFile(null); setUseManual(false) }, [projectId])
@@ -227,6 +245,20 @@ export default function AiAgentPanel({
     refreshHistory()
   }
 
+  const saveBrief = async () => {
+    if (!projectId) return
+    setBriefSaving(true)
+    await fetch('/api/ai-agent/brief', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ projectId, brief }),
+    })
+    setBriefOrig(brief)
+    setBriefSaved(true)
+    setBriefSaving(false)
+    setTimeout(() => setBriefSaved(false), 2500)
+  }
+
   const reset = () => {
     setExtraction(null)
     setExtractionId(null)
@@ -265,8 +297,97 @@ export default function AiAgentPanel({
         </div>
       </div>
 
+      {/* ── Tab bar ──────────────────────────────────────────────────────── */}
+      {projectId && (
+        <div className="flex gap-1 bg-slate-100 rounded-xl p-1">
+          <button
+            onClick={() => setActiveTab('extraction')}
+            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-all ${
+              activeTab === 'extraction'
+                ? 'bg-white text-[#1A2744] shadow-sm'
+                : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            <Zap className="w-3.5 h-3.5" />
+            Extracción
+          </button>
+          <button
+            onClick={() => setActiveTab('brief')}
+            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-all ${
+              activeTab === 'brief'
+                ? 'bg-white text-[#1A2744] shadow-sm'
+                : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            <BookOpen className="w-3.5 h-3.5" />
+            Brief Técnico
+            {briefOrig && (
+              <span className="w-1.5 h-1.5 rounded-full bg-[#00C2FF] flex-shrink-0" />
+            )}
+          </button>
+        </div>
+      )}
+
+      {/* ── Brief Técnico ─────────────────────────────────────────────────── */}
+      {projectId && activeTab === 'brief' && (
+        <div className="bg-white border border-slate-100 rounded-2xl p-5 space-y-4">
+          <div>
+            <h3 className="text-sm font-bold text-[#1A2744] mb-0.5">Brief Técnico del Proyecto</h3>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Cota leerá este contexto antes de cada extracción. Describe lo que necesita saber para ser más preciso.
+            </p>
+          </div>
+
+          {/* Guía */}
+          <div className="bg-slate-50 rounded-xl px-4 py-3 space-y-1">
+            <p className="text-[11px] font-semibold text-slate-500 mb-1.5">Incluye información como:</p>
+            {[
+              'Tipo de proyecto y estructura principal (puente, edificio, viaducto…)',
+              "Materiales predominantes: concreto f'c, acero fy, calidad de materiales",
+              'Normas de diseño aplicables (AASHTO, ACI, NMX, SCT…)',
+              'Elementos especiales: pilas, trabes, vigas cajón, losas, pilotes',
+              'Unidades de medida preferidas y convenciones del proyecto',
+            ].map((tip, i) => (
+              <p key={i} className="text-[11px] text-slate-400 flex gap-1.5">
+                <span className="text-[#00C2FF] flex-shrink-0">·</span>{tip}
+              </p>
+            ))}
+          </div>
+
+          <textarea
+            value={brief}
+            onChange={e => { setBrief(e.target.value); setBriefSaved(false) }}
+            placeholder={`Ejemplo:\n\nPuente peatonal de concreto reforzado de 47.2 m de longitud. Estructura tipo viga T en subestructura y superestructura monolítica. Materiales: concreto f'c = 250 kg/cm² en pilas y trabes, f'c = 200 kg/cm² en muros. Acero grado 60 (fy = 4200 kg/cm²). Normas: SCT 2016, AASHTO LRFD. Proyecto Frente 12, carretera federal México-Cuernavaca.`}
+            rows={10}
+            className="w-full text-sm border border-slate-200 rounded-xl px-4 py-3 text-[#1A2744] placeholder-slate-300 resize-none focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/30 focus:border-[#00C2FF] leading-relaxed"
+          />
+
+          <div className="flex items-center justify-between">
+            <div className="text-xs text-slate-400">
+              {briefSaved
+                ? <span className="flex items-center gap-1 text-green-600"><CheckCircle2 className="w-3.5 h-3.5" />Brief guardado</span>
+                : briefOrig
+                  ? brief !== briefOrig ? 'Cambios sin guardar' : `Brief activo · ${briefOrig.length} caracteres`
+                  : 'Sin brief — Cota trabaja sin contexto del proyecto'
+              }
+            </div>
+            <button
+              onClick={saveBrief}
+              disabled={briefSaving || brief === briefOrig}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#1A2744] text-white text-sm font-semibold hover:bg-[#243660] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {briefSaving
+                ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                : <Save className="w-3.5 h-3.5" />
+              }
+              Guardar Brief
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ── Selector de documento / upload ───────────────────────────────── */}
-      {projectId && !extraction && (
+      {projectId && activeTab === 'extraction' && !extraction && (
         <div className="bg-white border border-slate-100 rounded-2xl p-5 space-y-4">
 
           {/* Toggle */}
@@ -407,7 +528,7 @@ export default function AiAgentPanel({
       )}
 
       {/* ── Loading ───────────────────────────────────────────────────────── */}
-      {loading && (
+      {activeTab === 'extraction' && loading && (
         <div className="bg-white border border-slate-100 rounded-2xl p-10 text-center">
           <div className="relative w-14 h-14 mx-auto mb-4">
             <div className="absolute inset-0 rounded-full border-4 border-[#00C2FF]/20" />
@@ -420,7 +541,7 @@ export default function AiAgentPanel({
       )}
 
       {/* ── Resultado ─────────────────────────────────────────────────────── */}
-      {extraction && (
+      {activeTab === 'extraction' && extraction && (
         <div className="bg-white border border-slate-100 rounded-2xl overflow-hidden">
 
           {/* Header resultado */}
@@ -512,7 +633,7 @@ export default function AiAgentPanel({
       )}
 
       {/* ── Historial del proyecto ─────────────────────────────────────────── */}
-      {projectId && (
+      {projectId && activeTab === 'extraction' && (
         <div className="bg-white border border-slate-100 rounded-2xl overflow-hidden">
           <div className="px-5 py-3.5 border-b border-slate-100 flex items-center gap-2">
             <Clock className="w-4 h-4 text-slate-400" />

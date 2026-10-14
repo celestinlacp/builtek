@@ -143,8 +143,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Falta archivo o documentId' }, { status: 400 })
   }
 
-  // ── Few-shot: extracciones aprobadas del mismo proyecto como referencia ──────
+  // ── Brief técnico del proyecto ───────────────────────────────────────────────
   const admin = getAdminClient()
+  const { data: projRow } = await admin
+    .from('projects')
+    .select('cota_brief, name')
+    .eq('id', projectId)
+    .single()
+
+  const projectBrief = projRow?.cota_brief?.trim() || null
+  if (projRow?.name && !docHints.proyecto_name) docHints.proyecto_name = projRow.name
+
+  // ── Few-shot: extracciones aprobadas del mismo proyecto como referencia ──────
   let fewShotText = ''
   {
     const { data: examples } = await admin
@@ -171,12 +181,13 @@ export async function POST(req: NextRequest) {
     : null
 
   const contextLines = [
+    projectBrief               && `BRIEF TÉCNICO DEL PROYECTO:\n${projectBrief}`,
     docHints.proyecto_name     && `Proyecto: ${docHints.proyecto_name}`,
     docHints.doc_key           && `Clave de documento: ${docHints.doc_key}`,
     docHints.especialidad      && `Especialidad: ${docHints.especialidad}`,
     docHints.version           && `Versión: ${docHints.version}`,
-    tipoPlanHint               && `Contexto: ${tipoPlanHint}`,
-  ].filter(Boolean).join('\n')
+    tipoPlanHint               && `Contexto específico del tipo de plano: ${tipoPlanHint}`,
+  ].filter(Boolean).join('\n\n')
 
   const userText = [
     contextLines,
