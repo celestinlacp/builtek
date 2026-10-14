@@ -77,7 +77,24 @@ export default function AiAgentPanel({
   const [loadingHistory, setLoadingHistory] = useState(false)
   const [expandedHist,   setExpandedHist]   = useState<string | null>(null)
 
+  // Corrección inline
+  const [editingId,      setEditingId]      = useState<string | null>(null)
+  const [editData,       setEditData]       = useState<Extraction | null>(null)
+  const [corrNote,       setCorrNote]       = useState('')
+  const [saving,         setSaving]         = useState(false)
+
   const inputRef = useRef<HTMLInputElement>(null)
+
+  // Refresh historial
+  const refreshHistory = useCallback(() => {
+    if (!projectId) return
+    setLoadingHistory(true)
+    fetch(`/api/ai-agent?projectId=${projectId}`)
+      .then(r => r.json())
+      .then(d => setHistory(d.extractions ?? []))
+      .catch(() => {})
+      .finally(() => setLoadingHistory(false))
+  }, [projectId])
 
   // Documentos filtrados por proyecto seleccionado
   const projectDocs = useMemo(
@@ -95,16 +112,11 @@ export default function AiAgentPanel({
     [projects, projectId]
   )
 
-  // Cargar historial al cambiar proyecto
+  // Cargar historial al cambiar proyecto o tras nueva extracción
   useEffect(() => {
     if (!projectId) { setHistory([]); return }
-    setLoadingHistory(true)
-    fetch(`/api/ai-agent?projectId=${projectId}`)
-      .then(r => r.json())
-      .then(d => setHistory(d.extractions ?? []))
-      .catch(() => setHistory([]))
-      .finally(() => setLoadingHistory(false))
-  }, [projectId, extraction]) // re-fetch cuando llega nueva extracción
+    refreshHistory()
+  }, [projectId, extraction, refreshHistory])
 
   // Reset doc al cambiar proyecto
   useEffect(() => { setDocId(''); setManualFile(null); setUseManual(false) }, [projectId])
@@ -170,6 +182,49 @@ export default function AiAgentPanel({
     } finally {
       setLoading(false)
     }
+  }
+
+  // ── Corrección / aprobación ─────────────────────────────────────────────────
+
+  const approveExtraction = async (id: string) => {
+    setSaving(true)
+    await fetch('/api/ai-agent', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, status: 'approved' }),
+    })
+    setSaving(false)
+    refreshHistory()
+  }
+
+  const startEdit = (h: SavedExtraction) => {
+    setEditingId(h.id)
+    setEditData(JSON.parse(JSON.stringify(h.raw_extraction)) as Extraction)
+    setCorrNote('')
+    setExpandedHist(null)
+  }
+
+  const cancelEdit = () => { setEditingId(null); setEditData(null); setCorrNote('') }
+
+  const updateEl = (espIdx: number, elIdx: number, field: keyof Elemento, value: string | number | null) => {
+    setEditData(prev => {
+      if (!prev) return prev
+      const next = JSON.parse(JSON.stringify(prev)) as Extraction
+      next.especialidades[espIdx].elementos[elIdx] = { ...next.especialidades[espIdx].elementos[elIdx], [field]: value }
+      return next
+    })
+  }
+
+  const saveCorrection = async (id: string, status: 'reviewed' | 'approved') => {
+    setSaving(true)
+    await fetch('/api/ai-agent', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, status, corrected_extraction: editData, correction_notes: corrNote || undefined }),
+    })
+    setSaving(false)
+    cancelEdit()
+    refreshHistory()
   }
 
   const reset = () => {
@@ -483,28 +538,33 @@ export default function AiAgentPanel({
           ) : (
             <div className="divide-y divide-slate-50">
               {history.map(h => {
-                const ext    = h.raw_extraction
-                const hints  = h.doc_hints
-                const isOpen = expandedHist === h.id
-                const totalEl = ext?.especialidades?.reduce((a, e) => a + e.elementos.length, 0) ?? 0
+                const ext      = h.raw_extraction
+                const hints    = h.doc_hints
+                const isOpen   = expandedHist === h.id
+                const isEditing = editingId === h.id
+                const totalEl  = ext?.especialidades?.reduce((a, e) => a + e.elementos.length, 0) ?? 0
 
                 return (
                   <div key={h.id}>
-                    <button
-                      onClick={() => setExpandedHist(isOpen ? null : h.id)}
-                      className="w-full flex items-center gap-3 px-5 py-3.5 hover:bg-slate-50 transition-colors text-left"
-                    >
-                      <FileText className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-[#1A2744] truncate">
-                          {hints.doc_key || ext?.titulo || hints.file_name || 'Plano sin nombre'}
-                        </p>
-                        <p className="text-xs text-slate-400">
-                          {new Date(h.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}
-                          {' · '}{totalEl} elementos
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2 flex-shrink-0">
+                    {/* ── Fila del historial ─── */}
+                    <div className="flex items-center gap-3 px-5 py-3.5 hover:bg-slate-50 transition-colors">
+                      <button
+                        onClick={() => !isEditing && setExpandedHist(isOpen ? null : h.id)}
+                        className="flex items-center gap-3 flex-1 min-w-0 text-left"
+                      >
+                        <FileText className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-[#1A2744] truncate">
+                            {hints.doc_key || ext?.titulo || hints.file_name || 'Plano sin nombre'}
+                          </p>
+                          <p className="text-xs text-slate-400">
+                            {new Date(h.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}
+                            {' · '}{totalEl} elementos
+                          </p>
+                        </div>
+                      </button>
+
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
                         {hints.especialidad && (
                           <span className="hidden sm:inline text-[11px] px-2 py-0.5 rounded-full bg-[#00C2FF]/10 text-[#007A9E] font-medium">
                             {hints.especialidad}
@@ -513,14 +573,36 @@ export default function AiAgentPanel({
                         <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${STATUS_CONFIG[h.status]?.color}`}>
                           {STATUS_CONFIG[h.status]?.label}
                         </span>
-                        {isOpen
-                          ? <ChevronUp className="w-3.5 h-3.5 text-slate-400" />
-                          : <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
-                        }
-                      </div>
-                    </button>
 
-                    {isOpen && ext?.especialidades && (
+                        {/* Acciones por estado */}
+                        {h.status !== 'approved' && !isEditing && (
+                          <>
+                            <button
+                              onClick={() => approveExtraction(h.id)}
+                              disabled={saving}
+                              className="text-[11px] px-2.5 py-1 rounded-lg bg-green-50 text-green-700 hover:bg-green-100 font-semibold transition-colors disabled:opacity-50"
+                            >
+                              Aprobar
+                            </button>
+                            <button
+                              onClick={() => startEdit(h)}
+                              className="text-[11px] px-2.5 py-1 rounded-lg bg-slate-50 text-slate-600 hover:bg-slate-100 font-semibold transition-colors"
+                            >
+                              Corregir
+                            </button>
+                          </>
+                        )}
+
+                        {!isEditing && (
+                          isOpen
+                            ? <ChevronUp className="w-3.5 h-3.5 text-slate-400 cursor-pointer" onClick={() => setExpandedHist(null)} />
+                            : <ChevronRight className="w-3.5 h-3.5 text-slate-400 cursor-pointer" onClick={() => setExpandedHist(h.id)} />
+                        )}
+                      </div>
+                    </div>
+
+                    {/* ── Vista expandida (solo lectura) ─── */}
+                    {isOpen && !isEditing && ext?.especialidades && (
                       <div className="px-5 pb-4 bg-slate-50/50">
                         {ext.especialidades.map((esp, i) => (
                           <div key={i} className="mt-3">
@@ -541,6 +623,90 @@ export default function AiAgentPanel({
                             </table>
                           </div>
                         ))}
+                      </div>
+                    )}
+
+                    {/* ── Modo edición / corrección ─── */}
+                    {isEditing && editData && (
+                      <div className="px-5 pb-5 bg-amber-50/40 border-t border-amber-100">
+                        <p className="text-xs font-semibold text-amber-700 mt-3 mb-2">
+                          Corrigiendo extracción — edita cantidades, unidades o descripciones
+                        </p>
+                        {editData.especialidades?.map((esp, espIdx) => (
+                          <div key={espIdx} className="mb-4">
+                            <p className="text-xs font-semibold text-slate-500 mb-1">{esp.nombre}</p>
+                            <table className="w-full text-xs">
+                              <thead>
+                                <tr className="text-[10px] text-slate-400 border-b border-slate-200">
+                                  <th className="text-left py-1 w-[38%]">Elemento</th>
+                                  <th className="text-right py-1 w-[18%]">Cantidad</th>
+                                  <th className="text-left py-1 pl-2 w-[14%]">Unidad</th>
+                                  <th className="text-left py-1 pl-2">Descripción</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-100">
+                                {esp.elementos.map((el, elIdx) => (
+                                  <tr key={elIdx}>
+                                    <td className="py-1 font-medium text-slate-700">{el.tipo}</td>
+                                    <td className="py-1">
+                                      <input
+                                        type="number"
+                                        value={el.cantidad ?? ''}
+                                        onChange={e => updateEl(espIdx, elIdx, 'cantidad', e.target.value === '' ? null : parseFloat(e.target.value))}
+                                        className="w-full text-right text-[#1A2744] font-semibold bg-white border border-slate-200 rounded px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-[#00C2FF]"
+                                      />
+                                    </td>
+                                    <td className="py-1 pl-2">
+                                      <input
+                                        value={el.unidad}
+                                        onChange={e => updateEl(espIdx, elIdx, 'unidad', e.target.value)}
+                                        className="w-full text-slate-600 bg-white border border-slate-200 rounded px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-[#00C2FF]"
+                                      />
+                                    </td>
+                                    <td className="py-1 pl-2">
+                                      <input
+                                        value={el.descripcion || ''}
+                                        onChange={e => updateEl(espIdx, elIdx, 'descripcion', e.target.value)}
+                                        className="w-full text-slate-500 bg-white border border-slate-200 rounded px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-[#00C2FF]"
+                                      />
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        ))}
+
+                        <textarea
+                          value={corrNote}
+                          onChange={e => setCorrNote(e.target.value)}
+                          placeholder="Nota de corrección (opcional): ej. 'Cantidad de pilas corregida según planilla de cálculo'"
+                          rows={2}
+                          className="w-full text-xs border border-slate-200 rounded-lg px-3 py-2 bg-white text-slate-600 placeholder-slate-300 resize-none focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/30 mt-1"
+                        />
+
+                        <div className="flex gap-2 mt-2">
+                          <button
+                            onClick={cancelEdit}
+                            className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-500 hover:bg-slate-100 transition-colors"
+                          >
+                            Cancelar
+                          </button>
+                          <button
+                            onClick={() => saveCorrection(h.id, 'reviewed')}
+                            disabled={saving}
+                            className="flex-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors disabled:opacity-50"
+                          >
+                            Guardar como Revisada
+                          </button>
+                          <button
+                            onClick={() => saveCorrection(h.id, 'approved')}
+                            disabled={saving}
+                            className="flex-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-green-600 text-white hover:bg-green-700 transition-colors disabled:opacity-50"
+                          >
+                            {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin inline" /> : 'Guardar y Aprobar'}
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>

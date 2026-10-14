@@ -143,6 +143,28 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Falta archivo o documentId' }, { status: 400 })
   }
 
+  // ── Few-shot: extracciones aprobadas del mismo proyecto como referencia ──────
+  const admin = getAdminClient()
+  let fewShotText = ''
+  {
+    const { data: examples } = await admin
+      .from('extractions')
+      .select('raw_extraction, corrected_extraction, doc_hints')
+      .eq('project_id', projectId)
+      .eq('status', 'approved')
+      .order('created_at', { ascending: false })
+      .limit(2)
+
+    if (examples?.length) {
+      const blocks = examples.map((ex) => {
+        const ext    = ex.corrected_extraction ?? ex.raw_extraction
+        const docRef = (ex.doc_hints as any)?.doc_key || (ex.doc_hints as any)?.file_name || 'referencia'
+        return `[${docRef}]\n${JSON.stringify(ext, null, 2)}`
+      }).join('\n\n')
+      fewShotText = `\n\n## Extracciones aprobadas de este proyecto como referencia de formato y detalle:\n\n${blocks}\n\nUsa estas referencias para calibrar nivel de detalle, unidades y estructura JSON.`
+    }
+  }
+
   // ── Construir prompt con hints de contexto ───────────────────────────────────
   const tipoPlanHint = docHints.tipo_plano
     ? TIPO_PLANO_HINTS[docHints.tipo_plano.toUpperCase()]
@@ -156,9 +178,11 @@ export async function POST(req: NextRequest) {
     tipoPlanHint               && `Contexto: ${tipoPlanHint}`,
   ].filter(Boolean).join('\n')
 
-  const userText = contextLines
-    ? `${contextLines}\n\nAnaliza este plano técnico y extrae todos los metrados. Archivo: ${fileName}`
-    : `Analiza este plano técnico y extrae todos los metrados. Archivo: ${fileName}`
+  const userText = [
+    contextLines,
+    `Analiza este plano técnico y extrae todos los metrados. Archivo: ${fileName}`,
+    fewShotText,
+  ].filter(Boolean).join('\n\n')
 
   // ── Llamar a Claude ──────────────────────────────────────────────────────────
   try {
@@ -202,7 +226,6 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Guardar en BD ────────────────────────────────────────────────────────
-    const admin = getAdminClient()
     const { data: saved, error: dbError } = await admin
       .from('extractions')
       .insert({
@@ -229,4 +252,37 @@ export async function POST(req: NextRequest) {
     const message = err instanceof Error ? err.message : 'Error inesperado'
     return NextResponse.json({ error: message }, { status: 500 })
   }
+}
+
+// ── PATCH /api/ai-agent — aprobar o corregir extracción ──────────────────────
+export async function PATCH(req: NextRequest) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+
+  const { data: membership } = await supabase
+    .from('workspace_members')
+    .select('role')
+    .eq('user_id', user.id)
+    .single()
+
+  if (membership?.role !== 'owner') {
+    return NextResponse.json({ error: 'Solo el Owner puede gestionar extracciones' }, { status: 403 })
+  }
+
+  const { id, status, corrected_extraction, correction_notes } = await req.json()
+  if (!id || !status) return NextResponse.json({ error: 'Faltan campos id y status' }, { status: 400 })
+
+  const updateData: Record<string, unknown> = {
+    status,
+    corrected_by: user.id,
+    corrected_at: new Date().toISOString(),
+  }
+  if (corrected_extraction !== undefined) updateData.corrected_extraction = corrected_extraction
+  if (correction_notes)                   updateData.correction_notes     = correction_notes
+
+  const admin = getAdminClient()
+  const { error } = await admin.from('extractions').update(updateData).eq('id', id)
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ ok: true })
 }
