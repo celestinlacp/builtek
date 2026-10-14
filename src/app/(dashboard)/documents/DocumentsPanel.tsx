@@ -2334,7 +2334,10 @@ function ProjectDetailView({
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
               {subprojects.map(sub => {
                 const subDocs = documents.filter(d =>
-                  d.project_id === sub.id && d.doc_status !== 'deleted'
+                  d.project_id === sub.id &&
+                  d.is_current !== false &&
+                  d.doc_status !== 'archived' &&
+                  d.doc_status !== 'deleted'
                 )
                 return (
                   <button key={sub.id} onClick={() => onSelectSub(sub.id)}
