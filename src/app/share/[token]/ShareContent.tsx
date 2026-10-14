@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import {
   FileText, Layers, Image as ImageIcon, FileSpreadsheet, File,
-  Download, Eye, List, LayoutGrid, FolderOpen, Pen, UserRound, Filter,
+  Download, Eye, List, LayoutGrid, FolderOpen, Pen, Filter,
   X, CheckSquare, Square, ArrowDownToLine,
 } from 'lucide-react'
 
@@ -39,7 +39,7 @@ function getInitials(name: string | null) {
 }
 
 function docPrimaryName(doc: ShareDoc) {
-  return doc.doc_key || doc.display_name || doc.name || doc.file_name || 'Sin nombre'
+  return doc.display_name || doc.name || doc.file_name || doc.doc_key || 'Sin nombre'
 }
 
 function fileTypeIcon(ft: string | null) {
@@ -234,8 +234,8 @@ function DocCard({ doc, token, selected, onToggle, onView }: {
       {/* Name */}
       <div className="px-4 pb-2 flex-1">
         <p className="text-sm font-bold text-[#1A2744] leading-snug">{primary}</p>
-        {doc.file_name && doc.file_name !== primary && (
-          <p className="text-[10px] text-slate-400 mt-0.5 truncate" title={doc.file_name}>{doc.file_name}</p>
+        {doc.doc_key && (
+          <p className="text-[10px] text-slate-400 mt-0.5 truncate font-mono" title={doc.doc_key}>{doc.doc_key}</p>
         )}
       </div>
 
@@ -245,12 +245,6 @@ function DocCard({ doc, token, selected, onToggle, onView }: {
           <div className="flex items-center gap-1.5 min-w-0">
             <Pen className="w-3 h-3 text-slate-300 flex-shrink-0" />
             <span className="text-[11px] text-slate-500 truncate">{doc.author}</span>
-          </div>
-        )}
-        {doc.uploaderName && (
-          <div className="flex items-center gap-1.5 min-w-0">
-            <UserRound className="w-3 h-3 text-slate-300 flex-shrink-0" />
-            <span className="text-[11px] text-slate-400 truncate">{doc.uploaderName}</span>
           </div>
         )}
         {doc.created_at && (
@@ -312,8 +306,8 @@ function DocRow({ doc, token, selected, onToggle, onView }: {
       {/* Name */}
       <div className="flex-1 min-w-0">
         <p className="text-sm font-semibold text-[#1A2744] truncate">{primary}</p>
-        {doc.file_name && doc.file_name !== primary && (
-          <p className="text-[10px] text-slate-400 truncate">{doc.file_name}</p>
+        {doc.doc_key && (
+          <p className="text-[10px] text-slate-400 truncate font-mono">{doc.doc_key}</p>
         )}
       </div>
 
@@ -321,11 +315,6 @@ function DocRow({ doc, token, selected, onToggle, onView }: {
         <div className="hidden lg:flex items-center gap-1 flex-shrink-0 max-w-[130px]">
           <Pen className="w-3 h-3 text-slate-300" />
           <span className="text-[11px] text-slate-500 truncate">{doc.author}</span>
-        </div>
-      )}
-      {doc.uploaderName && (
-        <div className="hidden md:block flex-shrink-0">
-          <AvatarChip name={doc.uploaderName} />
         </div>
       )}
       {doc.version_number != null && doc.version_number > 0 && (
