@@ -218,6 +218,11 @@ function DocCard({ doc, token, selected, onToggle, onView }: {
           <Icon className={`w-5 h-5 ${color}`} />
         </div>
         <div className="flex items-center gap-1.5">
+          {doc.file_type && (
+            <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded font-mono">
+              {doc.file_type}
+            </span>
+          )}
           {doc.version_number != null && doc.version_number > 0 && (
             <span className="text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded font-mono">
               v{doc.version_number}
@@ -316,6 +321,11 @@ function DocRow({ doc, token, selected, onToggle, onView }: {
           <Pen className="w-3 h-3 text-slate-300" />
           <span className="text-[11px] text-slate-500 truncate">{doc.author}</span>
         </div>
+      )}
+      {doc.file_type && (
+        <span className="hidden sm:block text-[10px] font-bold uppercase tracking-wide text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded font-mono flex-shrink-0">
+          {doc.file_type}
+        </span>
       )}
       {doc.version_number != null && doc.version_number > 0 && (
         <span className="hidden sm:block text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded font-mono flex-shrink-0">
