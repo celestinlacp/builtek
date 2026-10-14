@@ -111,10 +111,10 @@ export default async function SharePage(
   const subprojects: ShareSubproject[] = subprojectsRaw ?? []
   const allProjectIds = [share.project_id, ...subprojects.map(s => s.id)]
 
-  // 4. Documentos vigentes — specialty_code es columna directa en documents
+  // 4. Documentos vigentes
   const { data: rawDocs } = await admin
     .from('documents')
-    .select('id, name, file_name, display_name, doc_key, file_type, status, version_number, project_id, uploaded_by, author, created_at, folder_id, specialty_code, specialty:specialties(code, name)')
+    .select('id, name, file_name, display_name, doc_key, file_type, status, version_number, project_id, uploaded_by, author, created_at, folder_id, specialty:specialties(code, name)')
     .in('project_id', allProjectIds)
     .or('is_current.is.null,is_current.eq.true')
     .order('created_at', { ascending: false })
@@ -129,13 +129,18 @@ export default async function SharePage(
     }
   }
 
-  const documents: ShareDoc[] = (rawDocs ?? []).map((d: any) => ({
-    ...d,
-    // specialty_code directamente de la columna; specialty join como fallback
-    specialty_code: d.specialty_code ?? (d.specialty as any)?.code ?? null,
-    specialty_name: (d.specialty as any)?.name ?? d.specialty_code ?? null,
-    uploaderName:   uploaderNameById[d.uploaded_by] ?? null,
-  }))
+  const documents: ShareDoc[] = (rawDocs ?? []).map((d: any) => {
+    // specialty join si existe; si no, parseamos el código del doc_key (segmento [3])
+    const joinCode  = (d.specialty as any)?.code  ?? null
+    const joinName  = (d.specialty as any)?.name  ?? null
+    const keyCode   = d.doc_key?.split('-')[3]     ?? null
+    return {
+      ...d,
+      specialty_code: joinCode ?? keyCode ?? null,
+      specialty_name: joinName ?? keyCode ?? null,
+      uploaderName:   uploaderNameById[d.uploaded_by] ?? null,
+    }
+  })
 
   // Carpetas de documentos del proyecto
   const { data: foldersRaw } = await admin
