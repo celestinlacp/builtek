@@ -129,6 +129,16 @@ export default async function SharePage(
     }
   }
 
+  // Extraer códigos únicos de doc_key para lookup de nombres de especialidad
+  const keyCodes = [...new Set((rawDocs ?? []).map((d: any) => d.doc_key?.split('-')[3]).filter(Boolean))]
+  const specialtyNameByCode: Record<string, string> = {}
+  if (keyCodes.length > 0) {
+    const { data: specialties } = await admin.from('specialties').select('code, name').in('code', keyCodes)
+    for (const s of (specialties ?? [])) {
+      if (s.code && s.name) specialtyNameByCode[s.code] = s.name
+    }
+  }
+
   const documents: ShareDoc[] = (rawDocs ?? []).map((d: any) => {
     // specialty join si existe; si no, parseamos el código del doc_key (segmento [3])
     const joinCode  = (d.specialty as any)?.code  ?? null
@@ -137,7 +147,7 @@ export default async function SharePage(
     return {
       ...d,
       specialty_code: joinCode ?? keyCode ?? null,
-      specialty_name: joinName ?? keyCode ?? null,
+      specialty_name: joinName ?? specialtyNameByCode[keyCode ?? ''] ?? keyCode ?? null,
       uploaderName:   uploaderNameById[d.uploaded_by] ?? null,
     }
   })
