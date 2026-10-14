@@ -129,24 +129,22 @@ export default async function SharePage(
     }
   }
 
-  // Fallback para códigos de doc_key que no coinciden con la tabla specialties
+  // Mapa estático de códigos conocidos (fallback si no están en BD)
   const DOC_KEY_SPECIALTY_NAMES: Record<string, string> = {
-    GEOM: 'Geométrico',  GECT: 'Geotecnia',     EEST: 'Estructuras',
-    AARQ: 'Arquitectura',EHID: 'Hidráulica',     EELE: 'Eléctrico',
-    EMEC: 'Mecánico',    AAMB: 'Ambiental',      ETOP: 'Topografía',
-    ESAN: 'Sanitario',   EVIA: 'Vialidad',        ESSH: 'Seguridad e Higiene',
-    ECAR: 'Carreteras',  EURO: 'Urbanización',    EPAI: 'Paisaje',
-    EINF: 'Infraestructura', NA: 'General',
+    GEOM: 'Geométrico',       GECT: 'Geotecnia',          GEOF: 'Geofísica',
+    EEST: 'Estructuras',      AARQ: 'Arquitectura',        TOPO: 'Topografía',
+    HIDR: 'Hidráulica',       SEHI: 'Seguridad e Higiene', HVAC: 'HVAC',
+    SANT: 'Sanitario',        VIAF: 'Vía Férrea',          ACAB: 'Acabados',
+    CARR: 'Carreteras',       PLU: 'Pluviales',            IDET: 'Ingeniería de Detalle',
+    PROC: 'Proceso Constructivo', GECTGEOF: 'Geotécnia y Geofísica',
+    NA: 'General',
   }
 
-  // Extraer códigos únicos de doc_key para lookup de nombres de especialidad
-  const keyCodes = [...new Set((rawDocs ?? []).map((d: any) => d.doc_key?.split('-')[3]).filter(Boolean))]
+  // Traer TODAS las specialties de la BD para resolución dinámica de nombres
   const specialtyNameByCode: Record<string, string> = {}
-  if (keyCodes.length > 0) {
-    const { data: specialties } = await admin.from('specialties').select('code, name').in('code', keyCodes)
-    for (const s of (specialties ?? [])) {
-      if (s.code && s.name) specialtyNameByCode[s.code] = s.name
-    }
+  const { data: allSpecialties } = await admin.from('specialties').select('code, name')
+  for (const s of (allSpecialties ?? [])) {
+    if (s.code && s.name) specialtyNameByCode[s.code] = s.name
   }
 
   const documents: ShareDoc[] = (rawDocs ?? []).map((d: any) => {
