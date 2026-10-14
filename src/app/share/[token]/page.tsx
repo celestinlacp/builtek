@@ -129,6 +129,16 @@ export default async function SharePage(
     }
   }
 
+  // Fallback para códigos de doc_key que no coinciden con la tabla specialties
+  const DOC_KEY_SPECIALTY_NAMES: Record<string, string> = {
+    GEOM: 'Geométrico',  GECT: 'Geotecnia',     EEST: 'Estructuras',
+    AARQ: 'Arquitectura',EHID: 'Hidráulica',     EELE: 'Eléctrico',
+    EMEC: 'Mecánico',    AAMB: 'Ambiental',      ETOP: 'Topografía',
+    ESAN: 'Sanitario',   EVIA: 'Vialidad',        ESSH: 'Seguridad e Higiene',
+    ECAR: 'Carreteras',  EURO: 'Urbanización',    EPAI: 'Paisaje',
+    EINF: 'Infraestructura', NA: 'General',
+  }
+
   // Extraer códigos únicos de doc_key para lookup de nombres de especialidad
   const keyCodes = [...new Set((rawDocs ?? []).map((d: any) => d.doc_key?.split('-')[3]).filter(Boolean))]
   const specialtyNameByCode: Record<string, string> = {}
@@ -147,7 +157,7 @@ export default async function SharePage(
     return {
       ...d,
       specialty_code: joinCode ?? keyCode ?? null,
-      specialty_name: joinName ?? specialtyNameByCode[keyCode ?? ''] ?? keyCode ?? null,
+      specialty_name: joinName ?? specialtyNameByCode[keyCode ?? ''] ?? DOC_KEY_SPECIALTY_NAMES[keyCode ?? ''] ?? keyCode ?? null,
       uploaderName:   uploaderNameById[d.uploaded_by] ?? null,
     }
   })
