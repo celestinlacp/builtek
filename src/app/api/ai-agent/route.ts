@@ -4,6 +4,7 @@ import { createClient as createAdmin } from '@supabase/supabase-js'
 import { GetObjectCommand } from '@aws-sdk/client-s3'
 import { claude, CLAUDE_MODEL } from '@/lib/ai/claude'
 import { getR2Client, R2_BUCKET, r2IsConfigured } from '@/lib/r2/client'
+import { jsonrepair } from 'jsonrepair'
 
 // ── Hints por tipo de plano ────────────────────────────────────────────────────
 const TIPO_PLANO_HINTS: Record<string, string> = {
@@ -225,15 +226,9 @@ export async function POST(req: NextRequest) {
 
     let extraction
     try {
-      extraction = JSON.parse(raw)
+      extraction = JSON.parse(jsonrepair(raw))
     } catch {
-      const start = text.indexOf('{')
-      const end   = text.lastIndexOf('}')
-      if (start !== -1 && end !== -1) {
-        extraction = JSON.parse(text.slice(start, end + 1))
-      } else {
-        return NextResponse.json({ error: 'No se pudo parsear la respuesta', raw: text }, { status: 500 })
-      }
+      return NextResponse.json({ error: 'No se pudo parsear la respuesta', raw: text }, { status: 500 })
     }
 
     // ── Guardar en BD ────────────────────────────────────────────────────────
