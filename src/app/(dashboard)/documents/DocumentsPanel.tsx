@@ -10,6 +10,7 @@ import {
   FolderOpen, FolderPlus, Folder, CheckCircle2, Clock, XCircle, Eye, AlertTriangle, ShieldCheck, ShieldX, X, Loader2, History, GitBranch, SlidersHorizontal, Info, RefreshCw, Camera, Plus, Layers, Pencil, Milestone, LayoutList, AlignJustify, Share2, BookOpen,
 } from 'lucide-react'
 import ProjectBriefTab, { type BriefSection } from './ProjectBriefTab'
+import DocumentMetricsTab from './DocumentMetricsTab'
 import { parseDocKey, TIPO_PLANO_DEFAULT, TIPO_DOC_DEFAULT, detectFileFormat } from './utils'
 import DocumentSlideOver from './DocumentSlideOver'
 import { ShareProjectModal } from '../admin/ShareProjectModal'
@@ -72,6 +73,7 @@ type Doc = {
   doc_element: string | null
   mic_version: string | null
   doc_type:    string | null
+  sheet_count?: number | null
   project?: { name: string } | null
   specialty?: { name: string; code: string; category: string } | null
   uploader?: { full_name: string | null; initials: string | null } | null
@@ -1977,7 +1979,7 @@ function ProjectDetailView({
   const [savingFolderModal, setSavingFolderModal] = useState(false)
   const [showMoveMenu,     setShowMoveMenu]     = useState(false)
   const [movingToFolder,   setMovingToFolder]   = useState(false)
-  const [activeTab,        setActiveTab]        = useState<'documents' | 'brief'>('documents')
+  const [activeTab,        setActiveTab]        = useState<'documents' | 'metrics' | 'brief'>('documents')
   // Move folder modal
   const [movingFolder,     setMovingFolder]     = useState<DocFolder | null>(null)
   const [moveFolderTarget, setMoveFolderTarget] = useState('')  // target projectId
@@ -2387,6 +2389,14 @@ function ProjectDetailView({
           Documentos
         </button>
         <button
+          onClick={() => setActiveTab('metrics')}
+          className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px transition-colors ${
+            activeTab === 'metrics' ? 'border-[#1A2744] text-[#1A2744]' : 'border-transparent text-slate-400 hover:text-slate-600'
+          }`}
+        >
+          Métricas
+        </button>
+        <button
           onClick={() => setActiveTab('brief')}
           className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px transition-colors ${
             activeTab === 'brief' ? 'border-[#1A2744] text-[#1A2744]' : 'border-transparent text-slate-400 hover:text-slate-600'
@@ -2397,7 +2407,9 @@ function ProjectDetailView({
         </button>
       </div>
 
-      {activeTab === 'brief' ? (
+      {activeTab === 'metrics' ? (
+        <DocumentMetricsTab docs={currentDocs as any} />
+      ) : activeTab === 'brief' ? (
         <ProjectBriefTab
           projectId={project.id}
           workspaceId={workspaceId}

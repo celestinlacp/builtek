@@ -25,7 +25,7 @@ export default async function AnalyticsPage() {
       .select('id, name, status, parent_project_id, project_type, frente, cover_image_url, is_inah, cauces_federales')
       .eq('workspace_id', wsId),
     supabase.from('documents')
-      .select('id, project_id, doc_type, doc_key, created_at, specialty:specialties(code, name), project:projects(name)')
+      .select('id, project_id, doc_type, doc_key, created_at, sheet_count, specialty:specialties(code, name), project:projects(name)')
       .eq('workspace_id', wsId)
       .neq('doc_status', 'deleted')
       .neq('is_current', false),
@@ -91,12 +91,14 @@ export default async function AnalyticsPage() {
       if (!projDocMap[d.project_id].specBreakdown[code]) {
         projDocMap[d.project_id].specBreakdown[code] = { planos: 0, oficios: 0, otros: 0 }
       }
-      if (docType === 'PLA') projDocMap[d.project_id].specBreakdown[code].planos++
+      const sheets = (d as any).sheet_count ?? 1
+      if (docType === 'PLA') projDocMap[d.project_id].specBreakdown[code].planos += sheets
       else if (docType === 'OFI') projDocMap[d.project_id].specBreakdown[code].oficios++
       else projDocMap[d.project_id].specBreakdown[code].otros++
     }
     projDocMap[d.project_id].total++
-    if (docType === 'PLA') totalPlanos++
+    const sheets = (d as any).sheet_count ?? 1
+    if (docType === 'PLA') totalPlanos += sheets
     else if (docType === 'OFI') totalOficios++
   }
 

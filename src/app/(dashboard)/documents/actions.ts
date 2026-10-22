@@ -501,6 +501,7 @@ export async function updateDocumentMeta(docId: string, data: {
   emission_date: string | null
   notes:         string | null
   author:        string | null
+  sheet_count:   number
 }) {
   await getUser()
   const admin = getAdminClient()
@@ -515,6 +516,7 @@ export async function updateDocumentMeta(docId: string, data: {
       emission_date: data.emission_date || null,
       notes:         data.notes         || null,
       author:        data.author        || null,
+      sheet_count:   Math.max(1, Math.floor(data.sheet_count || 1)),
     })
     .eq('id', docId)
 

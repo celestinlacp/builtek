@@ -29,6 +29,7 @@ type Doc = {
   doc_view:    string | null
   doc_element: string | null
   mic_version: string | null
+  sheet_count?: number | null
   specialty?: { name: string; code: string } | null
   project?: { name: string } | null
   project_id?: string | null
@@ -120,9 +121,10 @@ export default function DocumentSlideOver({
   const [metaDocView,   setMetaDocView]   = useState(doc.doc_view    ?? '')
   const [metaDocEl,     setMetaDocEl]     = useState(doc.doc_element ?? '')
   const [metaVersion,   setMetaVersion]   = useState<'V0'|'V1'>(doc.mic_version === 'V1' ? 'V1' : 'V0')
-  const [metaDate,      setMetaDate]      = useState(doc.emission_date?.slice(0,10) ?? '')
-  const [metaNotes,     setMetaNotes]     = useState(doc.notes  ?? '')
-  const [metaAuthor,    setMetaAuthor]    = useState(doc.author ?? '')
+  const [metaDate,       setMetaDate]       = useState(doc.emission_date?.slice(0,10) ?? '')
+  const [metaNotes,      setMetaNotes]      = useState(doc.notes  ?? '')
+  const [metaAuthor,     setMetaAuthor]     = useState(doc.author ?? '')
+  const [metaSheetCount, setMetaSheetCount] = useState(doc.sheet_count ?? 1)
   const supabase = createClient()
 
   // Cargar nombre del aprobador si aplica
@@ -298,13 +300,14 @@ export default function DocumentSlideOver({
     setSavingMeta(true)
     setMetaError(null)
     const result = await updateDocumentMeta(doc.id, {
-      doc_type:      metaDocType      || null,
+      doc_type:      metaDocType        || null,
       doc_view:      metaDocView.trim() || null,
-      doc_element:   metaDocEl.trim() || null,
+      doc_element:   metaDocEl.trim()   || null,
       mic_version:   metaVersion,
-      emission_date: metaDate         || null,
-      notes:         metaNotes.trim() || null,
-      author:        metaAuthor.trim() || null,
+      emission_date: metaDate           || null,
+      notes:         metaNotes.trim()   || null,
+      author:        metaAuthor.trim()  || null,
+      sheet_count:   metaSheetCount,
     })
     setSavingMeta(false)
     if ('error' in result) { setMetaError(result.error ?? 'Error al guardar'); return }
@@ -538,6 +541,18 @@ export default function DocumentSlideOver({
                     </div>
                   </div>
 
+                  {/* Nº de láminas */}
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-500 mb-1 uppercase tracking-wide">Nº de láminas en este archivo</label>
+                    <input
+                      type="number" min={1} max={99}
+                      value={metaSheetCount}
+                      onChange={e => setMetaSheetCount(Math.max(1, parseInt(e.target.value) || 1))}
+                      className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/40"
+                    />
+                    <p className="text-[10px] text-slate-400 mt-0.5">Un PDF/DWG puede contener varios planos. Por defecto: 1.</p>
+                  </div>
+
                   {/* Elemento estructural */}
                   <div>
                     <label className="block text-[11px] font-semibold text-slate-500 mb-1 uppercase tracking-wide">Elemento estructural</label>
@@ -606,6 +621,9 @@ export default function DocumentSlideOver({
                 )}
                 {doc.file_name && (
                   <MetaRow icon={FileText} label="Archivo original" value={doc.file_name} />
+                )}
+                {(doc.sheet_count ?? 1) > 1 && (
+                  <MetaRow icon={FileText} label="Láminas en este archivo" value={String(doc.sheet_count)} />
                 )}
               </div>
               )}
