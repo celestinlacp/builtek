@@ -747,16 +747,17 @@ function PdfViewerModal({ fileId, fileName, onClose }: { fileId: string; fileNam
 
 // ── Folder Card ───────────────────────────────────────────────────────────────
 
-function FolderCard({ folder, onOpen, onDelete, onRename, onShare, onDrop, onDownload, isAdmin, viewMode }: {
-  folder:     DriveFolder
-  onOpen:     () => void
-  onDelete:   () => void
-  onRename:   (name: string) => void
-  onShare:    () => void
-  onDrop:     () => void
-  onDownload: () => void
-  isAdmin:    boolean
-  viewMode:   'grid' | 'list'
+function FolderCard({ folder, onOpen, onDelete, onRename, onShare, onDrop, onDownload, isAdmin, viewMode, creatorName }: {
+  folder:       DriveFolder
+  onOpen:       () => void
+  onDelete:     () => void
+  onRename:     (name: string) => void
+  onShare:      () => void
+  onDrop:       () => void
+  onDownload:   () => void
+  isAdmin:      boolean
+  viewMode:     'grid' | 'list'
+  creatorName?: string
 }) {
   const [editing,    setEditing]    = useState(false)
   const [editName,   setEditName]   = useState(folder.name)
@@ -792,8 +793,9 @@ function FolderCard({ folder, onOpen, onDelete, onRename, onShare, onDrop, onDow
             </button>
           )}
         </div>
-        <span className="text-xs text-slate-400 w-28 hidden md:block">{formatDate(folder.created_at)}</span>
-        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <span className="hidden md:block w-32 text-xs text-slate-500 flex-shrink-0 truncate">{creatorName || '—'}</span>
+        <span className="hidden lg:block w-24 text-xs text-slate-400 flex-shrink-0">{formatDate(folder.created_at)}</span>
+        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity w-28 justify-end flex-shrink-0">
           <button onClick={e => { e.stopPropagation(); onShare() }} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-[#00C2FF]/10 text-slate-400 hover:text-[#00C2FF]" title="Compartir carpeta">
             <Share2 className="w-3.5 h-3.5" />
           </button>
@@ -1839,6 +1841,7 @@ export default function DrivePanel({ workspaceId, userRole, currentUserId }: {
                         onShare={() => setSharingFolder({ id: f.id, name: f.name })}
                         onDrop={() => { if (draggingFileId) handleMoveFileToFolder(draggingFileId, f.id) }}
                         onDownload={() => window.open('/api/drive/folder/' + f.id + '/zip', '_blank')}
+                        creatorName={memberNames[f.created_by] || 'Yo'}
                         isAdmin={true} />
                     ))}
                     {Object.entries(othersByOwner).map(([ownerId, ownerFolders]) => (
@@ -1856,6 +1859,7 @@ export default function DrivePanel({ workspaceId, userRole, currentUserId }: {
                             onShare={() => setSharingFolder({ id: f.id, name: f.name })}
                             onDrop={() => { if (draggingFileId) handleMoveFileToFolder(draggingFileId, f.id) }}
                             onDownload={() => window.open('/api/drive/folder/' + f.id + '/zip', '_blank')}
+                            creatorName={memberNames[ownerId] || 'Usuario'}
                             isAdmin={isAdmin} />
                         ))}
                       </div>
