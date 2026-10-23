@@ -17,8 +17,18 @@ export default async function SuperAdminPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  if (!user || user.email !== MASTER_ADMIN_EMAIL) {
-    redirect('/dashboard')
+  if (!user) redirect('/login')
+
+  if (user.email !== MASTER_ADMIN_EMAIL) {
+    return (
+      <div className="min-h-screen bg-[#0a0f1e] flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-400 text-sm mb-1">Acceso denegado</p>
+          <p className="text-slate-500 text-xs">Cuenta activa: <span className="text-slate-300">{user.email}</span></p>
+          <p className="text-slate-600 text-xs mt-1">Requerida: <span className="text-slate-400">{MASTER_ADMIN_EMAIL}</span></p>
+        </div>
+      </div>
+    )
   }
 
   const admin = getAdminClient()
