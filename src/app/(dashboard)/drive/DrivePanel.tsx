@@ -908,6 +908,7 @@ function LinksPanel({ workspaceId, isAdmin }: { workspaceId: string; isAdmin: bo
   const [editOficioId,   setEditOficioId]   = useState('')
   const [savingOficio,   setSavingOficio]   = useState(false)
   const [oficiosSalida,  setOficiosSalida]  = useState<OficioOption[]>([])
+  const [expiryFilter,   setExpiryFilter]   = useState<'all' | 'temporal' | 'permanente'>('all')
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://builtek.app'
 
@@ -1005,15 +1006,39 @@ function LinksPanel({ workspaceId, isAdmin }: { workspaceId: string; isAdmin: bo
     </div>
   )
 
+  const filteredShares = shares.filter(s => {
+    if (expiryFilter === 'temporal')   return s.expires_at !== null
+    if (expiryFilter === 'permanente') return s.expires_at === null
+    return true
+  })
+
   return (
     <div className="space-y-4">
+    {/* Filtro temporal / permanente */}
+    <div className="flex items-center gap-2">
+      {(['all', 'temporal', 'permanente'] as const).map(f => (
+        <button
+          key={f}
+          onClick={() => setExpiryFilter(f)}
+          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+            expiryFilter === f
+              ? 'bg-[#1A2744] text-white'
+              : 'bg-white border border-slate-200 text-slate-500 hover:border-slate-300'
+          }`}
+        >
+          {f === 'all' ? 'Todos' : f === 'temporal' ? 'Con caducidad' : 'Sin caducidad'}
+        </button>
+      ))}
+      <span className="text-xs text-slate-400 ml-1">{filteredShares.length} link{filteredShares.length !== 1 ? 's' : ''}</span>
+    </div>
+
     <div className="bg-white rounded-xl border border-slate-100 overflow-hidden">
       <div className="flex items-center gap-3 px-4 py-2.5 bg-slate-50 border-b border-slate-100 text-xs font-bold text-slate-500 uppercase tracking-wide">
         {isAdmin && (
           <input
             type="checkbox"
             className="w-3.5 h-3.5 rounded accent-[#1A2744] flex-shrink-0 cursor-pointer"
-            checked={shares.length > 0 && selectedIds.size === shares.length}
+            checked={filteredShares.length > 0 && selectedIds.size === filteredShares.length}
             onChange={toggleSelectAll}
             title="Seleccionar todos"
           />
@@ -1038,7 +1063,7 @@ function LinksPanel({ workspaceId, isAdmin }: { workspaceId: string; isAdmin: bo
         </div>
       </div>
 
-      {shares.map(share => {
+      {filteredShares.map(share => {
         const isExpired  = share.expires_at && new Date(share.expires_at) < new Date()
         const isFolder   = !!share.folder_id
         const fileType   = share.drive_files?.file_type || 'other'

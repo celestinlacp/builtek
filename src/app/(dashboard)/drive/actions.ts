@@ -257,7 +257,7 @@ export async function getWorkspaceProjectShares(workspaceId: string) {
   const creatorIds = [...new Set((data ?? []).map((s: any) => s.created_by).filter(Boolean))]
   const creatorMap: Record<string, string> = {}
   if (creatorIds.length > 0) {
-    const { data: users } = await admin.from('users').select('id, full_name').in('id', creatorIds)
+    const { data: users } = await admin.from('profiles').select('id, full_name').in('id', creatorIds)
     for (const u of (users ?? [])) {
       if (u.id && u.full_name) creatorMap[u.id] = u.full_name
     }
@@ -294,7 +294,7 @@ export async function getWorkspaceShares(workspaceId: string) {
   const creatorIds = [...new Set((data ?? []).map((s: any) => s.created_by).filter(Boolean))]
   const creatorMap: Record<string, string> = {}
   if (creatorIds.length > 0) {
-    const { data: users } = await admin.from('users').select('id, full_name').in('id', creatorIds)
+    const { data: users } = await admin.from('profiles').select('id, full_name').in('id', creatorIds)
     for (const u of (users ?? [])) {
       if (u.id && u.full_name) creatorMap[u.id] = u.full_name
     }
