@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
 
-const MASTER_ADMIN_EMAIL = process.env.MASTER_ADMIN_EMAIL ?? 'celestinlacp@gmail.com'
+const MASTER_ADMIN_EMAIL = (process.env.MASTER_ADMIN_EMAIL ?? 'celestinlacp@gmail.com').trim().toLowerCase()
 
 function getAdminClient() {
   return createAdminClient(
@@ -16,7 +16,7 @@ function getAdminClient() {
 async function verifyMasterAdmin() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user || user.email !== MASTER_ADMIN_EMAIL) {
+  if (!user || user.email?.trim().toLowerCase() !== MASTER_ADMIN_EMAIL) {
     throw new Error('Acceso denegado')
   }
 }
