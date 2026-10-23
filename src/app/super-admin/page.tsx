@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation'
 import { Shield } from 'lucide-react'
 import SuperAdminPanel from './SuperAdminPanel'
 
-const MASTER_ADMIN_EMAIL = process.env.MASTER_ADMIN_EMAIL ?? 'celestinlacp@gmail.com'
+const MASTER_ADMIN_EMAIL = (process.env.MASTER_ADMIN_EMAIL ?? 'celestinlacp@gmail.com').trim().toLowerCase()
 
 function getAdminClient() {
   return createAdminClient(
@@ -19,7 +19,7 @@ export default async function SuperAdminPage() {
 
   if (!user) redirect('/login')
 
-  if (user.email !== MASTER_ADMIN_EMAIL) {
+  if (user.email?.trim().toLowerCase() !== MASTER_ADMIN_EMAIL) {
     return (
       <div className="min-h-screen bg-[#0a0f1e] flex items-center justify-center">
         <div className="text-center">
