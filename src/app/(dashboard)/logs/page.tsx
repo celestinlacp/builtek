@@ -62,16 +62,25 @@ export default async function LogsPage() {
     user_initials: profileMap[l.user_id]?.initials ?? '?',
   }))
 
+  const sortedMembers = (memberProfiles ?? [])
+    .map((p: any) => ({
+      id: p.id, full_name: p.full_name, initials: p.initials, last_seen_at: p.last_seen_at,
+      role: members?.find((m: any) => m.user_id === p.id)?.role ?? 'member',
+    }))
+    .sort((a: any, b: any) => {
+      if (!a.last_seen_at && !b.last_seen_at) return 0
+      if (!a.last_seen_at) return 1
+      if (!b.last_seen_at) return -1
+      return new Date(b.last_seen_at).getTime() - new Date(a.last_seen_at).getTime()
+    })
+
   return (
     <div className="max-w-5xl mx-auto">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-[#1A2744]">Actividad del equipo</h1>
         <p className="text-slate-500 text-sm mt-0.5">Solo visible para el owner del workspace.</p>
       </div>
-      <LogsPanel logs={enrichedLogs} members={(memberProfiles ?? []).map((p: any) => ({
-        id: p.id, full_name: p.full_name, initials: p.initials, last_seen_at: p.last_seen_at,
-        role: members?.find((m: any) => m.user_id === p.id)?.role ?? 'member',
-      }))} />
+      <LogsPanel logs={enrichedLogs} members={sortedMembers} />
     </div>
   )
 }
