@@ -81,7 +81,7 @@ function GlobalSearch({ workspaceId }: { workspaceId: string }) {
       ])
 
       const raw: SearchResult[] = [
-        ...(projRes.data ?? []).map((p: any) => ({ id: p.id, type: 'project' as const, name: p.name, subtitle: p.status, href: '/tasks' })),
+        ...(projRes.data ?? []).map((p: any) => ({ id: p.id, type: 'project' as const, name: p.name, subtitle: p.status, href: `/tasks?project=${p.id}` })),
         ...(taskRes.data ?? []).map((t: any) => ({ id: t.id, type: 'task' as const, name: t.name, subtitle: t.status, href: `/tasks?task=${t.id}` })),
         ...(docRes.data ?? []).map((d: any) => ({ id: d.id, type: 'document' as const, name: d.name, subtitle: d.status, href: '/documents' })),
       ]
