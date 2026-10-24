@@ -516,7 +516,7 @@ type ExtendedTask = Task & {
 }
 
 export default function TaskBoard({
-  tasks, projects, members, availableDocs, currentUserId, currentUserRole, workspaceId, defaultTaskId
+  tasks, projects, members, availableDocs, currentUserId, currentUserRole, workspaceId, defaultTaskId, defaultProjectId
 }: {
   tasks: ExtendedTask[]
   projects: Project[]
@@ -526,11 +526,13 @@ export default function TaskBoard({
   currentUserRole: string
   workspaceId: string
   defaultTaskId?: string
+  defaultProjectId?: string
 }) {
   const [view, setView] = useState<'board' | 'list' | 'person' | 'kanban'>('kanban')
   const [showRecent, setShowRecent] = useState(false)
   const [filter, setFilter] = useState<string>('active')
   const [userFilter, setUserFilter] = useState<string>('all')
+  const [projectFilter, setProjectFilter] = useState<string>(defaultProjectId ?? 'all')
   const [sortBy, setSortBy] = useState<'default' | 'date_desc' | 'date_asc' | 'name_asc'>('default')
   const [showNew, setShowNew] = useState(false)
   const [editTask, setEditTask] = useState<Task | null>(null)
@@ -564,6 +566,7 @@ export default function TaskBoard({
       if (filter === 'archived') return t.status === 'archived'
       return t.status === filter
     })
+    .filter(t => projectFilter === 'all' || t.project_id === projectFilter)
     .filter(t => userFilter === 'all' || t.assignees?.some((a: any) => a.user_id === userFilter) || t.assignee_id === userFilter)
     .sort((a, b) => {
       if (sortBy === 'date_desc') return new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime()
@@ -714,6 +717,26 @@ export default function TaskBoard({
           </select>
           <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 text-[10px]">▾</span>
         </div>
+
+        {projects.length > 1 && (
+          <div className="relative">
+            <select
+              value={projectFilter}
+              onChange={e => setProjectFilter(e.target.value)}
+              className={`text-xs pl-3 pr-7 py-1.5 rounded-lg border bg-white font-medium focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/40 focus:border-[#00C2FF] appearance-none cursor-pointer ${
+                projectFilter !== 'all'
+                  ? 'border-[#00C2FF] text-[#1A2744]'
+                  : 'border-slate-200 text-slate-600'
+              }`}
+            >
+              <option value="all">Todos los proyectos</option>
+              {projects.map(p => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+            <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 text-[10px]">▾</span>
+          </div>
+        )}
 
         {['owner', 'admin', 'manager'].includes(currentUserRole) && members.length > 0 && (
           <div className="relative">
