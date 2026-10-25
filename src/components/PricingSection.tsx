@@ -70,7 +70,7 @@ const plans = [
     whatsapp: '500 mensajes WhatsApp/mes',
     desc: 'Para constructoras con control documental completo y análisis avanzado.',
     cta: 'Agendar llamada',
-    ctaHref: 'https://wa.me/521XXXXXXXXXX',
+    ctaHref: 'https://wa.me/524494481720',
     ctaVariant: 'outline' as const,
     featured: false,
     features: [
