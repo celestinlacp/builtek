@@ -7,7 +7,7 @@ export function inviteDay7Html(
   ownerEmail: string,
   appUrl: string
 ): string {
-  const whatsappNumber = process.env.NEXT_PUBLIC_WHATSAPP_SUPPORT || '521XXXXXXXXXX'
+  const whatsappNumber = process.env.NEXT_PUBLIC_WHATSAPP_SUPPORT || '524494481720'
   const companyLine = recipientCompany
     ? `para adaptar Builtek a cómo trabaja ${recipientCompany}.`
     : 'para adaptar Builtek a tu equipo.'

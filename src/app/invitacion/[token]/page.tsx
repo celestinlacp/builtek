@@ -9,7 +9,7 @@ export const metadata = {
 }
 
 // TODO: reemplazar con número real
-const WHATSAPP_NUMBER = process.env.NEXT_PUBLIC_WHATSAPP_SUPPORT || '521XXXXXXXXXX'
+const WHATSAPP_NUMBER = process.env.NEXT_PUBLIC_WHATSAPP_SUPPORT || '524494481720'
 const APP_URL = (process.env.NEXT_PUBLIC_APP_URL || 'https://builtek.mx').replace(/\/$/, '')
 
 export default async function InvitationPage({

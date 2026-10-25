@@ -61,7 +61,7 @@ const MENVIO_ENDPOINT = 'https://api.menvio.app/api/send-template'
 
 export type MenvioContact = {
   name: string
-  phone: string // formato: +521XXXXXXXXXX
+  phone: string // formato: +524494481720
 }
 
 type SendTemplateParams = {
@@ -80,7 +80,7 @@ type SendResult = {
 }
 
 /**
- * Normaliza un número de teléfono mexicano a formato +521XXXXXXXXXX.
+ * Normaliza un número de teléfono mexicano a formato +524494481720.
  * Acepta: 10 dígitos, +52 + 10 dígitos, 521 + 10 dígitos, etc.
  * Retorna null si no se puede normalizar.
  */
@@ -88,7 +88,7 @@ export function normalizePhone(raw: string | null | undefined): string | null {
   if (!raw) return null
   const digits = raw.replace(/\D/g, '')
 
-  // Ya tiene código país completo: 521XXXXXXXXXX (13 dígitos)
+  // Ya tiene código país completo: 524494481720 (13 dígitos)
   if (digits.length === 13 && digits.startsWith('521')) return `+${digits}`
 
   // 52 + 10 dígitos (12 total)
