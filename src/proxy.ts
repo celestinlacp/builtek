@@ -1,6 +1,29 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
+const SUPER_ADMIN_EMAIL = (
+  process.env.SUPER_ADMIN_EMAIL ??
+  process.env.MASTER_ADMIN_EMAIL ??
+  ''
+).trim().toLowerCase()
+
+async function verifyHmac(payload: string, signature: string, secret: string): Promise<boolean> {
+  try {
+    const enc = new TextEncoder()
+    const key = await crypto.subtle.importKey(
+      'raw',
+      enc.encode(secret),
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['verify']
+    )
+    const sigBytes = Uint8Array.from(atob(signature), c => c.charCodeAt(0))
+    return await crypto.subtle.verify('HMAC', key, sigBytes, enc.encode(payload))
+  } catch {
+    return false
+  }
+}
+
 export default async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
 
@@ -35,6 +58,40 @@ export default async function proxy(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
+  // ── Protect /super-admin* ─────────────────────────────────────────────────
+  if (pathname.startsWith('/super-admin')) {
+    if (!user) {
+      return NextResponse.redirect(new URL('/login', request.url))
+    }
+    if (user.email?.trim().toLowerCase() !== SUPER_ADMIN_EMAIL) {
+      return NextResponse.redirect(new URL('/dashboard', request.url))
+    }
+  }
+
+  // ── Impersonation cookie verification ─────────────────────────────────────
+  const impersonationCookie = request.cookies.get('__builtek_impersonation')
+  if (impersonationCookie?.value) {
+    const secret = process.env.SUPER_ADMIN_SECRET
+    if (secret) {
+      try {
+        const [payloadB64, sig] = impersonationCookie.value.split('.')
+        if (payloadB64 && sig) {
+          const isValid = await verifyHmac(payloadB64, sig, secret)
+          if (isValid) {
+            const payload = JSON.parse(atob(payloadB64))
+            if (payload.expiresAt && Date.now() > payload.expiresAt) {
+              supabaseResponse.cookies.delete('__builtek_impersonation')
+            }
+          } else {
+            supabaseResponse.cookies.delete('__builtek_impersonation')
+          }
+        }
+      } catch {
+        supabaseResponse.cookies.delete('__builtek_impersonation')
+      }
+    }
+  }
+
   // Rutas protegidas — redirigir a login si no hay sesión
   const isProtected =
     pathname.startsWith('/dashboard') ||
@@ -51,13 +108,16 @@ export default async function proxy(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // Rutas de invitación — permitir siempre (auth callback las maneja)
-  if (pathname.startsWith('/invite/') || pathname.startsWith('/api/auth/')) {
+  // Rutas públicas — permitir siempre
+  if (
+    pathname.startsWith('/invite/') ||
+    pathname.startsWith('/invitacion/') ||
+    pathname.startsWith('/api/auth/')
+  ) {
     return supabaseResponse
   }
 
   // Si ya está autenticado y va a login/register, redirigir al dashboard
-  // Excluir Server Actions (POST con header Next-Action) para no bloquear acciones del servidor
   const isServerAction = request.method === 'POST' && request.headers.has('next-action')
   if (!isServerAction && user && (pathname === '/login' || pathname === '/register' || pathname === '/signup')) {
     const url = request.nextUrl.clone()
