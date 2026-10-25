@@ -31,6 +31,11 @@ export async function createWorkspace(formData: FormData) {
   const name = (formData.get('workspace_name') as string).trim()
   const slug = toSlug(name) + '-' + Math.random().toString(36).slice(2, 6)
 
+  // Datos del primer proyecto (opcionales para compatibilidad hacia atrás)
+  const projectName = (formData.get('project_name') as string | null)?.trim() ?? null
+  const projectCode = (formData.get('project_code') as string | null)?.trim() ?? null
+  const coverImageUrl = (formData.get('cover_image_url') as string | null)?.trim() ?? null
+
   const { data: workspace, error: wsError } = await admin
     .from('workspaces')
     .insert({ name, slug, owner_id: user.id, plan: 'free' })
@@ -44,6 +49,21 @@ export async function createWorkspace(formData: FormData) {
     .insert({ workspace_id: workspace.id, user_id: user.id, role: 'owner' })
 
   if (memberError) return { error: memberError.message }
+
+  // Crear primer proyecto si se proporcionó nombre
+  if (projectName) {
+    // FORGE-NOTE: Las columnas 'code' y 'created_by' no existen en projects según schema inicial.
+    // Se omiten per instrucciones del spec (fuera de alcance agregar columnas en esta migración).
+    const projectInsert: Record<string, unknown> = {
+      workspace_id: workspace.id,
+      name: projectName,
+      status: 'active',
+    }
+    if (coverImageUrl) projectInsert.cover_image_url = coverImageUrl
+
+    await admin.from('projects').insert(projectInsert)
+    // No bloqueamos el flujo si falla el insert del proyecto
+  }
 
   // Contar workspaces totales para incluir en la alerta
   const { count } = await admin

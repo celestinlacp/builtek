@@ -4,6 +4,7 @@ import { CheckSquare, FolderOpen, FileText, Bot, TrendingUp, Clock, AlertCircle,
 import Link from 'next/link'
 import Greeting from './Greeting'
 import TeamView, { type TeamMemberStats } from './TeamView'
+import WelcomeChecklist from './WelcomeChecklist'
 
 async function getWorkspaceData(userId: string) {
   const supabase = await createClient()
@@ -20,7 +21,7 @@ async function getWorkspaceData(userId: string) {
   const wsId = membership.workspace_id
   const userRole = membership.role as string
 
-  const [projects, allProjectMappings, tasks, documents, imageDocs, allDocs, members, specDocs] = await Promise.all([
+  const [projects, allProjectMappings, tasks, documents, imageDocs, allDocs, members, specDocs, allDocCount, tasksWithAssignee] = await Promise.all([
     supabase.from('projects').select('id, name, status, frente, cover_image_url').eq('workspace_id', wsId).eq('status', 'active').is('parent_project_id', null).order('name'),
     supabase.from('projects').select('id, parent_project_id, status').eq('workspace_id', wsId),
     supabase.from('tasks').select('id, name, status, priority, due_date, project_id, assignee_id').order('created_at', { ascending: false }),
@@ -29,6 +30,10 @@ async function getWorkspaceData(userId: string) {
     supabase.from('documents').select('project_id, created_at').eq('workspace_id', wsId).neq('doc_status', 'deleted').neq('is_current', false),
     supabase.from('workspace_members').select('user_id').eq('workspace_id', wsId),
     supabase.from('documents').select('created_at, doc_key, specialty:specialties(code, name)').eq('workspace_id', wsId).neq('doc_status', 'deleted').neq('is_current', false),
+    // Checklist: count of documents for hasDocument
+    supabase.from('documents').select('id', { count: 'exact', head: true }).eq('workspace_id', wsId).neq('doc_status', 'deleted'),
+    // Checklist: any task with assignee_id for hasAssignedTask
+    supabase.from('tasks').select('id', { count: 'exact', head: true }).not('assignee_id', 'is', null),
   ])
 
   // Mapa code→name desde tabla specialties (para doc_key fallback)
@@ -155,6 +160,12 @@ async function getWorkspaceData(userId: string) {
     return b.lastUpload.localeCompare(a.lastUpload)
   })
 
+  // Checklist booleans
+  const hasProject = (allProjectMappings.data ?? []).length > 0
+  const hasDocument = (allDocCount.count ?? 0) > 0
+  const hasTeamMember = (members.data ?? []).length >= 2
+  const hasAssignedTask = (tasksWithAssignee.count ?? 0) > 0
+
   return {
     workspace: membership.workspaces as unknown as { id: string; name: string },
     projects: sortedProjects,
@@ -166,6 +177,10 @@ async function getWorkspaceData(userId: string) {
     teamStats,
     userRole,
     specActivity,
+    hasProject,
+    hasDocument,
+    hasTeamMember,
+    hasAssignedTask,
   }
 }
 
@@ -177,7 +192,7 @@ export default async function DashboardPage() {
   const data = await getWorkspaceData(user.id)
   if (!data) redirect('/onboarding')
 
-  const { workspace, projects, tasks, documents, latestImageByProject, docCountByProject, subprojectCount, teamStats, userRole, specActivity } = data
+  const { workspace, projects, tasks, documents, latestImageByProject, docCountByProject, subprojectCount, teamStats, userRole, specActivity, hasProject, hasDocument, hasTeamMember, hasAssignedTask } = data
 
   // Only active tasks (exclude archived) for team stats
   const activeTasks = tasks.filter(t => t.status !== 'archived')
@@ -241,6 +256,15 @@ export default async function DashboardPage() {
           Nueva tarea
         </Link>
       </div>
+
+      {/* Welcome Checklist — visible until all steps completed */}
+      <WelcomeChecklist
+        workspaceId={workspace.id}
+        hasProject={hasProject}
+        hasDocument={hasDocument}
+        hasTeamMember={hasTeamMember}
+        hasAssignedTask={hasAssignedTask}
+      />
 
       {/* Bento grid de proyectos */}
       {projects.length > 0 && (() => {
