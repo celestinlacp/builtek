@@ -52,13 +52,12 @@ export async function createWorkspace(formData: FormData) {
 
   // Crear primer proyecto si se proporcionó nombre
   if (projectName) {
-    // FORGE-NOTE: Las columnas 'code' y 'created_by' no existen en projects según schema inicial.
-    // Se omiten per instrucciones del spec (fuera de alcance agregar columnas en esta migración).
     const projectInsert: Record<string, unknown> = {
       workspace_id: workspace.id,
       name: projectName,
       status: 'active',
     }
+    if (projectCode) projectInsert.code = projectCode
     if (coverImageUrl) projectInsert.cover_image_url = coverImageUrl
 
     await admin.from('projects').insert(projectInsert)
