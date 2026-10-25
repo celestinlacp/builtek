@@ -373,7 +373,7 @@ export default function PricingSection() {
               <p className="text-xs font-bold tracking-widest uppercase text-[#00C2FF]/60 mb-2">Partner</p>
               <p className="text-white font-semibold text-xl mb-2">Desde $8,000 MXN/mes</p>
               <p className="text-white/35 text-sm font-light leading-relaxed">
-                Tu plataforma, construida para cómo trabaja tu empresa. Cada mes: una sesión de planeación con el fundador + un módulo o mejora significativa implementada y en producción. Requiere plan base Pro o Contractor.
+                Desarrollo a la medida, mes a mes. Tu Builtek construido exactamente para cómo trabaja tu empresa — cada mes una sesión de planeación con el fundador + un módulo o mejora programada e implementada en producción. Lo que se construye es tuyo, para siempre.
               </p>
             </div>
             <a href="mailto:hola@builtek.mx?subject=Plan Partner"
