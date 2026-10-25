@@ -203,7 +203,7 @@ export default function OnboardingPage() {
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-slate-500">Plan</span>
-                <span className="font-medium text-green-600">Free — gratis</span>
+                <span className="font-medium text-green-600">Trial 14 días — plan Obra</span>
               </div>
             </div>
 
