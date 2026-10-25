@@ -8,30 +8,6 @@ import Link from 'next/link'
 
 const plans = [
   {
-    id: 'free',
-    name: 'Free',
-    monthly: 0,
-    annual: 0,
-    billingNote: 'Para siempre',
-    seats: '3 usuarios activos',
-    storage: '1 GB',
-    aiExtractions: null as string | null,
-    whatsapp: null as string | null,
-    desc: 'Para explorar Builtek sin compromiso.',
-    cta: 'Solicitar demo',
-    ctaHref: '/demo',
-    ctaVariant: 'ghost' as const,
-    featured: false,
-    features: [
-      { text: '1 proyecto activo', ok: true },
-      { text: 'TaskBoard básico', ok: true },
-      { text: 'Drive (1 GB, carpetas básicas)', ok: true },
-      { text: 'Links públicos y QR', ok: false },
-      { text: 'Agente AI', ok: false },
-      { text: 'Notificaciones WhatsApp', ok: false },
-    ],
-  },
-  {
     id: 'starter',
     name: 'Starter',
     monthly: 1890,
@@ -42,8 +18,8 @@ const plans = [
     aiExtractions: '10 extracciones AI/mes',
     whatsapp: null,
     desc: 'Para equipos pequeños que quieren dejar el Excel.',
-    cta: 'Solicitar demo',
-    ctaHref: '/demo',
+    cta: 'Empezar gratis 14 días',
+    ctaHref: '/register?plan=starter',
     ctaVariant: 'outline' as const,
     featured: false,
     features: [
@@ -68,8 +44,8 @@ const plans = [
     whatsapp: '100 mensajes WhatsApp/mes',
     badge: 'Más popular',
     desc: 'Para equipos activos en campo que necesitan IA y comunicación automática.',
-    cta: 'Solicitar demo',
-    ctaHref: '/demo',
+    cta: 'Empezar gratis 14 días',
+    ctaHref: '/register?plan=obra',
     ctaVariant: 'primary' as const,
     featured: true,
     features: [
@@ -93,8 +69,8 @@ const plans = [
     aiExtractions: '100 extracciones AI/mes',
     whatsapp: '500 mensajes WhatsApp/mes',
     desc: 'Para constructoras con control documental completo y análisis avanzado.',
-    cta: 'Solicitar demo',
-    ctaHref: '/demo',
+    cta: 'Agendar llamada',
+    ctaHref: 'https://wa.me/521XXXXXXXXXX',
     ctaVariant: 'outline' as const,
     featured: false,
     features: [
@@ -119,7 +95,7 @@ const plans = [
     aiExtractions: '300 extracciones AI/mes',
     whatsapp: '1,000 mensajes WhatsApp/mes',
     desc: 'Para constructoras con múltiples frentes y equipos grandes.',
-    cta: 'Solicitar demo',
+    cta: 'Solicitar propuesta',
     ctaHref: '/demo',
     ctaVariant: 'outline' as const,
     featured: false,
@@ -152,7 +128,7 @@ const faqs = [
   },
   {
     q: '¿Cómo funciona la prueba de 14 días?',
-    a: 'Todo nuevo registro entra automáticamente al plan Obra completo durante 14 días, sin tarjeta de crédito. Al terminar, si no contratas un plan pagado, tu cuenta baja a Free conservando todos tus datos. Podrás subir de plan en cualquier momento.',
+    a: 'Todo nuevo registro entra automáticamente al plan Obra completo durante 14 días, sin tarjeta de crédito. Al terminar, si no contratas un plan pagado, tu cuenta pasa a modo solo lectura: puedes ver todo lo que hiciste pero no crear ni editar. Tus datos nunca se borran. Puedes activar un plan en cualquier momento.',
   },
   {
     q: '¿Los precios incluyen IVA?',
@@ -356,7 +332,7 @@ export default function PricingSection() {
           <div>
             <span className="text-[#00C2FF] font-semibold text-sm">14 días con el plan Obra completo — gratis. </span>
             <span className="text-white/40 text-sm font-light">
-              Todo registro nuevo entra al plan Obra (IA + WhatsApp incluidos). Sin tarjeta de crédito. Al terminar, eliges tu plan o bajas a Free conservando tus datos.
+              Todo registro nuevo entra al plan Obra (IA + WhatsApp incluidos). Sin tarjeta de crédito. Al terminar, eliges tu plan — tus datos siempre están ahí.
             </span>
           </div>
         </div>
@@ -383,7 +359,7 @@ export default function PricingSection() {
         </div>
 
         {/* Plans grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 items-stretch mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-stretch mb-6">
           {plans.map(plan => (
             <PlanCard key={plan.id} plan={plan} annual={annual} />
           ))}
@@ -397,12 +373,12 @@ export default function PricingSection() {
               <p className="text-xs font-bold tracking-widest uppercase text-[#00C2FF]/60 mb-2">Partner</p>
               <p className="text-white font-semibold text-xl mb-2">Desde $8,000 MXN/mes</p>
               <p className="text-white/35 text-sm font-light leading-relaxed">
-                Sobre plan base Pro o Contractor. Incluye 1 sesión mensual con el fundador + 4 hrs de desarrollo a la medida. Todo lo desarrollado es tuyo, siempre.
+                Tu plataforma, construida para cómo trabaja tu empresa. Cada mes: una sesión de planeación con el fundador + un módulo o mejora significativa implementada y en producción. Requiere plan base Pro o Contractor.
               </p>
             </div>
-            <a href="mailto:hola@menvio.app?subject=Plan Partner"
+            <a href="mailto:hola@builtek.mx?subject=Plan Partner"
               className="inline-flex items-center gap-2 text-[#00C2FF] text-sm font-semibold hover:gap-3 transition-all">
-              Solicitar información <ArrowRight className="w-4 h-4" />
+              Hablar con el fundador <ArrowRight className="w-4 h-4" />
             </a>
           </div>
 
