@@ -39,12 +39,27 @@ export async function GET(
     return new NextResponse('Este link ha expirado', { status: 410 })
   }
 
-  // Verificar que el archivo pertenece a la carpeta compartida
+  // Recopilar todos los IDs de subcarpetas (BFS) para permitir archivos anidados
+  const allFolderIds: string[] = [share.folder_id]
+  const queue: string[] = [share.folder_id]
+  while (queue.length > 0) {
+    const parentId = queue.shift()!
+    const { data: children } = await admin
+      .from('drive_folders')
+      .select('id')
+      .eq('parent_folder_id', parentId)
+    for (const child of (children ?? [])) {
+      allFolderIds.push(child.id)
+      queue.push(child.id)
+    }
+  }
+
+  // Verificar que el archivo pertenece a la carpeta compartida (o una subcarpeta)
   const { data: file } = await admin
     .from('drive_files')
     .select('storage_key, file_name, file_type')
     .eq('id', fileId)
-    .eq('folder_id', share.folder_id)
+    .in('folder_id', allFolderIds)
     .single()
 
   if (!file) {
