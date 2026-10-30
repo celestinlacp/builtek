@@ -276,6 +276,7 @@ function UploadModal({
   const [oficioExtractando,  setOficioExtractando]  = useState(false)
   const [oficioExtractMsg,   setOficioExtractMsg]   = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const [dragOver, setDragOver] = useState(false)
 
   // Catálogo TIPO_PLANO: preferir valores del workspace, si vacío usar defaults
   const tipoPlanoOptions = micNomenclatures.filter(n => n.segment === 'TIPO_PLANO').length > 0
@@ -660,12 +661,16 @@ function UploadModal({
               accept=".pdf,.dwg,.dxf,.xlsx,.xls,.pptx,.ppt,.docx,.doc,.png,.jpg,.jpeg,.zip,.kmz,.kml"
               onChange={e => handleFileChange(e.target.files?.[0] || null)} />
             <button onClick={() => inputRef.current?.click()}
+              onDragOver={e => { e.preventDefault(); setDragOver(true) }}
+              onDragEnter={e => { e.preventDefault(); setDragOver(true) }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={e => { e.preventDefault(); setDragOver(false); handleFileChange(e.dataTransfer.files?.[0] || null) }}
               className={`w-full border-2 border-dashed rounded-lg py-6 text-center transition-colors ${
-                file ? 'border-[#00C2FF] bg-[#00C2FF]/5' : 'border-slate-200 hover:border-slate-300'
+                file ? 'border-[#00C2FF] bg-[#00C2FF]/5' : dragOver ? 'border-[#00C2FF] bg-[#00C2FF]/10' : 'border-slate-200 hover:border-slate-300'
               }`}>
-              <Upload className={`w-6 h-6 mx-auto mb-2 ${file ? 'text-[#00C2FF]' : 'text-slate-300'}`} />
+              <Upload className={`w-6 h-6 mx-auto mb-2 ${file || dragOver ? 'text-[#00C2FF]' : 'text-slate-300'}`} />
               <p className="text-sm font-medium text-slate-600">
-                {file ? file.name : 'Clic para seleccionar archivo'}
+                {file ? file.name : dragOver ? 'Suelta aquí el archivo' : 'Arrastra aquí o haz clic'}
               </p>
               <p className="text-xs text-slate-400 mt-1">
                 {file ? formatSize(file.size) : 'PDF, DWG, DXF, KMZ, Excel, Word, imágenes'}
@@ -982,6 +987,7 @@ function ReplaceDocModal({
   const [uploadPct,    setUploadPct]    = useState(0)
   const [error,        setError]        = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const [dragOver, setDragOver] = useState(false)
 
   const docName = doc.display_name || doc.file_name || doc.name
 
@@ -1080,12 +1086,16 @@ function ReplaceDocModal({
               accept=".pdf,.dwg,.dxf,.xlsx,.xls,.pptx,.ppt,.docx,.doc,.png,.jpg,.jpeg,.zip,.kmz,.kml"
               onChange={e => setFile(e.target.files?.[0] || null)} />
             <button onClick={() => inputRef.current?.click()}
+              onDragOver={e => { e.preventDefault(); setDragOver(true) }}
+              onDragEnter={e => { e.preventDefault(); setDragOver(true) }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={e => { e.preventDefault(); setDragOver(false); setFile(e.dataTransfer.files?.[0] || null) }}
               className={`w-full border-2 border-dashed rounded-lg py-5 text-center transition-colors ${
-                file ? 'border-[#00C2FF] bg-[#00C2FF]/5' : 'border-slate-200 hover:border-slate-300'
+                file ? 'border-[#00C2FF] bg-[#00C2FF]/5' : dragOver ? 'border-[#00C2FF] bg-[#00C2FF]/10' : 'border-slate-200 hover:border-slate-300'
               }`}>
-              <Upload className={`w-5 h-5 mx-auto mb-1.5 ${file ? 'text-[#00C2FF]' : 'text-slate-300'}`} />
+              <Upload className={`w-5 h-5 mx-auto mb-1.5 ${file || dragOver ? 'text-[#00C2FF]' : 'text-slate-300'}`} />
               <p className="text-sm font-medium text-slate-600">
-                {file ? file.name : 'Clic para seleccionar archivo'}
+                {file ? file.name : dragOver ? 'Suelta aquí el archivo' : 'Arrastra aquí o haz clic'}
               </p>
               <p className="text-xs text-slate-400 mt-0.5">
                 {file ? formatSize(file.size) : 'PDF, DWG, DXF, KMZ, Excel, Word, imágenes'}
