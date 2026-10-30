@@ -50,6 +50,9 @@ export async function createWorkspace(formData: FormData) {
 
   if (memberError) return { error: memberError.message }
 
+  // Garantizar que el bucket de portadas existe (idempotente)
+  await admin.storage.createBucket('project-covers', { public: true }).catch(() => {})
+
   // Crear primer proyecto si se proporcionó nombre
   if (projectName) {
     const projectInsert: Record<string, unknown> = {
