@@ -52,6 +52,11 @@ export default async function SuperAdminPage() {
     authUsers.map(u => [u.id, { email: u.email }])
   )
 
+  // Workspace owner map (owner_id → workspace info)
+  const workspaceByOwner: Record<string, { name: string; slug: string }> = Object.fromEntries(
+    workspaces.map(ws => [ws.owner_id, { name: ws.name, slug: ws.slug }])
+  )
+
   // Member count per workspace
   const memberCountByWs: Record<string, number> = {}
   for (const m of allMembers) {
@@ -70,6 +75,14 @@ export default async function SuperAdminPage() {
     member_count:  memberCountByWs[ws.id]             ?? 0,
     project_count: projectCountByWs[ws.id]            ?? 0,
   }))
+
+  const enrichedAuthUsers = authUsers.map(u => ({
+    id:         u.id,
+    email:      u.email ?? '',
+    full_name:  (u.user_metadata?.full_name as string | undefined) ?? '',
+    created_at: u.created_at,
+    workspace:  workspaceByOwner[u.id] ?? null,
+  })).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 
   const kpis = {
     totalWorkspaces: workspaces.length,
@@ -91,7 +104,7 @@ export default async function SuperAdminPage() {
           </div>
         </div>
 
-        <SuperAdminPanel workspaces={enrichedWorkspaces} kpis={kpis} />
+        <SuperAdminPanel workspaces={enrichedWorkspaces} authUsers={enrichedAuthUsers} kpis={kpis} />
       </div>
     </div>
   )

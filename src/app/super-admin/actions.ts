@@ -46,3 +46,16 @@ export async function changeWorkspacePlan(workspaceId: string, plan: string): Pr
     return { error: e.message }
   }
 }
+
+export async function deleteAuthUser(userId: string): Promise<{ error?: string }> {
+  try {
+    await verifyMasterAdmin()
+    const admin = getAdminClient()
+    const { error } = await admin.auth.admin.deleteUser(userId)
+    if (error) return { error: error.message }
+    revalidatePath('/super-admin')
+    return {}
+  } catch (e: any) {
+    return { error: e.message }
+  }
+}

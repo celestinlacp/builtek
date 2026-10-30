@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { Building2, Users, FolderOpen, FileText, Trash2, ChevronDown, AlertTriangle, X, Loader2, RefreshCw } from 'lucide-react'
-import { deleteWorkspace, changeWorkspacePlan } from './actions'
+import { deleteWorkspace, changeWorkspacePlan, deleteAuthUser } from './actions'
 
 const PLANS = ['free', 'starter', 'obra', 'pro', 'contractor', 'partner', 'enterprise']
 
@@ -35,8 +35,17 @@ interface Kpis {
   totalDocs: number
 }
 
+interface AuthUser {
+  id: string
+  email: string
+  full_name: string
+  created_at: string
+  workspace: { name: string; slug: string } | null
+}
+
 interface Props {
   workspaces: Workspace[]
+  authUsers: AuthUser[]
   kpis: Kpis
 }
 
@@ -44,13 +53,16 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
-export default function SuperAdminPanel({ workspaces: initial, kpis }: Props) {
+export default function SuperAdminPanel({ workspaces: initial, authUsers: initialUsers, kpis }: Props) {
   const [workspaces, setWorkspaces] = useState(initial)
+  const [authUsers, setAuthUsers] = useState(initialUsers)
   const [deleteTarget, setDeleteTarget] = useState<Workspace | null>(null)
+  const [deleteUserTarget, setDeleteUserTarget] = useState<AuthUser | null>(null)
   const [confirmText, setConfirmText] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const [changingPlan, setChangingPlan] = useState<string | null>(null)
+  const [deletingUser, setDeletingUser] = useState<string | null>(null)
 
   function handleDeleteClick(ws: Workspace) {
     setDeleteTarget(ws)
@@ -70,6 +82,20 @@ export default function SuperAdminPanel({ workspaces: initial, kpis }: Props) {
         setDeleteTarget(null)
       }
     })
+  }
+
+  async function handleDeleteUser() {
+    if (!deleteUserTarget) return
+    setDeletingUser(deleteUserTarget.id)
+    setError(null)
+    const res = await deleteAuthUser(deleteUserTarget.id)
+    if (res.error) {
+      setError(res.error)
+    } else {
+      setAuthUsers(prev => prev.filter(u => u.id !== deleteUserTarget.id))
+      setDeleteUserTarget(null)
+    }
+    setDeletingUser(null)
   }
 
   async function handlePlanChange(wsId: string, newPlan: string) {
@@ -193,6 +219,110 @@ export default function SuperAdminPanel({ workspaces: initial, kpis }: Props) {
           </table>
         </div>
       </div>
+
+      {/* Auth Users Table */}
+      <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden mt-8">
+        <div className="px-6 py-4 border-b border-slate-700 flex items-center justify-between">
+          <h2 className="font-semibold text-white flex items-center gap-2">
+            <Users className="w-4 h-4 text-indigo-400" />
+            Usuarios Auth ({authUsers.length})
+          </h2>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-slate-400 text-xs uppercase tracking-wider border-b border-slate-700">
+                <th className="px-6 py-3 text-left font-medium">Email</th>
+                <th className="px-6 py-3 text-left font-medium">Nombre</th>
+                <th className="px-6 py-3 text-left font-medium">Workspace</th>
+                <th className="px-6 py-3 text-left font-medium">Registro</th>
+                <th className="px-6 py-3 text-right font-medium">Acciones</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-700/50">
+              {authUsers.map(u => (
+                <tr key={u.id} className="hover:bg-slate-700/30 transition-colors">
+                  <td className="px-6 py-4 text-slate-200 max-w-[220px] truncate">{u.email}</td>
+                  <td className="px-6 py-4 text-slate-400">{u.full_name || '—'}</td>
+                  <td className="px-6 py-4">
+                    {u.workspace
+                      ? <span className="px-2 py-0.5 rounded text-xs bg-green-900 text-green-300 font-medium">{u.workspace.name}</span>
+                      : <span className="px-2 py-0.5 rounded text-xs bg-amber-900 text-amber-300 font-medium">Sin workspace</span>
+                    }
+                  </td>
+                  <td className="px-6 py-4 text-slate-500 text-xs whitespace-nowrap">{formatDate(u.created_at)}</td>
+                  <td className="px-6 py-4 text-right">
+                    <button
+                      onClick={() => { setDeleteUserTarget(u); setError(null) }}
+                      disabled={deletingUser === u.id}
+                      className="text-slate-500 hover:text-red-400 transition-colors disabled:opacity-40"
+                      title="Eliminar usuario Auth"
+                    >
+                      {deletingUser === u.id
+                        ? <Loader2 className="w-4 h-4 animate-spin" />
+                        : <Trash2 className="w-4 h-4" />}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {authUsers.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
+                    No hay usuarios registrados
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Delete User Confirmation Modal */}
+      {deleteUserTarget && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 px-4">
+          <div className="bg-slate-800 border border-slate-600 rounded-2xl p-6 w-full max-w-md shadow-xl">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="bg-red-900/40 p-2 rounded-lg">
+                <AlertTriangle className="w-5 h-5 text-red-400" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-white">Eliminar usuario Auth</h3>
+                <p className="text-slate-400 text-sm">Esta acción no se puede deshacer</p>
+              </div>
+            </div>
+
+            <p className="text-slate-300 text-sm mb-2">
+              Se eliminará <span className="font-semibold text-white">{deleteUserTarget.email}</span> de Supabase Auth.
+            </p>
+            {!deleteUserTarget.workspace && (
+              <p className="text-amber-400 text-xs mb-4">Este usuario no tiene workspace — podrá volver a registrarse con este email.</p>
+            )}
+            {deleteUserTarget.workspace && (
+              <p className="text-red-400 text-xs mb-4">⚠ Este usuario es owner del workspace <strong>{deleteUserTarget.workspace.name}</strong>. Eliminar el usuario Auth puede dejarlo huérfano.</p>
+            )}
+
+            {error && <p className="text-red-400 text-xs mb-3">{error}</p>}
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setDeleteUserTarget(null)}
+                className="flex-1 py-2 rounded-lg border border-slate-600 text-slate-300 text-sm hover:bg-slate-700 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleDeleteUser}
+                disabled={!!deletingUser}
+                className="flex-1 py-2 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+              >
+                {deletingUser && <Loader2 className="w-3 h-3 animate-spin" />}
+                Eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Delete Confirmation Modal */}
       {deleteTarget && (
