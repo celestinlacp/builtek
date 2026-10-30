@@ -63,6 +63,7 @@ export default function SuperAdminPanel({ workspaces: initial, authUsers: initia
   const [isPending, startTransition] = useTransition()
   const [changingPlan, setChangingPlan] = useState<string | null>(null)
   const [deletingUser, setDeletingUser] = useState<string | null>(null)
+  const [userFilter, setUserFilter] = useState<'todos' | 'sin-workspace'>('todos')
 
   function handleDeleteClick(ws: Workspace) {
     setDeleteTarget(ws)
@@ -221,62 +222,98 @@ export default function SuperAdminPanel({ workspaces: initial, authUsers: initia
       </div>
 
       {/* Auth Users Table */}
-      <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden mt-8">
-        <div className="px-6 py-4 border-b border-slate-700 flex items-center justify-between">
-          <h2 className="font-semibold text-white flex items-center gap-2">
-            <Users className="w-4 h-4 text-indigo-400" />
-            Usuarios Auth ({authUsers.length})
-          </h2>
-        </div>
+      {(() => {
+        const zombies = authUsers.filter(u => !u.workspace)
+        const sorted = [...authUsers].sort((a, b) => {
+          // Sin workspace primero
+          if (!a.workspace && b.workspace) return -1
+          if (a.workspace && !b.workspace) return 1
+          // Luego alfabético por workspace
+          const wa = a.workspace?.name ?? ''
+          const wb = b.workspace?.name ?? ''
+          if (wa !== wb) return wa.localeCompare(wb)
+          return a.email.localeCompare(b.email)
+        })
+        const visible = userFilter === 'sin-workspace' ? sorted.filter(u => !u.workspace) : sorted
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-slate-400 text-xs uppercase tracking-wider border-b border-slate-700">
-                <th className="px-6 py-3 text-left font-medium">Email</th>
-                <th className="px-6 py-3 text-left font-medium">Nombre</th>
-                <th className="px-6 py-3 text-left font-medium">Workspace</th>
-                <th className="px-6 py-3 text-left font-medium">Registro</th>
-                <th className="px-6 py-3 text-right font-medium">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-700/50">
-              {authUsers.map(u => (
-                <tr key={u.id} className="hover:bg-slate-700/30 transition-colors">
-                  <td className="px-6 py-4 text-slate-200 max-w-[220px] truncate">{u.email}</td>
-                  <td className="px-6 py-4 text-slate-400">{u.full_name || '—'}</td>
-                  <td className="px-6 py-4">
-                    {u.workspace
-                      ? <span className="px-2 py-0.5 rounded text-xs bg-green-900 text-green-300 font-medium">{u.workspace.name}</span>
-                      : <span className="px-2 py-0.5 rounded text-xs bg-amber-900 text-amber-300 font-medium">Sin workspace</span>
-                    }
-                  </td>
-                  <td className="px-6 py-4 text-slate-500 text-xs whitespace-nowrap">{formatDate(u.created_at)}</td>
-                  <td className="px-6 py-4 text-right">
-                    <button
-                      onClick={() => { setDeleteUserTarget(u); setError(null) }}
-                      disabled={deletingUser === u.id}
-                      className="text-slate-500 hover:text-red-400 transition-colors disabled:opacity-40"
-                      title="Eliminar usuario Auth"
-                    >
-                      {deletingUser === u.id
-                        ? <Loader2 className="w-4 h-4 animate-spin" />
-                        : <Trash2 className="w-4 h-4" />}
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {authUsers.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
-                    No hay usuarios registrados
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+        return (
+          <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden mt-8">
+            <div className="px-6 py-4 border-b border-slate-700 flex items-center justify-between gap-4">
+              <h2 className="font-semibold text-white flex items-center gap-2 shrink-0">
+                <Users className="w-4 h-4 text-indigo-400" />
+                Usuarios Auth ({authUsers.length})
+              </h2>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setUserFilter('todos')}
+                  className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${userFilter === 'todos' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-700'}`}
+                >
+                  Todos
+                </button>
+                <button
+                  onClick={() => setUserFilter('sin-workspace')}
+                  className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 ${userFilter === 'sin-workspace' ? 'bg-amber-600 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-700'}`}
+                >
+                  Sin workspace
+                  {zombies.length > 0 && (
+                    <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${userFilter === 'sin-workspace' ? 'bg-amber-800 text-amber-200' : 'bg-amber-900 text-amber-400'}`}>
+                      {zombies.length}
+                    </span>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-slate-400 text-xs uppercase tracking-wider border-b border-slate-700">
+                    <th className="px-6 py-3 text-left font-medium">Email</th>
+                    <th className="px-6 py-3 text-left font-medium">Nombre</th>
+                    <th className="px-6 py-3 text-left font-medium">Workspace</th>
+                    <th className="px-6 py-3 text-left font-medium">Registro</th>
+                    <th className="px-6 py-3 text-right font-medium">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-700/50">
+                  {visible.map(u => (
+                    <tr key={u.id} className="hover:bg-slate-700/30 transition-colors">
+                      <td className="px-6 py-4 text-slate-200 max-w-[220px] truncate">{u.email}</td>
+                      <td className="px-6 py-4 text-slate-400">{u.full_name || '—'}</td>
+                      <td className="px-6 py-4">
+                        {u.workspace
+                          ? <span className="px-2 py-0.5 rounded text-xs bg-green-900 text-green-300 font-medium">{u.workspace.name}</span>
+                          : <span className="px-2 py-0.5 rounded text-xs bg-amber-900 text-amber-300 font-medium">Sin workspace</span>
+                        }
+                      </td>
+                      <td className="px-6 py-4 text-slate-500 text-xs whitespace-nowrap">{formatDate(u.created_at)}</td>
+                      <td className="px-6 py-4 text-right">
+                        <button
+                          onClick={() => { setDeleteUserTarget(u); setError(null) }}
+                          disabled={deletingUser === u.id}
+                          className="text-slate-500 hover:text-red-400 transition-colors disabled:opacity-40"
+                          title="Eliminar usuario Auth"
+                        >
+                          {deletingUser === u.id
+                            ? <Loader2 className="w-4 h-4 animate-spin" />
+                            : <Trash2 className="w-4 h-4" />}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {visible.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
+                        {userFilter === 'sin-workspace' ? 'Todos los usuarios tienen workspace ✓' : 'No hay usuarios registrados'}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Delete User Confirmation Modal */}
       {deleteUserTarget && (
