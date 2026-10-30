@@ -125,13 +125,18 @@ export default function OnboardingForm() {
     if (projectCode) formData.set('project_code', projectCode)
     if (coverImageUrl) formData.set('cover_image_url', coverImageUrl)
 
-    const result = await createWorkspace(formData)
-    if (result?.error) {
-      setError(result.error)
+    try {
+      const result = await createWorkspace(formData)
+      if (result?.error) {
+        setError(result.error)
+      } else {
+        router.push('/dashboard')
+        router.refresh()
+      }
+    } catch (err: unknown) {
+      setError((err as Error)?.message || 'Error inesperado al crear el workspace')
+    } finally {
       setLoading(false)
-    } else {
-      router.push('/dashboard')
-      router.refresh()
     }
   }
 

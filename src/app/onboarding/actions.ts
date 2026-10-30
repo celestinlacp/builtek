@@ -70,7 +70,7 @@ export async function createWorkspace(formData: FormData) {
     .select('id', { count: 'exact', head: true })
 
   // Alerta silenciosa a Celestin
-  await resend.emails.send({
+  resend.emails.send({
     from: 'Builtek <hola@menvio.app>',
     to: ['celestinlacp@gmail.com'],
     subject: `[Builtek] ⚠️ Nuevo workspace creado: ${name}`,
