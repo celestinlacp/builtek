@@ -23,7 +23,7 @@ async function getOwner() {
   return { user, workspaceId: m.workspace_id }
 }
 
-const QUERY_SYSTEM = `Eres Cota, agente experto en metrados y cuantificación de ingeniería de construcción.
+const QUERY_SYSTEM = `Eres Kota, agente experto en metrados y cuantificación de ingeniería de construcción.
 
 Tienes acceso a las extracciones aprobadas de los planos técnicos del proyecto que se te proporcionan como contexto.
 
@@ -36,7 +36,7 @@ Reglas:
 - Si el mismo elemento aparece en múltiples planos, consolida o detalla según sea más útil
 - Usa formato markdown para tablas cuando consolides cantidades de múltiples fuentes`
 
-// ── GET /api/ai-agent/query?projectId=... — historial de consultas ─────────────
+// [KOTA] GET /api/ai-agent/query?projectId=... — historial de consultas
 export async function GET(req: NextRequest) {
   const auth = await getOwner()
   if (!auth) return NextResponse.json({ error: 'Sin acceso' }, { status: 403 })
@@ -56,10 +56,10 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ queries: data ?? [] })
 }
 
-// ── POST /api/ai-agent/query — consulta RAG ────────────────────────────────────
+// [KOTA] POST /api/ai-agent/query — consulta RAG
 export async function POST(req: NextRequest) {
   const auth = await getOwner()
-  if (!auth) return NextResponse.json({ error: 'Solo el Owner puede usar Cota' }, { status: 403 })
+  if (!auth) return NextResponse.json({ error: 'Solo el Owner puede usar Kota' }, { status: 403 })
 
   const { projectId, question } = await req.json()
   if (!projectId) return NextResponse.json({ error: 'Falta projectId' }, { status: 400 })
@@ -82,10 +82,10 @@ export async function POST(req: NextRequest) {
     })
   }
 
-  // 2. Brief técnico
+  // 2. [KOTA] Datos técnicos del proyecto (kota_data)
   const { data: proj } = await admin
     .from('projects')
-    .select('name, cota_brief')
+    .select('name, kota_data')
     .eq('id', projectId)
     .single()
 
@@ -100,12 +100,38 @@ export async function POST(req: NextRequest) {
     return `## [${docKey}] ${titulo}\n${JSON.stringify(ext, null, 2)}`
   }).join('\n\n---\n\n')
 
-  const briefSection = proj?.cota_brief?.trim()
-    ? `## Brief técnico del proyecto\n${proj.cota_brief}\n\n---\n\n`
-    : ''
+  // Serialize kota_data to readable text
+  const kotaData = (proj as any)?.kota_data as Record<string, unknown> | null | undefined
+  let kotaSection = ''
+  if (kotaData && Object.keys(kotaData).length > 0) {
+    const lines: string[] = [`## Datos técnicos del proyecto ${proj?.name ?? ''}`]
+    const camposComunes = kotaData.campos_comunes as Record<string, { valor: unknown; source: string }> | undefined
+    if (camposComunes) {
+      for (const [k, v] of Object.entries(camposComunes)) {
+        if (v?.valor !== null && v?.valor !== undefined && v?.valor !== '') {
+          const estado = v.source === 'kota' ? 'sugerido' : 'confirmado'
+          lines.push(`- ${k}: ${v.valor} (${estado})`)
+        }
+      }
+    }
+    const camposDisciplina = kotaData.campos_disciplina as Record<string, Record<string, { valor: unknown; source: string }>> | undefined
+    if (camposDisciplina) {
+      for (const [disc, campos] of Object.entries(camposDisciplina)) {
+        for (const [k, v] of Object.entries(campos)) {
+          if (v?.valor !== null && v?.valor !== undefined && v?.valor !== '') {
+            const estado = v.source === 'kota' ? 'sugerido' : 'confirmado'
+            lines.push(`- [${disc}] ${k}: ${v.valor} (${estado})`)
+          }
+        }
+      }
+    }
+    const notas = kotaData.notas as string | undefined
+    if (notas?.trim()) lines.push(`Notas: ${notas.trim()}`)
+    if (lines.length > 1) kotaSection = lines.join('\n') + '\n\n---\n\n'
+  }
 
   const userMessage = [
-    briefSection,
+    kotaSection,
     `## Extracciones aprobadas (${extractions.length} planos)\n\n${contextBlocks}`,
     `---\n\nPregunta: ${question.trim()}`,
   ].filter(Boolean).join('\n\n')

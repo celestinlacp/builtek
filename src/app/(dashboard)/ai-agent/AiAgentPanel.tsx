@@ -26,13 +26,36 @@ type Elemento = { tipo: string; cantidad: number | null; unidad: string; descrip
 type Especialidad = { nombre: string; elementos: Elemento[] }
 type Extraction = { titulo: string; especialidades: Especialidad[]; notas: string; confianza: 'alta' | 'media' | 'baja' }
 
-type CotaQuery = {
+type KotaQuery = {
   id?:        string
   question:   string
   answer:     string | null
   sources:    Array<{ doc_key: string; titulo: string }> | null
   loading?:   boolean
   created_at?: string
+}
+
+// ── Tipos Datos Técnicos ────────────────────────────────────────────────────
+
+type KotaFieldValue = { valor: string | number | null; source: 'kota' | 'human' }
+
+type KotaCamposComunes = {
+  nombre_proyecto?:        KotaFieldValue
+  ubicacion?:              KotaFieldValue
+  tipo_estructura?:        KotaFieldValue
+  etapa?:                  KotaFieldValue
+  longitud_total_m?:       KotaFieldValue
+  area_total_m2?:          KotaFieldValue
+  altura_maxima_m?:        KotaFieldValue
+  presupuesto_referencia?: KotaFieldValue
+}
+
+type KotaData = {
+  campos_comunes:    KotaCamposComunes
+  campos_disciplina: Record<string, Record<string, KotaFieldValue>>
+  notas:             string
+  ultima_actualizacion?: string
+  actualizado_por?:  string
 }
 
 type SavedExtraction = {
@@ -55,6 +78,68 @@ const STATUS_CONFIG = {
   raw:      { label: 'Sin revisar', color: 'bg-slate-100 text-slate-500' },
   reviewed: { label: 'Revisada',    color: 'bg-blue-100 text-blue-600'   },
   approved: { label: 'Aprobada',    color: 'bg-green-100 text-green-700' },
+}
+
+// ── Sub-componente KotaField ────────────────────────────────────────────────
+
+function KotaField({
+  label, type, value, isKota, isSaving, isSaved, onSave,
+}: {
+  label:    string
+  type:     string
+  value:    string | number | null
+  isKota:   boolean
+  isSaving: boolean
+  isSaved:  boolean
+  onSave:   (val: string | number | null) => void
+}) {
+  const [localVal, setLocalVal] = useState<string>(value !== null && value !== undefined ? String(value) : '')
+  const [dirty,    setDirty]    = useState(false)
+
+  // Sync if parent resets
+  useEffect(() => {
+    setLocalVal(value !== null && value !== undefined ? String(value) : '')
+    setDirty(false)
+  }, [value])
+
+  const handleChange = (v: string) => {
+    setLocalVal(v)
+    setDirty(v !== (value !== null && value !== undefined ? String(value) : ''))
+  }
+
+  const handleSave = () => {
+    if (!dirty) return
+    const parsed = type === 'number' ? (localVal === '' ? null : parseFloat(localVal)) : localVal || null
+    onSave(parsed)
+    setDirty(false)
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <label className="text-xs text-slate-500 w-40 flex-shrink-0">{label}</label>
+      <div className="flex-1 flex items-center gap-1.5">
+        <input
+          type={type}
+          value={localVal}
+          onChange={e => handleChange(e.target.value)}
+          onBlur={handleSave}
+          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleSave() } }}
+          className="flex-1 text-sm border border-slate-200 rounded-lg px-3 py-1.5 text-[#1A2744] focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/30 focus:border-[#00C2FF]"
+        />
+        {isKota && !isSaved && (
+          <span className="bg-amber-100 text-amber-700 text-xs px-1.5 py-0.5 rounded flex-shrink-0">
+            Sugerido por Kota
+          </span>
+        )}
+        {isSaved && (
+          <CheckCircle2 className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />
+        )}
+        {isSaving && (
+          <Loader2 className="w-3.5 h-3.5 text-[#00C2FF] animate-spin flex-shrink-0" />
+        )}
+      </div>
+    </div>
+  )
 }
 
 // ── Componente ─────────────────────────────────────────────────────────────────
@@ -94,20 +179,25 @@ export default function AiAgentPanel({
   const [saving,         setSaving]         = useState(false)
 
   // Tab activo
-  const [activeTab,      setActiveTab]      = useState<'extraction' | 'brief' | 'query'>('extraction')
+  const [activeTab,      setActiveTab]      = useState<'extraction' | 'datos' | 'query'>('extraction')
 
   // Consultas RAG
   const [queryInput,     setQueryInput]     = useState('')
-  const [queries,        setQueries]        = useState<CotaQuery[]>([])
-  const [queryHistory,   setQueryHistory]   = useState<CotaQuery[]>([])
+  const [queries,        setQueries]        = useState<KotaQuery[]>([])
+  const [queryHistory,   setQueryHistory]   = useState<KotaQuery[]>([])
   const [expandedSource, setExpandedSource] = useState<number | null>(null)
   const queryEndRef = useRef<HTMLDivElement>(null)
 
-  // Brief técnico
-  const [brief,          setBrief]          = useState('')
-  const [briefOrig,      setBriefOrig]      = useState('')
-  const [briefSaving,    setBriefSaving]    = useState(false)
-  const [briefSaved,     setBriefSaved]     = useState(false)
+  // Datos Técnicos (reemplaza Brief Técnico)
+  const [kotaData,       setKotaData]       = useState<KotaData>({
+    campos_comunes: {}, campos_disciplina: {}, notas: '',
+  })
+  const [kotaDataLoading, setKotaDataLoading] = useState(false)
+  const [kotaDataSaving,  setKotaDataSaving]  = useState<string | null>(null) // field key being saved
+  const [kotaDataSaved,   setKotaDataSaved]   = useState<string | null>(null) // field key just saved
+  const [kotaNotasSaving, setKotaNotasSaving] = useState(false)
+  const [kotaNotasSaved,  setKotaNotasSaved]  = useState(false)
+  const [disciplinaOpen,  setDisciplinaOpen]  = useState(true)
 
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -144,13 +234,21 @@ export default function AiAgentPanel({
     refreshHistory()
   }, [projectId, extraction, refreshHistory])
 
-  // Cargar brief al cambiar proyecto
+  // Cargar kota_data al cambiar proyecto
   useEffect(() => {
-    if (!projectId) { setBrief(''); setBriefOrig(''); return }
+    if (!projectId) {
+      setKotaData({ campos_comunes: {}, campos_disciplina: {}, notas: '' })
+      return
+    }
+    setKotaDataLoading(true)
     fetch(`/api/ai-agent/brief?projectId=${projectId}`)
       .then(r => r.json())
-      .then(d => { setBrief(d.brief ?? ''); setBriefOrig(d.brief ?? '') })
+      .then(d => {
+        const kd: KotaData = d.kota_data ?? { campos_comunes: {}, campos_disciplina: {}, notas: '' }
+        setKotaData(kd)
+      })
       .catch(() => {})
+      .finally(() => setKotaDataLoading(false))
   }, [projectId])
 
   // Cargar historial de consultas al cambiar proyecto
@@ -276,25 +374,60 @@ export default function AiAgentPanel({
     refreshHistory()
   }
 
-  const saveBrief = async () => {
+  // Guardar un campo individual de kota_data (PATCH)
+  const saveKotaField = async (fieldPath: string[], value: string | number | null) => {
     if (!projectId) return
-    setBriefSaving(true)
-    await fetch('/api/ai-agent/brief', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ projectId, brief }),
-    })
-    setBriefOrig(brief)
-    setBriefSaved(true)
-    setBriefSaving(false)
-    setTimeout(() => setBriefSaved(false), 2500)
+    const key = fieldPath.join('.')
+    setKotaDataSaving(key)
+    try {
+      await fetch('/api/ai-agent/brief', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId, field_path: fieldPath, value, source: 'human' }),
+      })
+      // Update local state: mark field as human
+      setKotaData(prev => {
+        const next = JSON.parse(JSON.stringify(prev)) as KotaData
+        if (fieldPath[0] === 'campos_comunes' && fieldPath[1]) {
+          const key2 = fieldPath[1] as keyof KotaCamposComunes
+          next.campos_comunes[key2] = { valor: value, source: 'human' }
+        } else if (fieldPath[0] === 'campos_disciplina' && fieldPath[1] && fieldPath[2]) {
+          if (!next.campos_disciplina[fieldPath[1]]) next.campos_disciplina[fieldPath[1]] = {}
+          next.campos_disciplina[fieldPath[1]][fieldPath[2]] = { valor: value, source: 'human' }
+        }
+        return next
+      })
+      setKotaDataSaved(key)
+      setTimeout(() => setKotaDataSaved(null), 2000)
+    } catch { /* ignore */ } finally {
+      setKotaDataSaving(null)
+    }
+  }
+
+  // Guardar notas técnicas completas (PUT)
+  const saveKotaNotas = async (notas: string) => {
+    if (!projectId) return
+    setKotaNotasSaving(true)
+    try {
+      const updated: KotaData = { ...kotaData, notas }
+      await fetch('/api/ai-agent/brief', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId, kota_data: updated }),
+      })
+      setKotaData(updated)
+      setKotaNotasSaved(true)
+      setTimeout(() => setKotaNotasSaved(false), 2500)
+    } catch { /* ignore */ } finally {
+      setKotaNotasSaving(false)
+    }
   }
 
   const sendQuery = async () => {
     const q = queryInput.trim()
     if (!q || !projectId) return
 
-    const placeholder: CotaQuery = { question: q, answer: null, sources: null, loading: true }
+    const placeholder: KotaQuery = { question: q, answer: null, sources: null, loading: true }
     setQueries(prev => [...prev, placeholder])
     setQueryInput('')
     setExpandedSource(null)
@@ -376,16 +509,16 @@ export default function AiAgentPanel({
             Extracción
           </button>
           <button
-            onClick={() => setActiveTab('brief')}
+            onClick={() => setActiveTab('datos')}
             className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-all ${
-              activeTab === 'brief'
+              activeTab === 'datos'
                 ? 'bg-white text-[#1A2744] shadow-sm'
                 : 'text-slate-500 hover:text-slate-700'
             }`}
           >
             <BookOpen className="w-3.5 h-3.5" />
-            Brief Técnico
-            {briefOrig && (
+            Datos Técnicos
+            {Object.keys(kotaData.campos_comunes).length > 0 && (
               <span className="w-1.5 h-1.5 rounded-full bg-[#00C2FF] flex-shrink-0" />
             )}
           </button>
@@ -403,65 +536,128 @@ export default function AiAgentPanel({
         </div>
       )}
 
-      {/* ── Brief Técnico ─────────────────────────────────────────────────── */}
-      {projectId && activeTab === 'brief' && (
-        <div className="bg-white border border-slate-100 rounded-2xl p-5 space-y-4">
+      {/* ── Datos Técnicos ─────────────────────────────────────────────────── */}
+      {projectId && activeTab === 'datos' && (
+        <div className="bg-white border border-slate-100 rounded-2xl p-5 space-y-5">
           <div>
-            <h3 className="text-sm font-bold text-[#1A2744] mb-0.5">Brief Técnico del Proyecto</h3>
+            <h3 className="text-sm font-bold text-[#1A2744] mb-0.5">Datos Técnicos del Proyecto</h3>
             <p className="text-xs text-slate-400 leading-relaxed">
-              Cota leerá este contexto antes de cada extracción. Describe lo que necesita saber para ser más preciso.
+              Kota usa estos datos como contexto en cada extracción. Los campos con badge amarillo fueron sugeridos por Kota — edítalos para confirmarlos.
             </p>
           </div>
 
-          {/* Guía */}
-          <div className="bg-slate-50 rounded-xl px-4 py-3 space-y-1">
-            <p className="text-[11px] font-semibold text-slate-500 mb-1.5">Incluye información como:</p>
-            {[
-              'Tipo de proyecto y estructura principal (puente, edificio, viaducto…)',
-              "Materiales predominantes: concreto f'c, acero fy, calidad de materiales",
-              'Normas de diseño aplicables (AASHTO, ACI, NMX, SCT…)',
-              'Elementos especiales: pilas, trabes, vigas cajón, losas, pilotes',
-              'Unidades de medida preferidas y convenciones del proyecto',
-            ].map((tip, i) => (
-              <p key={i} className="text-[11px] text-slate-400 flex gap-1.5">
-                <span className="text-[#00C2FF] flex-shrink-0">·</span>{tip}
-              </p>
-            ))}
-          </div>
-
-          <textarea
-            value={brief}
-            onChange={e => { setBrief(e.target.value); setBriefSaved(false) }}
-            placeholder={`Ejemplo:\n\nPuente peatonal de concreto reforzado de 47.2 m de longitud. Estructura tipo viga T en subestructura y superestructura monolítica. Materiales: concreto f'c = 250 kg/cm² en pilas y trabes, f'c = 200 kg/cm² en muros. Acero grado 60 (fy = 4200 kg/cm²). Normas: SCT 2016, AASHTO LRFD. Proyecto Frente 12, carretera federal México-Cuernavaca.`}
-            rows={10}
-            className="w-full text-sm border border-slate-200 rounded-xl px-4 py-3 text-[#1A2744] placeholder-slate-300 resize-none focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/30 focus:border-[#00C2FF] leading-relaxed"
-          />
-
-          <div className="flex items-center justify-between">
-            <div className="text-xs text-slate-400">
-              {briefSaved
-                ? <span className="flex items-center gap-1 text-green-600"><CheckCircle2 className="w-3.5 h-3.5" />Brief guardado</span>
-                : briefOrig
-                  ? brief !== briefOrig ? 'Cambios sin guardar' : `Brief activo · ${briefOrig.length} caracteres`
-                  : 'Sin brief — Cota trabaja sin contexto del proyecto'
-              }
+          {kotaDataLoading ? (
+            <div className="flex items-center justify-center py-8 gap-2 text-slate-400">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <span className="text-sm">Cargando datos técnicos...</span>
             </div>
-            <button
-              onClick={saveBrief}
-              disabled={briefSaving || brief === briefOrig}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#1A2744] text-white text-sm font-semibold hover:bg-[#243660] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              {briefSaving
-                ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                : <Save className="w-3.5 h-3.5" />
-              }
-              Guardar Brief
-            </button>
-          </div>
+          ) : (
+            <>
+              {/* ── Campos Comunes ── */}
+              <div className="space-y-3">
+                <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Campos Comunes</p>
+                {([
+                  { key: 'nombre_proyecto',        label: 'Nombre del proyecto',    type: 'text'   },
+                  { key: 'ubicacion',              label: 'Ubicación',              type: 'text'   },
+                  { key: 'tipo_estructura',        label: 'Tipo de estructura',     type: 'text'   },
+                  { key: 'etapa',                  label: 'Etapa',                  type: 'text'   },
+                  { key: 'longitud_total_m',       label: 'Longitud total (m)',     type: 'number' },
+                  { key: 'area_total_m2',          label: 'Área total (m²)',        type: 'number' },
+                  { key: 'altura_maxima_m',        label: 'Altura máxima (m)',      type: 'number' },
+                  { key: 'presupuesto_referencia', label: 'Presupuesto referencia', type: 'text'   },
+                ] as { key: keyof KotaCamposComunes; label: string; type: string }[]).map(({ key, label, type }) => {
+                  const field = kotaData.campos_comunes[key]
+                  const fieldKey = `campos_comunes.${key}`
+                  const isSaving = kotaDataSaving === fieldKey
+                  const isSaved  = kotaDataSaved === fieldKey
+                  const isKota   = field?.source === 'kota'
+                  return (
+                    <KotaField
+                      key={key}
+                      label={label}
+                      type={type}
+                      value={field?.valor ?? null}
+                      isKota={isKota}
+                      isSaving={isSaving}
+                      isSaved={isSaved}
+                      onSave={(val) => saveKotaField(['campos_comunes', key], val)}
+                    />
+                  )
+                })}
+              </div>
+
+              {/* ── Campos por Disciplina ── */}
+              {Object.keys(kotaData.campos_disciplina).length > 0 && (
+                <div className="space-y-3">
+                  <button
+                    onClick={() => setDisciplinaOpen(o => !o)}
+                    className="flex items-center gap-2 text-[11px] font-bold text-slate-500 uppercase tracking-wider w-full text-left"
+                  >
+                    {disciplinaOpen
+                      ? <ChevronUp className="w-3.5 h-3.5" />
+                      : <ChevronRight className="w-3.5 h-3.5" />
+                    }
+                    Campos por Disciplina
+                  </button>
+                  {disciplinaOpen && Object.entries(kotaData.campos_disciplina).map(([disc, campos]) => (
+                    <div key={disc} className="pl-4 border-l-2 border-slate-100 space-y-2">
+                      <p className="text-xs font-semibold text-[#1A2744]">{disc}</p>
+                      {Object.entries(campos).map(([campoKey, field]) => {
+                        const fieldKey = `campos_disciplina.${disc}.${campoKey}`
+                        return (
+                          <KotaField
+                            key={campoKey}
+                            label={campoKey}
+                            type="text"
+                            value={field.valor}
+                            isKota={field.source === 'kota'}
+                            isSaving={kotaDataSaving === fieldKey}
+                            isSaved={kotaDataSaved === fieldKey}
+                            onSave={(val) => saveKotaField(['campos_disciplina', disc, campoKey], val)}
+                          />
+                        )
+                      })}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* ── Notas Técnicas ── */}
+              <div className="space-y-2">
+                <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Notas Técnicas</p>
+                <textarea
+                  value={kotaData.notas}
+                  onChange={e => setKotaData(prev => ({ ...prev, notas: e.target.value }))}
+                  placeholder="Observaciones generales, normas aplicables, convenciones del proyecto…"
+                  rows={5}
+                  className="w-full text-sm border border-slate-200 rounded-xl px-4 py-3 text-[#1A2744] placeholder-slate-300 resize-none focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/30 focus:border-[#00C2FF] leading-relaxed"
+                />
+                <div className="flex items-center justify-between">
+                  <div className="text-xs text-slate-400">
+                    {kotaNotasSaved
+                      ? <span className="flex items-center gap-1 text-green-600"><CheckCircle2 className="w-3.5 h-3.5" />Notas guardadas</span>
+                      : kotaData.notas ? `${kotaData.notas.length} caracteres` : 'Sin notas'
+                    }
+                  </div>
+                  <button
+                    onClick={() => saveKotaNotas(kotaData.notas)}
+                    disabled={kotaNotasSaving}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#1A2744] text-white text-sm font-semibold hover:bg-[#243660] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    {kotaNotasSaving
+                      ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      : <Save className="w-3.5 h-3.5" />
+                    }
+                    Guardar Notas
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       )}
 
-      {/* ── Consultar Cota (RAG) ─────────────────────────────────────────── */}
+      {/* ── Consultar Kota (RAG) ─────────────────────────────────────────── */}
       {projectId && activeTab === 'query' && (
         <div className="space-y-4">
 
@@ -471,9 +667,9 @@ export default function AiAgentPanel({
               <div className="w-12 h-12 bg-[#00C2FF]/10 rounded-2xl flex items-center justify-center mx-auto mb-3">
                 <MessageCircle className="w-6 h-6 text-[#00C2FF]" />
               </div>
-              <p className="text-sm font-semibold text-[#1A2744] mb-1">Pregúntale a Cota</p>
+              <p className="text-sm font-semibold text-[#1A2744] mb-1">Pregúntale a Kota</p>
               <p className="text-xs text-slate-400 mb-5 leading-relaxed">
-                Cota responde basándose en las extracciones aprobadas del proyecto.
+                Kota responde basándose en las extracciones aprobadas del proyecto.
               </p>
               <div className="flex flex-wrap gap-2 justify-center">
                 {[
@@ -509,7 +705,7 @@ export default function AiAgentPanel({
                     {q.loading ? (
                       <div className="flex items-center gap-2 pl-8.5 text-slate-400">
                         <Loader2 className="w-4 h-4 animate-spin" />
-                        <span className="text-xs">Consultando extracciones...</span>
+                        <span className="text-xs">Kota está consultando extracciones...</span>
                       </div>
                     ) : q.answer && (
                       <div className="pl-8">
@@ -595,7 +791,7 @@ export default function AiAgentPanel({
           </div>
 
           <p className="text-[11px] text-slate-400 text-center">
-            Cota consulta las <strong className="text-slate-500">{/* */}</strong> extracciones aprobadas del proyecto.
+            Kota consulta las <strong className="text-slate-500">{/* */}</strong> extracciones aprobadas del proyecto.
             Aprueba más planos para mejores respuestas.
           </p>
         </div>
@@ -734,9 +930,9 @@ export default function AiAgentPanel({
             className="w-full flex items-center justify-center gap-2.5 bg-gradient-to-r from-[#1A2744] to-[#243660] text-white py-3.5 rounded-xl font-semibold text-sm hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-[#1A2744]/20"
           >
             {loading ? (
-              <><Loader2 className="w-4 h-4 animate-spin" />Analizando con Cota...</>
+              <><Loader2 className="w-4 h-4 animate-spin" />Analizando con Kota...</>
             ) : (
-              <><Zap className="w-4 h-4 text-[#00C2FF]" />Analizar con Cota</>
+              <><Zap className="w-4 h-4 text-[#00C2FF]" />Analizar con Kota</>
             )}
           </button>
         </div>
@@ -750,7 +946,7 @@ export default function AiAgentPanel({
             <div className="absolute inset-0 rounded-full border-4 border-[#00C2FF] border-t-transparent animate-spin" />
             <Bot className="absolute inset-0 m-auto w-5 h-5 text-[#00C2FF]" />
           </div>
-          <p className="text-sm font-semibold text-[#1A2744]">Cota está leyendo el plano...</p>
+          <p className="text-sm font-semibold text-[#1A2744]">Kota está leyendo el plano...</p>
           <p className="text-xs text-slate-400 mt-1">Esto puede tomar 15–30 segundos</p>
         </div>
       )}
@@ -869,7 +1065,7 @@ export default function AiAgentPanel({
             <div className="text-center py-10">
               <Sparkles className="w-8 h-8 text-slate-200 mx-auto mb-2" />
               <p className="text-sm text-slate-400">Aún no hay extracciones para este proyecto.</p>
-              <p className="text-xs text-slate-300 mt-1">Selecciona un plano y presiona "Analizar con Cota".</p>
+              <p className="text-xs text-slate-300 mt-1">Selecciona un plano y presiona "Analizar con Kota".</p>
             </div>
           ) : (
             <div className="divide-y divide-slate-50">

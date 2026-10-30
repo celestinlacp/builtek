@@ -51,23 +51,36 @@ function getAdminClient() {
   )
 }
 
-// ── GET /api/ai-agent?projectId=... — historial de extracciones por proyecto ──
+// [KOTA] GET /api/ai-agent?projectId=...&documentId=... — historial de extracciones
 export async function GET(req: NextRequest) {
-  const projectId = req.nextUrl.searchParams.get('projectId')
+  const projectId  = req.nextUrl.searchParams.get('projectId')
+  const documentId = req.nextUrl.searchParams.get('documentId')
   if (!projectId) return NextResponse.json({ error: 'Falta projectId' }, { status: 400 })
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
 
-  const { data, error } = await supabase
+  let query = supabase
     .from('extractions')
     .select('id, document_id, doc_hints, raw_extraction, status, confidence, created_at')
     .eq('project_id', projectId)
     .order('created_at', { ascending: false })
-    .limit(30)
+
+  if (documentId) {
+    // Return most recent extraction for this specific document
+    query = query.eq('document_id', documentId).limit(1)
+  } else {
+    query = query.limit(30)
+  }
+
+  const { data, error } = await query
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  if (documentId) {
+    return NextResponse.json({ extraction: data?.[0] ?? null })
+  }
   return NextResponse.json({ extractions: data ?? [] })
 }
 
@@ -85,7 +98,7 @@ export async function POST(req: NextRequest) {
     .single()
 
   if (membership?.role !== 'owner') {
-    return NextResponse.json({ error: 'Solo el Owner puede usar Cota' }, { status: 403 })
+    return NextResponse.json({ error: 'Solo el Owner puede usar Kota' }, { status: 403 })
   }
   const workspaceId = membership.workspace_id
 
@@ -144,16 +157,45 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Falta archivo o documentId' }, { status: 400 })
   }
 
-  // ── Brief técnico del proyecto ───────────────────────────────────────────────
+  // [KOTA] Datos técnicos del proyecto (kota_data en lugar de cota_brief)
   const admin = getAdminClient()
   const { data: projRow } = await admin
     .from('projects')
-    .select('cota_brief, name')
+    .select('kota_data, name')
     .eq('id', projectId)
     .single()
 
-  const projectBrief = projRow?.cota_brief?.trim() || null
   if (projRow?.name && !docHints.proyecto_name) docHints.proyecto_name = projRow.name
+
+  // Serializar kota_data a texto legible para el prompt
+  const kotaData = projRow?.kota_data as Record<string, unknown> | null | undefined
+  let projectBrief: string | null = null
+  if (kotaData && Object.keys(kotaData).length > 0) {
+    const lines: string[] = [`Datos técnicos del proyecto ${projRow?.name ?? ''}:`]
+    const camposComunes = kotaData.campos_comunes as Record<string, { valor: unknown; source: string }> | undefined
+    if (camposComunes) {
+      for (const [k, v] of Object.entries(camposComunes)) {
+        if (v?.valor !== null && v?.valor !== undefined && v?.valor !== '') {
+          const estado = v.source === 'kota' ? 'sugerido' : 'confirmado'
+          lines.push(`- ${k}: ${v.valor} (${estado})`)
+        }
+      }
+    }
+    const camposDisciplina = kotaData.campos_disciplina as Record<string, Record<string, { valor: unknown; source: string }>> | undefined
+    if (camposDisciplina) {
+      for (const [disc, campos] of Object.entries(camposDisciplina)) {
+        for (const [k, v] of Object.entries(campos)) {
+          if (v?.valor !== null && v?.valor !== undefined && v?.valor !== '') {
+            const estado = v.source === 'kota' ? 'sugerido' : 'confirmado'
+            lines.push(`- [${disc}] ${k}: ${v.valor} (${estado})`)
+          }
+        }
+      }
+    }
+    const notas = kotaData.notas as string | undefined
+    if (notas?.trim()) lines.push(`Notas: ${notas.trim()}`)
+    if (lines.length > 1) projectBrief = lines.join('\n')
+  }
 
   // ── Few-shot: extracciones aprobadas del mismo proyecto como referencia ──────
   let fewShotText = ''
@@ -182,7 +224,7 @@ export async function POST(req: NextRequest) {
     : null
 
   const contextLines = [
-    projectBrief               && `BRIEF TÉCNICO DEL PROYECTO:\n${projectBrief}`,
+    projectBrief               && `DATOS TÉCNICOS DEL PROYECTO:\n${projectBrief}`,
     docHints.proyecto_name     && `Proyecto: ${docHints.proyecto_name}`,
     docHints.doc_key           && `Clave de documento: ${docHints.doc_key}`,
     docHints.especialidad      && `Especialidad: ${docHints.especialidad}`,
@@ -247,7 +289,61 @@ export async function POST(req: NextRequest) {
       .select('id')
       .single()
 
-    if (dbError) console.error('[COTA] Error saving extraction:', dbError.message)
+    if (dbError) console.error('[KOTA] Error saving extraction:', dbError.message)
+
+    // [KOTA] Infer technical fields from extraction and PATCH kota_data
+    // Only update fields that are empty or have source: 'kota' (never overwrite source: 'human')
+    if (projectId && extraction?.especialidades?.length) {
+      try {
+        const inferredPatches: Array<{ field_path: string[]; value: unknown }> = []
+
+        for (const esp of extraction.especialidades) {
+          for (const el of (esp.elementos ?? [])) {
+            const tipo = el.tipo?.toLowerCase() ?? ''
+            // Infer longitud_total_m
+            if ((tipo.includes('longitud') || tipo.includes('largo')) && el.cantidad !== null) {
+              inferredPatches.push({ field_path: ['campos_comunes', 'longitud_total_m'], value: el.cantidad })
+            }
+            // Infer altura_maxima_m
+            if ((tipo.includes('altura') || tipo.includes('alto')) && el.cantidad !== null) {
+              inferredPatches.push({ field_path: ['campos_comunes', 'altura_maxima_m'], value: el.cantidad })
+            }
+            // Infer tipo_estructura from title/notas if not already set
+          }
+        }
+
+        // Infer tipo_estructura from extraction titulo if available
+        if (extraction.titulo) {
+          inferredPatches.push({ field_path: ['campos_comunes', 'tipo_estructura'], value: extraction.titulo })
+        }
+
+        for (const patch of inferredPatches) {
+          await admin
+            .from('projects')
+            .select('kota_data')
+            .eq('id', projectId)
+            .single()
+            .then(async ({ data: p }) => {
+              const current = (p?.kota_data && Object.keys(p.kota_data).length > 0)
+                ? JSON.parse(JSON.stringify(p.kota_data))
+                : { campos_comunes: {}, campos_disciplina: {}, notas: '', ultima_actualizacion: new Date().toISOString(), actualizado_por: 'kota' }
+
+              const [section, fieldKey] = patch.field_path
+              if (section === 'campos_comunes' && fieldKey) {
+                const existing = (current.campos_comunes as Record<string, unknown>)?.[fieldKey] as { source?: string } | undefined
+                if (!existing || existing?.source === 'kota') {
+                  ;(current.campos_comunes as Record<string, unknown>)[fieldKey] = { valor: patch.value, source: 'kota' }
+                  current.ultima_actualizacion = new Date().toISOString()
+                  current.actualizado_por = 'kota'
+                  await admin.from('projects').update({ kota_data: current }).eq('id', projectId)
+                }
+              }
+            })
+        }
+      } catch (patchErr) {
+        console.error('[KOTA] Error patching kota_data after extraction:', patchErr)
+      }
+    }
 
     return NextResponse.json({
       extraction,
@@ -273,7 +369,7 @@ export async function PATCH(req: NextRequest) {
     .single()
 
   if (membership?.role !== 'owner') {
-    return NextResponse.json({ error: 'Solo el Owner puede gestionar extracciones' }, { status: 403 })
+    return NextResponse.json({ error: 'Solo el Owner puede gestionar extracciones de Kota' }, { status: 403 })
   }
 
   const { id, status, corrected_extraction, correction_notes } = await req.json()
