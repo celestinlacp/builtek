@@ -316,9 +316,6 @@ function Hero() {
             <div className="w-3 h-3 rounded-full bg-red-400/60" />
             <div className="w-3 h-3 rounded-full bg-yellow-400/60" />
             <div className="w-3 h-3 rounded-full bg-green-400/60" />
-            <div className="flex-1 flex items-center justify-center">
-              <div className="bg-white/5 rounded-md px-4 py-0.5 text-[11px] text-white/30 font-mono">builtek.app/dashboard</div>
-            </div>
           </div>
 
           {/* eslint-disable-next-line @next/next/no-img-element */}
