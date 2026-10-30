@@ -178,6 +178,9 @@ export default function AiAgentPanel({
   const [corrNote,       setCorrNote]       = useState('')
   const [saving,         setSaving]         = useState(false)
 
+  // Hints para Kota
+  const [userHint,       setUserHint]       = useState('')
+
   // Tab activo
   const [activeTab,      setActiveTab]      = useState<'extraction' | 'datos' | 'query'>('extraction')
 
@@ -299,9 +302,10 @@ export default function AiAgentPanel({
 
       if (useManual && manualFile) {
         fd.append('file', manualFile)
-        if (selectedProject) {
-          fd.append('docHints', JSON.stringify({ proyecto_name: selectedProject.name }))
-        }
+        const manualHints: Record<string, string> = {}
+        if (selectedProject)   manualHints.proyecto_name = selectedProject.name
+        if (userHint.trim())   manualHints.user_hint     = userHint.trim()
+        fd.append('docHints', JSON.stringify(manualHints))
       } else {
         fd.append('documentId', docId)
         const hints: Record<string, string> = {}
@@ -310,6 +314,7 @@ export default function AiAgentPanel({
         if (selectedDoc?.doc_type) hints.tipo_plano       = selectedDoc.doc_type
         if (selectedDoc?.mic_version) hints.version       = selectedDoc.mic_version
         if ((selectedDoc?.specialty as any)?.name) hints.especialidad = (selectedDoc?.specialty as any).name
+        if (userHint.trim())       hints.user_hint        = userHint.trim()
         fd.append('docHints', JSON.stringify(hints))
       }
 
@@ -922,6 +927,20 @@ export default function AiAgentPanel({
               {error}
             </div>
           )}
+
+          {/* Instrucciones para Kota */}
+          <div>
+            <label className="block text-xs font-medium text-slate-500 mb-1">
+              Instrucciones para Kota <span className="text-slate-400 font-normal">(opcional)</span>
+            </label>
+            <textarea
+              value={userHint}
+              onChange={e => setUserHint(e.target.value)}
+              placeholder="Ej: Este plano tiene 3 tipos de muro MC-01, MC-02, MC-03. Extraer cantidades por separado para cada uno."
+              rows={3}
+              className="w-full text-xs rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-400 resize-none"
+            />
+          </div>
 
           {/* Botón analizar */}
           <button
