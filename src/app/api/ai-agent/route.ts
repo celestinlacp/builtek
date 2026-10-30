@@ -42,7 +42,14 @@ Responde ÚNICAMENTE con un JSON válido con la siguiente estructura, sin texto 
   "confianza": "alta | media | baja"
 }
 
-Si el documento no es un plano técnico de construcción, indica en el campo "notas" el motivo y devuelve una estructura vacía de especialidades.`
+Si el documento no es un plano técnico de construcción, indica en el campo "notas" el motivo y devuelve una estructura vacía de especialidades.
+
+REGLAS DE EXTRACCIÓN — OBLIGATORIAS:
+1. NUNCA agregues cantidades de elementos distintos. Si el plano muestra MC-01, MC-02 y MC-03 como tipos separados, extrae cada uno como elemento independiente. Los totales generales solo se incluyen si el plano los indica explícitamente como totales del proyecto.
+2. Detecta SIEMPRE los identificadores de estructura del plano (MC-01, MC-02, PF-01, ODT-01, PSF-03, etc.) y úsalos como prefijo o sufijo del nombre del elemento en el campo "tipo".
+3. Si el plano tiene múltiples módulos o tipos del mismo elemento, crea una fila por cada tipo, no una fila agregada.
+4. Cuando el usuario proporcione instrucciones específicas, síguelas con prioridad máxima sobre estas reglas generales.
+5. Para cantidades desconocidas o ilegibles usa null, no 0 ni un guion.`
 
 function getAdminClient() {
   return createAdmin(
@@ -63,7 +70,7 @@ export async function GET(req: NextRequest) {
 
   let query = supabase
     .from('extractions')
-    .select('id, document_id, doc_hints, raw_extraction, status, confidence, created_at')
+    .select('id, document_id, doc_hints, raw_extraction, corrected_extraction, correction_notes, corrected_by, corrected_at, status, confidence, created_at')
     .eq('project_id', projectId)
     .order('created_at', { ascending: false })
 
@@ -232,11 +239,15 @@ export async function POST(req: NextRequest) {
     tipoPlanHint               && `Contexto específico del tipo de plano: ${tipoPlanHint}`,
   ].filter(Boolean).join('\n\n')
 
-  const userText = [
+  let userText = [
     contextLines,
     `Analiza este plano técnico y extrae todos los metrados. Archivo: ${fileName}`,
     fewShotText,
   ].filter(Boolean).join('\n\n')
+
+  if (docHints?.user_hint) {
+    userText += `\n\nINSTRUCCIONES ESPECÍFICAS DEL USUARIO PARA ESTE PLANO:\n${docHints.user_hint}`
+  }
 
   // ── Llamar a Claude ──────────────────────────────────────────────────────────
   try {
@@ -364,7 +375,7 @@ export async function PATCH(req: NextRequest) {
 
   const { data: membership } = await supabase
     .from('workspace_members')
-    .select('role')
+    .select('role, workspace_id')
     .eq('user_id', user.id)
     .single()
 
@@ -384,7 +395,13 @@ export async function PATCH(req: NextRequest) {
   if (correction_notes)                   updateData.correction_notes     = correction_notes
 
   const admin = getAdminClient()
-  const { error } = await admin.from('extractions').update(updateData).eq('id', id)
+  const { data: updated, error } = await admin
+    .from('extractions')
+    .update(updateData)
+    .eq('id', id)
+    .eq('workspace_id', membership.workspace_id)
+    .select('id, document_id, doc_hints, raw_extraction, corrected_extraction, correction_notes, corrected_by, corrected_at, status, confidence, created_at')
+    .single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ ok: true })
+  return NextResponse.json({ ok: true, extraction: updated })
 }

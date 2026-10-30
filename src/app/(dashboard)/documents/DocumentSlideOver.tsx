@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import {
   X, Send, Trash2, Download, GitBranch, User,
   Calendar, Weight, Tag, FileText, MessageSquare, Loader2, History, CheckCircle2, XCircle, Clock, Eye,
-  Share2, Pencil, Check, Upload, Edit2, Zap, Sparkles, ChevronDown, ChevronRight,
+  Share2, Pencil, Check, Upload, Edit2, Zap, Sparkles, ChevronDown, ChevronRight, Plus, Save,
 } from 'lucide-react'
 import { addDocumentComment, deleteDocumentComment, getDocumentVersions, createDocumentShare, renameDocument, updateDocumentMeta, deleteArchivedVersion } from './actions'
 
@@ -64,11 +64,22 @@ type VersionRow = {
 
 type Elemento = { tipo: string; cantidad: number | null; unidad: string; descripcion?: string }
 type Especialidad = { nombre: string; elementos: Elemento[] }
+type ExtractionData = {
+  titulo: string
+  especialidades: Especialidad[]
+  notas: string
+  confianza: 'alta' | 'media' | 'baja'
+}
+
 type SavedExtraction = {
   id: string
   document_id: string | null
   doc_hints: Record<string, string>
-  raw_extraction: { titulo: string; especialidades: Especialidad[]; notas: string; confianza: 'alta' | 'media' | 'baja' }
+  raw_extraction: ExtractionData
+  corrected_extraction: ExtractionData | null
+  correction_notes: string | null
+  corrected_by: string | null
+  corrected_at: string | null
   status: 'raw' | 'reviewed' | 'approved'
   confidence: string | null
   created_at: string
@@ -78,6 +89,12 @@ const CONFIANZA_CONFIG = {
   alta:  { label: 'Alta',  color: 'bg-green-100 text-green-700' },
   media: { label: 'Media', color: 'bg-amber-100 text-amber-700' },
   baja:  { label: 'Baja',  color: 'bg-red-100 text-red-600'    },
+}
+
+const STATUS_CONFIG = {
+  raw:      { label: 'Sin revisar', color: 'bg-slate-100 text-slate-500' },
+  reviewed: { label: 'Revisada',    color: 'bg-blue-100 text-blue-600'   },
+  approved: { label: 'Aprobada',    color: 'bg-green-100 text-green-700' },
 }
 
 function formatSize(bytes: number | null) {
@@ -140,6 +157,15 @@ export default function DocumentSlideOver({
   const [kotaSavingToDatos,     setKotaSavingToDatos]     = useState(false)
   const [kotaSavedToDatos,      setKotaSavedToDatos]      = useState(false)
   const [kotaOpenSections,      setKotaOpenSections]      = useState<Record<number, boolean>>({})
+  // Kota hints
+  const [kotaUserHint,          setKotaUserHint]          = useState('')
+  // Kota inline editing
+  const [kotaEditing,           setKotaEditing]           = useState(false)
+  const [kotaEditData,          setKotaEditData]          = useState<ExtractionData | null>(null)
+  const [kotaCorrNote,          setKotaCorrNote]          = useState('')
+  const [kotaSaving,            setKotaSaving]            = useState(false)
+  const [kotaSaveError,         setKotaSaveError]         = useState<string | null>(null)
+  const [kotaShowOriginal,      setKotaShowOriginal]      = useState(false)
   // PDF preview
   const [pdfZoom,       setPdfZoom]       = useState(1)
   const [metaError,     setMetaError]     = useState<string | null>(null)
@@ -266,6 +292,7 @@ export default function DocumentSlideOver({
       if (doc.doc_type)        hints.tipo_plano   = doc.doc_type
       if (doc.mic_version)     hints.version      = doc.mic_version
       if (doc.specialty?.name) hints.especialidad = doc.specialty.name
+      if (kotaUserHint.trim()) hints.user_hint    = kotaUserHint.trim()
       fd.append('docHints', JSON.stringify(hints))
       const res  = await fetch('/api/ai-agent', { method: 'POST', body: fd })
       const data = await res.json()
@@ -277,6 +304,66 @@ export default function DocumentSlideOver({
     } finally {
       setKotaAnalyzing(false)
     }
+  }
+
+  // Save corrected extraction
+  async function saveKotaCorrection() {
+    if (!kotaExtraction || !kotaEditData) return
+    setKotaSaving(true)
+    setKotaSaveError(null)
+    try {
+      const res = await fetch('/api/ai-agent', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: kotaExtraction.id,
+          status: 'reviewed',
+          corrected_extraction: kotaEditData,
+          correction_notes: kotaCorrNote || null,
+        }),
+      })
+      if (!res.ok) throw new Error('Error al guardar')
+      const updated = await res.json()
+      setKotaExtraction(prev => prev ? { ...prev, ...updated.extraction, status: 'reviewed' } : prev)
+      setKotaEditing(false)
+    } catch (e: any) {
+      setKotaSaveError(e.message)
+    } finally {
+      setKotaSaving(false)
+    }
+  }
+
+  // Helper functions for editing elements
+  function updateElement(espIdx: number, elemIdx: number, field: string, value: any) {
+    if (!kotaEditData) return
+    const esp = [...kotaEditData.especialidades]
+    esp[espIdx] = {
+      ...esp[espIdx],
+      elementos: esp[espIdx].elementos.map((el, i) =>
+        i === elemIdx ? { ...el, [field]: value } : el
+      )
+    }
+    setKotaEditData({ ...kotaEditData, especialidades: esp })
+  }
+
+  function addElement(espIdx: number) {
+    if (!kotaEditData) return
+    const esp = [...kotaEditData.especialidades]
+    esp[espIdx] = {
+      ...esp[espIdx],
+      elementos: [...esp[espIdx].elementos, { tipo: '', cantidad: null, unidad: '' }]
+    }
+    setKotaEditData({ ...kotaEditData, especialidades: esp })
+  }
+
+  function removeElement(espIdx: number, elemIdx: number) {
+    if (!kotaEditData) return
+    const esp = [...kotaEditData.especialidades]
+    esp[espIdx] = {
+      ...esp[espIdx],
+      elementos: esp[espIdx].elementos.filter((_, i) => i !== elemIdx)
+    }
+    setKotaEditData({ ...kotaEditData, especialidades: esp })
   }
 
   // Save inferrable fields from extraction to kota_data
@@ -1115,114 +1202,322 @@ export default function DocumentSlideOver({
                 </div>
               ) : kotaExtraction ? (
                 <>
+                  {/* Hints usados — bloque colapsable */}
+                  {kotaExtraction.doc_hints?.user_hint && (
+                    <details className="mb-3 text-xs">
+                      <summary className="cursor-pointer text-slate-500 font-medium">Instrucciones usadas</summary>
+                      <p className="mt-1 text-slate-600 bg-amber-50 rounded p-2 border border-amber-100">
+                        {kotaExtraction.doc_hints.user_hint}
+                      </p>
+                    </details>
+                  )}
+
                   {/* Extraction header */}
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm font-semibold text-[#1A2744] truncate">
-                      {kotaExtraction.raw_extraction.titulo || 'Plano analizado'}
-                    </span>
-                    {kotaExtraction.raw_extraction.confianza && CONFIANZA_CONFIG[kotaExtraction.raw_extraction.confianza] && (
-                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${CONFIANZA_CONFIG[kotaExtraction.raw_extraction.confianza].color}`}>
-                        Confianza {CONFIANZA_CONFIG[kotaExtraction.raw_extraction.confianza].label}
+                  <div className="flex items-start justify-between mb-2">
+                    <div>
+                      <p className="font-semibold text-slate-800 text-sm leading-tight">
+                        {(kotaExtraction.corrected_extraction ?? kotaExtraction.raw_extraction).titulo || 'Plano analizado'}
+                      </p>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        {new Date(kotaExtraction.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      </p>
+                      {kotaExtraction.corrected_at && (
+                        <p className="text-xs text-slate-400">
+                          Corregida el {new Date(kotaExtraction.corrected_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${STATUS_CONFIG[kotaExtraction.status]?.color ?? 'bg-slate-100 text-slate-500'}`}>
+                        {STATUS_CONFIG[kotaExtraction.status]?.label ?? kotaExtraction.status}
                       </span>
-                    )}
-                    <span className="text-[10px] text-slate-400 ml-auto">
-                      {new Date(kotaExtraction.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}
-                    </span>
+                      {kotaExtraction.status !== 'approved' && !kotaEditing && (
+                        <button
+                          onClick={() => {
+                            const base = kotaExtraction.corrected_extraction ?? kotaExtraction.raw_extraction
+                            setKotaEditData(JSON.parse(JSON.stringify(base)))
+                            setKotaCorrNote('')
+                            setKotaEditing(true)
+                          }}
+                          className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-700"
+                          title="Corregir extracción"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
                   </div>
 
-                  {/* Especialidades colapsables */}
-                  <div className="border border-slate-100 rounded-xl overflow-hidden divide-y divide-slate-50">
-                    {kotaExtraction.raw_extraction.especialidades?.map((esp, i) => (
-                      <div key={i}>
-                        <button
-                          onClick={() => setKotaOpenSections(prev => ({ ...prev, [i]: !prev[i] }))}
-                          className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-slate-50 transition-colors text-left"
-                        >
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-semibold text-[#1A2744]">{esp.nombre}</span>
-                            <span className="text-[10px] text-slate-400">{esp.elementos.length} elem.</span>
-                          </div>
-                          {kotaOpenSections[i]
-                            ? <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
-                            : <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
-                          }
-                        </button>
-                        {kotaOpenSections[i] && (
-                          <div className="px-4 pb-3 bg-slate-50/30">
+                  {/* Toggle ver original/corregida */}
+                  {kotaExtraction.corrected_extraction && !kotaEditing && (
+                    <div className="flex gap-2 mb-3 text-xs">
+                      <button
+                        onClick={() => setKotaShowOriginal(false)}
+                        className={`px-2 py-0.5 rounded ${!kotaShowOriginal ? 'bg-cyan-100 text-cyan-700 font-medium' : 'text-slate-500 hover:text-slate-700'}`}
+                      >
+                        Ver corregida
+                      </button>
+                      <button
+                        onClick={() => setKotaShowOriginal(true)}
+                        className={`px-2 py-0.5 rounded ${kotaShowOriginal ? 'bg-slate-100 text-slate-700 font-medium' : 'text-slate-500 hover:text-slate-700'}`}
+                      >
+                        Ver original
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Determinar qué datos mostrar */}
+                  {(() => {
+                    const activeData = kotaEditing
+                      ? kotaEditData
+                      : kotaShowOriginal
+                        ? kotaExtraction.raw_extraction
+                        : (kotaExtraction.corrected_extraction ?? kotaExtraction.raw_extraction)
+
+                    if (!activeData) return null
+
+                    return kotaEditing && kotaEditData ? (
+                      /* ── Modo edición ── */
+                      <div className="space-y-4">
+                        {kotaEditData.especialidades.map((esp, espIdx) => (
+                          <div key={espIdx}>
+                            <p className="text-xs font-semibold text-slate-600 mb-1">{esp.nombre}</p>
                             <table className="w-full text-xs">
                               <thead>
-                                <tr className="text-[10px] text-slate-400 border-b border-slate-100">
-                                  <th className="text-left py-1.5 font-semibold w-[45%]">Elemento</th>
-                                  <th className="text-right py-1.5 font-semibold w-[20%]">Cant.</th>
-                                  <th className="text-left py-1.5 pl-2 font-semibold">Unidad</th>
+                                <tr className="text-slate-400 text-left">
+                                  <th className="pb-1 font-normal w-1/2">Elemento</th>
+                                  <th className="pb-1 font-normal w-1/6 text-right">Cant.</th>
+                                  <th className="pb-1 font-normal w-1/6 text-right">Unidad</th>
+                                  <th className="pb-1 w-8"></th>
                                 </tr>
                               </thead>
-                              <tbody className="divide-y divide-slate-50">
-                                {esp.elementos.map((el, j) => (
-                                  <tr key={j}>
-                                    <td className="py-1.5 font-medium text-slate-700">{el.tipo}</td>
-                                    <td className="py-1.5 text-right tabular-nums text-[#1A2744] font-semibold">
-                                      {el.cantidad !== null && el.cantidad !== undefined ? el.cantidad.toLocaleString('es-MX') : '—'}
+                              <tbody>
+                                {esp.elementos.map((el, elemIdx) => (
+                                  <tr key={elemIdx} className="border-t border-slate-100">
+                                    <td className="py-1 pr-2">
+                                      <input
+                                        type="text"
+                                        value={el.tipo}
+                                        onChange={e => updateElement(espIdx, elemIdx, 'tipo', e.target.value)}
+                                        className="w-full text-xs bg-transparent border-b border-slate-200 focus:border-cyan-400 focus:outline-none py-0.5"
+                                      />
                                     </td>
-                                    <td className="py-1.5 pl-2 text-slate-400">{el.unidad}</td>
+                                    <td className="py-1 pr-2 text-right">
+                                      <input
+                                        type="number"
+                                        value={el.cantidad ?? ''}
+                                        onChange={e => updateElement(espIdx, elemIdx, 'cantidad', e.target.value === '' ? null : Number(e.target.value))}
+                                        className="w-full text-xs bg-transparent border-b border-slate-200 focus:border-cyan-400 focus:outline-none py-0.5 text-right"
+                                      />
+                                    </td>
+                                    <td className="py-1 pr-1 text-right">
+                                      <input
+                                        type="text"
+                                        value={el.unidad}
+                                        onChange={e => updateElement(espIdx, elemIdx, 'unidad', e.target.value)}
+                                        className="w-full text-xs bg-transparent border-b border-slate-200 focus:border-cyan-400 focus:outline-none py-0.5 text-right"
+                                      />
+                                    </td>
+                                    <td className="py-1 text-right">
+                                      <button onClick={() => removeElement(espIdx, elemIdx)} className="text-slate-300 hover:text-red-400">
+                                        <X className="w-3 h-3" />
+                                      </button>
+                                    </td>
                                   </tr>
                                 ))}
                               </tbody>
                             </table>
+                            <button
+                              onClick={() => addElement(espIdx)}
+                              className="mt-1 text-xs text-cyan-600 hover:text-cyan-700 flex items-center gap-1"
+                            >
+                              <Plus className="w-3 h-3" /> Agregar fila
+                            </button>
                           </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
+                        ))}
 
-                  {kotaExtraction.raw_extraction.notas && (
-                    <p className="text-xs text-slate-500 bg-slate-50 rounded-xl px-3 py-2">
-                      <span className="font-semibold">Notas:</span> {kotaExtraction.raw_extraction.notas}
-                    </p>
-                  )}
+                        <div className="mt-3">
+                          <label className="block text-xs font-medium text-slate-500 mb-1">
+                            Nota de corrección <span className="text-slate-400 font-normal">(opcional)</span>
+                          </label>
+                          <textarea
+                            value={kotaCorrNote}
+                            onChange={e => setKotaCorrNote(e.target.value)}
+                            rows={2}
+                            className="w-full text-xs rounded border border-slate-200 bg-slate-50 px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-cyan-400 resize-none"
+                            placeholder="Ej: Se separaron los muros MC-01, MC-02 y MC-03 que Kota había agregado"
+                          />
+                        </div>
+
+                        {kotaSaveError && (
+                          <p className="text-xs text-red-500">{kotaSaveError}</p>
+                        )}
+
+                        <div className="flex gap-2 mt-2">
+                          <button
+                            onClick={saveKotaCorrection}
+                            disabled={kotaSaving}
+                            className="flex-1 bg-[#1A2744] text-white text-xs rounded-lg py-2 font-medium hover:bg-[#12203A] disabled:opacity-50 flex items-center justify-center gap-1"
+                          >
+                            {kotaSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
+                            Guardar corrección
+                          </button>
+                          <button
+                            onClick={() => { setKotaEditing(false); setKotaSaveError(null) }}
+                            disabled={kotaSaving}
+                            className="px-3 text-xs text-slate-500 hover:text-slate-700 border border-slate-200 rounded-lg"
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      /* ── Modo lectura ── */
+                      <>
+                        {/* Confianza badge */}
+                        {activeData.confianza && CONFIANZA_CONFIG[activeData.confianza] && (
+                          <span className={`inline-block text-[10px] px-2 py-0.5 rounded-full font-semibold mb-2 ${CONFIANZA_CONFIG[activeData.confianza].color}`}>
+                            Confianza {CONFIANZA_CONFIG[activeData.confianza].label}
+                          </span>
+                        )}
+
+                        {/* Especialidades colapsables */}
+                        <div className="border border-slate-100 rounded-xl overflow-hidden divide-y divide-slate-50">
+                          {activeData.especialidades?.map((esp, i) => (
+                            <div key={i}>
+                              <button
+                                onClick={() => setKotaOpenSections(prev => ({ ...prev, [i]: !prev[i] }))}
+                                className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-slate-50 transition-colors text-left"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs font-semibold text-[#1A2744]">{esp.nombre}</span>
+                                  <span className="text-[10px] text-slate-400">{esp.elementos.length} elem.</span>
+                                </div>
+                                {kotaOpenSections[i]
+                                  ? <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                                  : <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+                                }
+                              </button>
+                              {kotaOpenSections[i] && (
+                                <div className="px-4 pb-3 bg-slate-50/30">
+                                  <table className="w-full text-xs">
+                                    <thead>
+                                      <tr className="text-[10px] text-slate-400 border-b border-slate-100">
+                                        <th className="text-left py-1.5 font-semibold w-[45%]">Elemento</th>
+                                        <th className="text-right py-1.5 font-semibold w-[20%]">Cant.</th>
+                                        <th className="text-left py-1.5 pl-2 font-semibold">Unidad</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-50">
+                                      {esp.elementos.map((el, j) => (
+                                        <tr key={j}>
+                                          <td className="py-1.5 font-medium text-slate-700">{el.tipo}</td>
+                                          <td className="py-1.5 text-right tabular-nums text-[#1A2744] font-semibold">
+                                            {el.cantidad !== null && el.cantidad !== undefined ? el.cantidad.toLocaleString('es-MX') : '—'}
+                                          </td>
+                                          <td className="py-1.5 pl-2 text-slate-400">{el.unidad}</td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+
+                        {activeData.notas && (
+                          <p className="text-xs text-slate-500 bg-slate-50 rounded-xl px-3 py-2">
+                            <span className="font-semibold">Notas:</span> {activeData.notas}
+                          </p>
+                        )}
+                      </>
+                    )
+                  })()}
 
                   {/* Guardar en Datos Técnicos */}
-                  {kotaSavedToDatos ? (
-                    <div className="flex items-center gap-2 text-xs text-green-600 bg-green-50 rounded-xl px-3 py-2.5 border border-green-100">
-                      <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" />
-                      Campos guardados en Datos Técnicos
+                  {!kotaEditing && (
+                    kotaSavedToDatos ? (
+                      <div className="flex items-center gap-2 text-xs text-green-600 bg-green-50 rounded-xl px-3 py-2.5 border border-green-100">
+                        <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" />
+                        Campos guardados en Datos Técnicos
+                      </div>
+                    ) : (
+                      <button
+                        onClick={saveKotaExtractionToDatos}
+                        disabled={kotaSavingToDatos}
+                        className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-[#1A2744] text-white text-xs font-bold hover:bg-[#243660] transition-colors disabled:opacity-50"
+                      >
+                        {kotaSavingToDatos
+                          ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />Guardando...</>
+                          : <><Sparkles className="w-3.5 h-3.5" />Guardar en Datos Técnicos</>
+                        }
+                      </button>
+                    )
+                  )}
+
+                  {/* Re-analizar con nuevas instrucciones */}
+                  {!kotaEditing && (
+                    <div className="mt-4 pt-4 border-t border-slate-100">
+                      <p className="text-xs font-medium text-slate-500 mb-1">Re-analizar con nuevas instrucciones</p>
+                      <textarea
+                        value={kotaUserHint}
+                        onChange={e => setKotaUserHint(e.target.value)}
+                        placeholder="Ej: Este plano tiene 3 tipos de muro MC-01, MC-02, MC-03. Extraer cantidades por separado para cada uno."
+                        rows={3}
+                        className="w-full text-xs rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-400 resize-none"
+                      />
+                      <button
+                        onClick={analyzeWithKotaTab}
+                        disabled={kotaAnalyzing}
+                        className="mt-2 text-xs text-slate-500 hover:text-cyan-600 underline disabled:opacity-50"
+                      >
+                        {kotaAnalyzing ? 'Analizando...' : 'Re-analizar con Kota'}
+                      </button>
                     </div>
-                  ) : (
-                    <button
-                      onClick={saveKotaExtractionToDatos}
-                      disabled={kotaSavingToDatos}
-                      className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-[#1A2744] text-white text-xs font-bold hover:bg-[#243660] transition-colors disabled:opacity-50"
-                    >
-                      {kotaSavingToDatos
-                        ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />Guardando...</>
-                        : <><Sparkles className="w-3.5 h-3.5" />Guardar en Datos Técnicos</>
-                      }
-                    </button>
                   )}
                 </>
               ) : (
                 /* No extraction yet */
-                <div className="text-center py-8">
-                  <div className="w-12 h-12 bg-[#00C2FF]/10 rounded-2xl flex items-center justify-center mx-auto mb-3">
-                    <Sparkles className="w-6 h-6 text-[#00C2FF]" />
+                <div className="py-4">
+                  <div className="text-center mb-4">
+                    <div className="w-12 h-12 bg-[#00C2FF]/10 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                      <Sparkles className="w-6 h-6 text-[#00C2FF]" />
+                    </div>
+                    <p className="text-sm font-semibold text-[#1A2744] mb-1">Sin extracción para este documento</p>
+                    <p className="text-xs text-slate-400 mb-4 leading-relaxed">
+                      Kota puede leer este plano y extraer los metrados automáticamente.
+                    </p>
                   </div>
-                  <p className="text-sm font-semibold text-[#1A2744] mb-1">Sin extracción para este documento</p>
-                  <p className="text-xs text-slate-400 mb-4 leading-relaxed">
-                    Kota puede leer este plano y extraer los metrados automáticamente.
-                  </p>
-                  <button
-                    onClick={analyzeWithKotaTab}
-                    disabled={kotaAnalyzing}
-                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#1A2744] to-[#243660] text-white text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
-                  >
-                    {kotaAnalyzing
-                      ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />Analizando...</>
-                      : <><Sparkles className="w-3.5 h-3.5" />Analizar con Kota</>
-                    }
-                  </button>
-                  {kotaExtractionError && (
-                    <p className="text-[11px] text-red-500 mt-2">{kotaExtractionError}</p>
-                  )}
+
+                  <div className="mb-3">
+                    <label className="block text-xs font-medium text-slate-500 mb-1">
+                      Instrucciones para Kota <span className="text-slate-400 font-normal">(opcional)</span>
+                    </label>
+                    <textarea
+                      value={kotaUserHint}
+                      onChange={e => setKotaUserHint(e.target.value)}
+                      placeholder="Ej: Este plano tiene 3 tipos de muro MC-01, MC-02, MC-03. Extraer cantidades por separado para cada uno."
+                      rows={3}
+                      className="w-full text-xs rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-400 resize-none"
+                    />
+                  </div>
+
+                  <div className="text-center">
+                    <button
+                      onClick={analyzeWithKotaTab}
+                      disabled={kotaAnalyzing}
+                      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#1A2744] to-[#243660] text-white text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
+                    >
+                      {kotaAnalyzing
+                        ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />Analizando...</>
+                        : <><Sparkles className="w-3.5 h-3.5" />Analizar con Kota</>
+                      }
+                    </button>
+                    {kotaExtractionError && (
+                      <p className="text-[11px] text-red-500 mt-2">{kotaExtractionError}</p>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
