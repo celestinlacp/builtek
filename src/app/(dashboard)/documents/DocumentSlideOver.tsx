@@ -37,6 +37,7 @@ type Doc = {
   approved_at?: string | null
   review_requested_at?: string | null
   rejection_note?: string | null
+  uploader?: { full_name: string | null; initials: string | null } | null
 }
 
 type Comment = {
@@ -815,6 +816,9 @@ export default function DocumentSlideOver({
                     : '—'} />
                 <MetaRow icon={Calendar} label="Subido el"
                   value={new Date(doc.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })} />
+                {doc.uploader?.full_name && (
+                  <MetaRow icon={User} label="Subido por" value={doc.uploader.full_name} />
+                )}
                 <MetaRow icon={Weight}   label="Tamaño"        value={formatSize(doc.file_size)} />
                 <MetaRow icon={Tag}      label="Disciplina"
                   value={doc.specialty
