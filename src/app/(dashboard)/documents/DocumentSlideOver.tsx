@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import {
   X, Send, Trash2, Download, GitBranch, User,
   Calendar, Weight, Tag, FileText, MessageSquare, Loader2, History, CheckCircle2, XCircle, Clock, Eye,
-  Share2, Pencil, Check, Upload, Edit2, Zap,
+  Share2, Pencil, Check, Upload, Edit2, Zap, Sparkles, ChevronDown, ChevronRight,
 } from 'lucide-react'
 import { addDocumentComment, deleteDocumentComment, getDocumentVersions, createDocumentShare, renameDocument, updateDocumentMeta, deleteArchivedVersion } from './actions'
 
@@ -62,6 +62,24 @@ type VersionRow = {
   uploader?: { full_name: string | null; initials: string | null } | null
 }
 
+type Elemento = { tipo: string; cantidad: number | null; unidad: string; descripcion?: string }
+type Especialidad = { nombre: string; elementos: Elemento[] }
+type SavedExtraction = {
+  id: string
+  document_id: string | null
+  doc_hints: Record<string, string>
+  raw_extraction: { titulo: string; especialidades: Especialidad[]; notas: string; confianza: 'alta' | 'media' | 'baja' }
+  status: 'raw' | 'reviewed' | 'approved'
+  confidence: string | null
+  created_at: string
+}
+
+const CONFIANZA_CONFIG = {
+  alta:  { label: 'Alta',  color: 'bg-green-100 text-green-700' },
+  media: { label: 'Media', color: 'bg-amber-100 text-amber-700' },
+  baja:  { label: 'Baja',  color: 'bg-red-100 text-red-600'    },
+}
+
 function formatSize(bytes: number | null) {
   if (!bytes) return '—'
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`
@@ -88,7 +106,7 @@ export default function DocumentSlideOver({
   onClose: () => void
   onUploadNew?: () => void
 }) {
-  const [tab,                  setTab]                  = useState<'info' | 'versions' | 'comments'>('info')
+  const [tab,                  setTab]                  = useState<'info' | 'versions' | 'comments' | 'kota'>('info')
   const [comments,             setComments]             = useState<Comment[]>([])
   const [versions,             setVersions]             = useState<VersionRow[]>([])
   const [approverName,         setApproverName]         = useState<string | null>(null)
@@ -110,10 +128,18 @@ export default function DocumentSlideOver({
   // Edit metadata
   const [editingMeta,   setEditingMeta]   = useState(false)
   const [savingMeta,    setSavingMeta]    = useState(false)
-  // Cota extraction
-  const [cotaLoading,   setCotaLoading]   = useState(false)
-  const [cotaDone,      setCotaDone]      = useState(false)
-  const [cotaError,     setCotaError]     = useState<string | null>(null)
+  // Kota extraction (legacy button in info tab)
+  const [kotaLoading,   setKotaLoading]   = useState(false)
+  const [kotaDone,      setKotaDone]      = useState(false)
+  const [kotaError,     setKotaError]     = useState<string | null>(null)
+  // Kota tab state
+  const [kotaExtraction,        setKotaExtraction]        = useState<SavedExtraction | null>(null)
+  const [kotaExtractionLoading, setKotaExtractionLoading] = useState(false)
+  const [kotaExtractionError,   setKotaExtractionError]   = useState<string | null>(null)
+  const [kotaAnalyzing,         setKotaAnalyzing]         = useState(false)
+  const [kotaSavingToDatos,     setKotaSavingToDatos]     = useState(false)
+  const [kotaSavedToDatos,      setKotaSavedToDatos]      = useState(false)
+  const [kotaOpenSections,      setKotaOpenSections]      = useState<Record<number, boolean>>({})
   // PDF preview
   const [pdfZoom,       setPdfZoom]       = useState(1)
   const [metaError,     setMetaError]     = useState<string | null>(null)
@@ -206,13 +232,103 @@ export default function DocumentSlideOver({
   useEffect(() => {
     if (tab === 'comments') loadComments()
     if (tab === 'versions') loadVersions()
+    if (tab === 'kota') loadKotaExtraction()
   }, [tab])
 
-  async function analyzeWithCota() {
+  // Load kota extraction for this document
+  async function loadKotaExtraction() {
     if (!doc.project_id) return
-    setCotaLoading(true)
-    setCotaError(null)
-    setCotaDone(false)
+    setKotaExtractionLoading(true)
+    setKotaExtractionError(null)
+    try {
+      const res  = await fetch(`/api/ai-agent?projectId=${doc.project_id}&documentId=${doc.id}`)
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Error al cargar extracción')
+      setKotaExtraction(data.extraction ?? null)
+    } catch (err: unknown) {
+      setKotaExtractionError(err instanceof Error ? err.message : 'Error inesperado')
+    } finally {
+      setKotaExtractionLoading(false)
+    }
+  }
+
+  // Analyze with Kota from the Kota tab
+  async function analyzeWithKotaTab() {
+    if (!doc.project_id) return
+    setKotaAnalyzing(true)
+    setKotaExtractionError(null)
+    try {
+      const fd = new FormData()
+      fd.append('projectId', doc.project_id)
+      fd.append('documentId', doc.id)
+      const hints: Record<string, string> = {}
+      if (doc.doc_key)         hints.doc_key      = doc.doc_key
+      if (doc.doc_type)        hints.tipo_plano   = doc.doc_type
+      if (doc.mic_version)     hints.version      = doc.mic_version
+      if (doc.specialty?.name) hints.especialidad = doc.specialty.name
+      fd.append('docHints', JSON.stringify(hints))
+      const res  = await fetch('/api/ai-agent', { method: 'POST', body: fd })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Error al analizar')
+      // Reload extraction from DB
+      await loadKotaExtraction()
+    } catch (err: unknown) {
+      setKotaExtractionError(err instanceof Error ? err.message : 'Error inesperado')
+    } finally {
+      setKotaAnalyzing(false)
+    }
+  }
+
+  // Save inferrable fields from extraction to kota_data
+  async function saveKotaExtractionToDatos() {
+    if (!kotaExtraction || !doc.project_id) return
+    setKotaSavingToDatos(true)
+    try {
+      const ext = kotaExtraction.raw_extraction
+      const patches: Array<{ field_path: string[]; value: unknown }> = []
+
+      // Infer tipo_estructura from titulo
+      if (ext.titulo) {
+        patches.push({ field_path: ['campos_comunes', 'tipo_estructura'], value: ext.titulo })
+      }
+
+      for (const esp of (ext.especialidades ?? [])) {
+        for (const el of (esp.elementos ?? [])) {
+          const tipo = el.tipo?.toLowerCase() ?? ''
+          if ((tipo.includes('longitud') || tipo.includes('largo')) && el.cantidad !== null) {
+            patches.push({ field_path: ['campos_comunes', 'longitud_total_m'], value: el.cantidad })
+          }
+          if ((tipo.includes('altura') || tipo.includes('alto')) && el.cantidad !== null) {
+            patches.push({ field_path: ['campos_comunes', 'altura_maxima_m'], value: el.cantidad })
+          }
+        }
+      }
+
+      for (const patch of patches) {
+        await fetch('/api/ai-agent/brief', {
+          method:  'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({
+            projectId:  doc.project_id,
+            field_path: patch.field_path,
+            value:      patch.value,
+            source:     'kota',
+          }),
+        })
+      }
+
+      setKotaSavedToDatos(true)
+      setTimeout(() => setKotaSavedToDatos(false), 3000)
+    } catch { /* ignore */ } finally {
+      setKotaSavingToDatos(false)
+    }
+  }
+
+  async function analyzeWithKota() {
+    if (!doc.project_id) return
+    setKotaLoading(true)
+    setKotaError(null)
+    setKotaDone(false)
     try {
       const fd = new FormData()
       fd.append('projectId', doc.project_id)
@@ -226,11 +342,11 @@ export default function DocumentSlideOver({
       const res  = await fetch('/api/ai-agent', { method: 'POST', body: fd })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Error al analizar')
-      setCotaDone(true)
+      setKotaDone(true)
     } catch (err: unknown) {
-      setCotaError(err instanceof Error ? err.message : 'Error inesperado')
+      setKotaError(err instanceof Error ? err.message : 'Error inesperado')
     } finally {
-      setCotaLoading(false)
+      setKotaLoading(false)
     }
   }
 
@@ -462,7 +578,11 @@ export default function DocumentSlideOver({
             { key: 'info',     label: 'Información',  icon: FileText },
             { key: 'versions', label: 'Versiones',    icon: History },
             { key: 'comments', label: 'Comentarios',  icon: MessageSquare },
-          ] as const).map(t => (
+            ...(doc.project_id && userRole === 'owner'
+              ? [{ key: 'kota', label: 'Kota', icon: Sparkles }]
+              : []
+            ),
+          ] as { key: 'info' | 'versions' | 'comments' | 'kota'; label: string; icon: React.ElementType }[]).map(t => (
             <button key={t.key} onClick={() => setTab(t.key)}
               className={`flex-1 flex items-center justify-center gap-1.5 py-3 text-xs font-semibold border-b-2 transition-colors ${
                 tab === t.key
@@ -716,28 +836,28 @@ export default function DocumentSlideOver({
                 </a>
               )}
 
-              {/* ── Analizar con Cota — solo owner, solo PDF ── */}
+              {/* ── Analizar con Kota — solo owner, solo PDF ── */}
               {userRole === 'owner' && doc.file_type === 'pdf' && doc.project_id && (
                 <div className="mt-2">
-                  {cotaDone ? (
+                  {kotaDone ? (
                     <div className="flex items-center gap-2 text-xs text-green-600 bg-green-50 rounded-xl px-3 py-2.5 border border-green-100">
                       <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" />
                       Extracción enviada a Agente AI
                     </div>
                   ) : (
                     <button
-                      onClick={analyzeWithCota}
-                      disabled={cotaLoading}
+                      onClick={analyzeWithKota}
+                      disabled={kotaLoading}
                       className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-[#00C2FF]/10 text-[#007A9E] text-xs font-bold hover:bg-[#00C2FF]/20 transition-colors disabled:opacity-50 border border-[#00C2FF]/20"
                     >
-                      {cotaLoading
-                        ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />Analizando con Cota...</>
-                        : <><Zap className="w-3.5 h-3.5" />Analizar con Cota</>
+                      {kotaLoading
+                        ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />Analizando con Kota...</>
+                        : <><Zap className="w-3.5 h-3.5" />Analizar con Kota</>
                       }
                     </button>
                   )}
-                  {cotaError && (
-                    <p className="text-[11px] text-red-500 mt-1.5 text-center">{cotaError}</p>
+                  {kotaError && (
+                    <p className="text-[11px] text-red-500 mt-1.5 text-center">{kotaError}</p>
                   )}
                 </div>
               )}
@@ -977,6 +1097,137 @@ export default function DocumentSlideOver({
               </div>
             </div>
           )}
+          {/* ── Tab: Kota ── */}
+          {tab === 'kota' && (
+            <div className="px-5 py-4 space-y-4">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-[#00C2FF]" />
+                <h3 className="text-sm font-bold text-[#1A2744]">Extracción Kota</h3>
+              </div>
+
+              {kotaExtractionLoading ? (
+                <div className="flex justify-center py-12">
+                  <Loader2 className="w-5 h-5 text-[#00C2FF] animate-spin" />
+                </div>
+              ) : kotaExtractionError ? (
+                <div className="text-xs text-red-500 bg-red-50 border border-red-100 rounded-xl px-4 py-3">
+                  {kotaExtractionError}
+                </div>
+              ) : kotaExtraction ? (
+                <>
+                  {/* Extraction header */}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-semibold text-[#1A2744] truncate">
+                      {kotaExtraction.raw_extraction.titulo || 'Plano analizado'}
+                    </span>
+                    {kotaExtraction.raw_extraction.confianza && CONFIANZA_CONFIG[kotaExtraction.raw_extraction.confianza] && (
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${CONFIANZA_CONFIG[kotaExtraction.raw_extraction.confianza].color}`}>
+                        Confianza {CONFIANZA_CONFIG[kotaExtraction.raw_extraction.confianza].label}
+                      </span>
+                    )}
+                    <span className="text-[10px] text-slate-400 ml-auto">
+                      {new Date(kotaExtraction.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    </span>
+                  </div>
+
+                  {/* Especialidades colapsables */}
+                  <div className="border border-slate-100 rounded-xl overflow-hidden divide-y divide-slate-50">
+                    {kotaExtraction.raw_extraction.especialidades?.map((esp, i) => (
+                      <div key={i}>
+                        <button
+                          onClick={() => setKotaOpenSections(prev => ({ ...prev, [i]: !prev[i] }))}
+                          className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-slate-50 transition-colors text-left"
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-semibold text-[#1A2744]">{esp.nombre}</span>
+                            <span className="text-[10px] text-slate-400">{esp.elementos.length} elem.</span>
+                          </div>
+                          {kotaOpenSections[i]
+                            ? <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                            : <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+                          }
+                        </button>
+                        {kotaOpenSections[i] && (
+                          <div className="px-4 pb-3 bg-slate-50/30">
+                            <table className="w-full text-xs">
+                              <thead>
+                                <tr className="text-[10px] text-slate-400 border-b border-slate-100">
+                                  <th className="text-left py-1.5 font-semibold w-[45%]">Elemento</th>
+                                  <th className="text-right py-1.5 font-semibold w-[20%]">Cant.</th>
+                                  <th className="text-left py-1.5 pl-2 font-semibold">Unidad</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-50">
+                                {esp.elementos.map((el, j) => (
+                                  <tr key={j}>
+                                    <td className="py-1.5 font-medium text-slate-700">{el.tipo}</td>
+                                    <td className="py-1.5 text-right tabular-nums text-[#1A2744] font-semibold">
+                                      {el.cantidad !== null && el.cantidad !== undefined ? el.cantidad.toLocaleString('es-MX') : '—'}
+                                    </td>
+                                    <td className="py-1.5 pl-2 text-slate-400">{el.unidad}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  {kotaExtraction.raw_extraction.notas && (
+                    <p className="text-xs text-slate-500 bg-slate-50 rounded-xl px-3 py-2">
+                      <span className="font-semibold">Notas:</span> {kotaExtraction.raw_extraction.notas}
+                    </p>
+                  )}
+
+                  {/* Guardar en Datos Técnicos */}
+                  {kotaSavedToDatos ? (
+                    <div className="flex items-center gap-2 text-xs text-green-600 bg-green-50 rounded-xl px-3 py-2.5 border border-green-100">
+                      <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" />
+                      Campos guardados en Datos Técnicos
+                    </div>
+                  ) : (
+                    <button
+                      onClick={saveKotaExtractionToDatos}
+                      disabled={kotaSavingToDatos}
+                      className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-[#1A2744] text-white text-xs font-bold hover:bg-[#243660] transition-colors disabled:opacity-50"
+                    >
+                      {kotaSavingToDatos
+                        ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />Guardando...</>
+                        : <><Sparkles className="w-3.5 h-3.5" />Guardar en Datos Técnicos</>
+                      }
+                    </button>
+                  )}
+                </>
+              ) : (
+                /* No extraction yet */
+                <div className="text-center py-8">
+                  <div className="w-12 h-12 bg-[#00C2FF]/10 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                    <Sparkles className="w-6 h-6 text-[#00C2FF]" />
+                  </div>
+                  <p className="text-sm font-semibold text-[#1A2744] mb-1">Sin extracción para este documento</p>
+                  <p className="text-xs text-slate-400 mb-4 leading-relaxed">
+                    Kota puede leer este plano y extraer los metrados automáticamente.
+                  </p>
+                  <button
+                    onClick={analyzeWithKotaTab}
+                    disabled={kotaAnalyzing}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#1A2744] to-[#243660] text-white text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
+                  >
+                    {kotaAnalyzing
+                      ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />Analizando...</>
+                      : <><Sparkles className="w-3.5 h-3.5" />Analizar con Kota</>
+                    }
+                  </button>
+                  {kotaExtractionError && (
+                    <p className="text-[11px] text-red-500 mt-2">{kotaExtractionError}</p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
         </div>
       </div>
     </div>

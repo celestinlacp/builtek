@@ -22,7 +22,7 @@ export default async function AiAgentPage() {
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-[#1A2744] flex items-center gap-2">
             <Bot className="w-6 h-6 text-[#00C2FF]" />
-            Cota
+            Kota
             <span className="text-[10px] bg-amber-400 text-amber-900 px-2 py-0.5 rounded-full font-bold ml-1">PRÓXIMAMENTE</span>
           </h1>
           <p className="text-slate-500 text-sm mt-0.5">
@@ -33,7 +33,7 @@ export default async function AiAgentPage() {
           <div className="w-20 h-20 bg-gradient-to-br from-[#1A2744] to-[#00C2FF]/20 rounded-2xl flex items-center justify-center mx-auto mb-6">
             <Sparkles className="w-10 h-10 text-[#00C2FF]" />
           </div>
-          <h2 className="text-xl font-bold text-[#1A2744] mb-2">Cota · Próximamente</h2>
+          <h2 className="text-xl font-bold text-[#1A2744] mb-2">Kota · Próximamente</h2>
           <p className="text-slate-400 text-sm max-w-md mx-auto leading-relaxed">
             Extracción de metrados, motor RAG de conocimiento técnico y análisis de inconsistencias.
             Disponible pronto para todos los usuarios.
@@ -75,7 +75,7 @@ export default async function AiAgentPage() {
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-[#1A2744] flex items-center gap-2">
           <Bot className="w-6 h-6 text-[#00C2FF]" />
-          Cota
+          Kota
           <span className="text-[10px] bg-[#00C2FF] text-[#1A2744] px-2 py-0.5 rounded-full font-bold ml-1">AI</span>
         </h1>
         <p className="text-slate-500 text-sm mt-0.5">
@@ -90,15 +90,15 @@ export default async function AiAgentPage() {
             <Sparkles className="w-6 h-6 text-[#00C2FF]" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-base font-bold text-white mb-1">¿Qué es Cota?</p>
+            <p className="text-base font-bold text-white mb-1">¿Qué es Kota?</p>
             <p className="text-sm text-white/70 leading-relaxed mb-4">
-              Cota lee los planos técnicos de tus proyectos y extrae automáticamente los metrados —
+              Kota lee los planos técnicos de tus proyectos y extrae automáticamente los metrados —
               cantidades, materiales y especificaciones — acumulando conocimiento que mejora con cada revisión.
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {[
                 { num: '01', title: 'Extracción', desc: 'Lee planos PDF y extrae metrados por especialidad automáticamente.' },
-                { num: '02', title: 'Aprende', desc: 'Cada corrección aprobada entrena a Cota para ser más preciso en tu proyecto.' },
+                { num: '02', title: 'Aprende', desc: 'Cada corrección aprobada entrena a Kota para ser más preciso en tu proyecto.' },
                 { num: '03', title: 'Consultar', desc: 'Pregunta en lenguaje natural sobre las cantidades acumuladas del proyecto.' },
               ].map(f => (
                 <div key={f.num} className="bg-white/10 rounded-xl px-4 py-3">
