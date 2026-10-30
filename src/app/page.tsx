@@ -321,31 +321,13 @@ function Hero() {
             </div>
           </div>
 
-          <div className="flex">
-            <div className="w-12 bg-[#0D1729]/60 border-r border-white/5 py-4 flex flex-col items-center gap-3">
-              {[LayoutDashboard, CheckSquare, FileText, HardDrive, Bot, Calendar].map((Icon, i) => (
-                <div key={i} className={`w-7 h-7 rounded-lg flex items-center justify-center ${i === 0 ? 'bg-[#00C2FF]/20 text-[#00C2FF]' : 'text-white/20'}`}>
-                  <Icon className="w-3.5 h-3.5" />
-                </div>
-              ))}
-            </div>
-
-            <div className="flex-1 bg-[#111d35]">
-              <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/5">
-                <p className="text-[11px] font-medium text-white/60">Dashboard — Constructora Arco Norte</p>
-                <div className="flex items-center gap-1.5">
-                  <div className="w-5 h-5 rounded-full bg-[#00C2FF]/20 flex items-center justify-center">
-                    <span className="text-[8px] text-[#00C2FF] font-semibold">LC</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-0 divide-x divide-white/5">
-                <MockDashboard />
-                <MockTaskBoard />
-              </div>
-            </div>
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/dashboard-real.png"
+            alt="Dashboard real de Builtek — proyectos activos, KPIs y avance del equipo"
+            className="w-full block"
+            style={{ maxHeight: '520px', objectFit: 'cover', objectPosition: 'top' }}
+          />
         </div>
 
         {/* Social proof */}
