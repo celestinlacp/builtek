@@ -1,0 +1,56 @@
+# Builtek
+
+## Descripción
+
+El OS de la construcción para AEC LATAM. Gestión de proyectos, control documental y AI en una sola plataforma web.
+
+## Problema que resuelve
+
+Las constructoras en México gestionan sus proyectos con Excel, WhatsApp y PDFs sueltos — sin trazabilidad, sin versiones, sin AI. Builtek centraliza todo en una sola herramienta diseñada para el contexto mexicano.
+
+## Diferenciadores
+
+- **Kota AI**: agente que lee planos PDF y extrae cuantificación estructural automáticamente. Único en el mercado local.
+- **WhatsApp integrado**: notificaciones y alertas directo al equipo de obra — sin correos que nadie lee.
+- **Precio en MXN con CFDI**: sin riesgo cambiario, factura electrónica incluida en todos los planes pagados.
+- **Módulo de Oficios**: control de correspondencia técnica con folio, estado y trazabilidad para obra civil.
+- **Soporte en español**: con el fundador, no con tickets en inglés.
+
+## Módulos
+
+- **Dashboard**: KPIs del proyecto en tiempo real.
+- **Tareas (TaskBoard)**: gestión por especialidad, PersonBoard, fechas y prioridades.
+- **Documentos**: control documental con versiones, disciplinas y flujo de aprobación.
+- **Drive**: archivos compartidos con links públicos, QR y trazabilidad.
+- **Kota AI**: agente que lee planos PDF y extrae cuantificación estructural automáticamente.
+- **Oficios**: control de correspondencia técnica (disponible desde plan Pro).
+- **Admin**: gestión de workspace, equipo, roles e invitaciones.
+
+## Planes y precios
+
+| Plan        | Precio/mes    | Usuarios | Storage |
+|-------------|--------------|----------|---------|
+| Starter     | $1,890 MXN   | 5        | 100 GB  |
+| Obra        | $3,790 MXN   | 8        | 500 GB  |
+| Pro         | $8,490 MXN   | 15       | 3 TB    |
+| Contractor  | $12,990 MXN  | 30       | 5 TB    |
+
+Todos los planes incluyen IVA. Trial 14 días con plan Obra completo, sin tarjeta de crédito.
+
+## Competidores que reemplaza
+
+- **Procore** ($35,000+ USD/año): demasiado caro, en inglés, sin CFDI.
+- **Autodesk Build** ($75 USD/usuario/mes): cobra por usuario, sin AI ni WhatsApp.
+- **Fieldwire** ($39–59 USD/usuario/mes): sin AI, sin WhatsApp, sin CFDI.
+- **Constructora360** (~$4,500 MXN/mes): sin AI, sin WhatsApp integrado.
+
+## Links clave
+
+- Sitio: https://builtek.app
+- Registro: https://builtek.app/register
+- Blog: https://builtek.app/blog
+- Sobre Builtek: https://builtek.app/sobre-builtek
+
+## Empresa
+
+INGENIUM ANALYTICS, S. de R.L. de C.V. — México

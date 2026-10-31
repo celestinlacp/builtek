@@ -1,45 +1,11 @@
 import Link from 'next/link'
 import { Metadata } from 'next'
+import { POSTS } from './posts'
 
 export const metadata: Metadata = {
-  title: 'Blog — Gestión de obras y control documental | Builtek',
+  title: 'Blog — Gestión de obras y control documental',
   description: 'Artículos sobre gestión de proyectos de construcción, control documental y tecnología para la industria AEC en México.',
 }
-
-const POSTS = [
-  {
-    slug: '/blog/control-documental-obra-civil',
-    category: 'Guía práctica',
-    title: 'Cómo llevar el control documental en una obra civil sin volverse loco',
-    excerpt: 'Los 5 errores más comunes que retrasan proyectos de infraestructura en México y cómo evitarlos con un sistema que tu equipo realmente use.',
-    readTime: '6 min',
-    date: 'Oct 2026',
-  },
-  {
-    slug: '/blog/alternativa-procore-mexico',
-    category: 'Comparativa',
-    title: 'Por qué Procore es demasiado caro para constructoras mexicanas (y qué usar en su lugar)',
-    excerpt: 'Procore cobra hasta $80,000 USD/año. Una comparativa honesta de costos, funciones y contexto mexicano.',
-    readTime: '7 min',
-    date: 'Oct 2026',
-  },
-  {
-    slug: '/blog/vendor-lock-in-construccion',
-    category: 'Estrategia',
-    title: 'Vendor lock-in en construcción: cómo no quedar atrapado en tu software',
-    excerpt: 'Contratas un software para gestionar tu obra y años después descubres que no puedes salir sin perder todo. Así funciona el vendor lock-in — y así lo evitas.',
-    readTime: '8 min',
-    date: 'Oct 2026',
-  },
-  {
-    slug: '/blog/agente-rag',
-    category: 'Educación',
-    title: 'Tu proyecto tiene 300 planos. ChatGPT no puede leerlos todos.',
-    excerpt: 'Por qué el constructor del futuro no busca en PDFs — le pregunta al proyecto. Una comparación honesta entre subir archivos a ChatGPT y usar un Agente RAG.',
-    readTime: '8 min',
-    date: 'Oct 2026',
-  },
-]
 
 export default function BlogIndexPage() {
   return (
@@ -70,7 +36,7 @@ export default function BlogIndexPage() {
           {POSTS.map(post => (
             <Link
               key={post.slug}
-              href={post.slug}
+              href={`/blog/${post.slug}`}
               className="group block bg-white border border-slate-200 rounded-2xl p-6 hover:border-[#00C2FF]/50 hover:shadow-md transition-all"
             >
               <div className="flex items-center gap-3 mb-3">
