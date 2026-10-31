@@ -43,7 +43,7 @@ export default async function AdminPage() {
       .eq('user_id', user.id)
       .single(),
     supabase.from('workspace_invitations')
-      .select('id, email, role, created_at, accepted_at')
+      .select('id, email, role, created_at, accepted_at, token')
       .eq('workspace_id', wsId)
       .is('accepted_at', null)
       .order('created_at', { ascending: false }),

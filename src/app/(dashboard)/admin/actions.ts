@@ -293,7 +293,7 @@ export async function inviteMember(formData: FormData) {
     logActivity({ workspace_id: workspaceId!, user_id: userId, action: 'member_invited', entity_name: email, metadata: { role } })
 
     revalidatePath('/admin')
-    return { success: true }
+    return { success: true, token: invite.token }
   } catch (err) {
     return { error: err instanceof Error ? err.message : 'Error inesperado al enviar la invitación' }
   }

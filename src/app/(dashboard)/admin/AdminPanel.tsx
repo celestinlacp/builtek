@@ -330,11 +330,14 @@ interface PendingInvite {
   email: string
   role: string
   created_at: string
+  token?: string | null
 }
 
 function InviteForm() {
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
+  const [inviteLink, setInviteLink] = useState<string | null>(null)
+  const [linkCopied, setLinkCopied] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [selectedRole, setSelectedRole] = useState('engineer')
 
@@ -343,6 +346,7 @@ function InviteForm() {
     setLoading(true)
     setError(null)
     setSuccess(false)
+    setInviteLink(null)
     const fd = new FormData(e.currentTarget)
     const result = await inviteMember(fd)
     setLoading(false)
@@ -350,9 +354,19 @@ function InviteForm() {
       setError(result.error)
     } else {
       setSuccess(true)
+      if (result?.token) {
+        setInviteLink(`${window.location.origin}/invite/accept?token=${result.token}`)
+      }
       ;(e.target as HTMLFormElement).reset()
       setSelectedRole('engineer')
     }
+  }
+
+  function copyLink() {
+    if (!inviteLink) return
+    navigator.clipboard.writeText(inviteLink)
+    setLinkCopied(true)
+    setTimeout(() => setLinkCopied(false), 2000)
   }
 
   return (
@@ -394,7 +408,24 @@ function InviteForm() {
         <RoleDescription role={selectedRole} />
 
         {error && <p className="text-xs text-red-500">{error}</p>}
-        {success && <p className="text-xs text-green-600">Invitación enviada. El usuario recibirá un email para unirse.</p>}
+        {success && (
+          <div className="space-y-2">
+            <p className="text-xs text-green-600">Invitación enviada. Si el correo no llega, comparte este link directamente:</p>
+            {inviteLink && (
+              <div className="flex items-center gap-2 bg-slate-100 rounded-lg px-3 py-2">
+                <p className="text-xs text-slate-600 flex-1 truncate font-mono">{inviteLink}</p>
+                <button
+                  type="button"
+                  onClick={copyLink}
+                  className="flex items-center gap-1 text-xs text-cyan-600 hover:text-cyan-700 font-medium flex-shrink-0"
+                >
+                  {linkCopied ? <CheckCircle2 className="w-3.5 h-3.5 text-green-500" /> : <Link2 className="w-3.5 h-3.5" />}
+                  {linkCopied ? 'Copiado' : 'Copiar'}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </form>
     </div>
   )
@@ -402,6 +433,7 @@ function InviteForm() {
 
 function PendingInviteRow({ invite }: { invite: PendingInvite }) {
   const [loading, setLoading] = useState(false)
+  const [copied, setCopied] = useState(false)
   const cfg = ROLE_CONFIG[invite.role as UserRole] || ROLE_CONFIG.viewer
   const RoleIcon = cfg.icon
 
@@ -409,6 +441,14 @@ function PendingInviteRow({ invite }: { invite: PendingInvite }) {
     if (!confirm(`¿Cancelar la invitación para ${invite.email}?`)) return
     setLoading(true)
     await cancelInvite(invite.id)
+  }
+
+  function handleCopyLink() {
+    if (!invite.token) return
+    const url = `${window.location.origin}/invite/accept?token=${invite.token}`
+    navigator.clipboard.writeText(url)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
   }
 
   const sentDate = new Date(invite.created_at).toLocaleDateString('es-MX', {
@@ -428,6 +468,15 @@ function PendingInviteRow({ invite }: { invite: PendingInvite }) {
         <RoleIcon className="w-3 h-3" />
         {cfg.label}
       </span>
+      {invite.token && (
+        <button
+          onClick={handleCopyLink}
+          title="Copiar link de invitación"
+          className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-cyan-50 text-slate-300 hover:text-cyan-500 transition-colors"
+        >
+          {copied ? <CheckCircle2 className="w-3.5 h-3.5 text-green-500" /> : <Link2 className="w-3.5 h-3.5" />}
+        </button>
+      )}
       <button
         onClick={handleCancel}
         disabled={loading}
