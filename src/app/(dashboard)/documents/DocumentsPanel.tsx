@@ -2585,13 +2585,11 @@ function ProjectDetailView({
           )}
 
           {/* Nueva carpeta global */}
-          {canManageProjects && (
-            <button onClick={() => { setFolderModalSpec(usedSpecialties[0]?.code || ''); setFolderModalName(''); setShowFolderModal(true) }}
-              className="flex items-center gap-2 border border-slate-200 text-slate-600 px-3 py-2 rounded-lg text-xs font-semibold hover:bg-slate-50 transition-colors">
-              <FolderPlus className="w-3.5 h-3.5" />
-              Nueva carpeta
-            </button>
-          )}
+          <button onClick={() => { setFolderModalSpec(usedSpecialties[0]?.code || ''); setFolderModalName(''); setShowFolderModal(true) }}
+            className="flex items-center gap-2 border border-slate-200 text-slate-600 px-3 py-2 rounded-lg text-xs font-semibold hover:bg-slate-50 transition-colors">
+            <FolderPlus className="w-3.5 h-3.5" />
+            Nueva carpeta
+          </button>
 
           {/* Subir */}
           <button onClick={onUpload}
@@ -2760,7 +2758,7 @@ function ProjectDetailView({
                     <span className="text-xs text-slate-300">{docs.length}</span>
                   </button>
                   {/* Botón nueva carpeta */}
-                  {canManageProjects && !isCollapsed && (
+                  {!isCollapsed && (
                     newFolderInput[group] !== undefined ? (
                       <form
                         className="flex items-center gap-1 ml-2"

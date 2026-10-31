@@ -1,9 +1,10 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { addComment, deleteComment, linkDocument, unlinkDocument, reprogramTask, uploadEntregable, approveEntregable, rejectEntregable, linkOficioToTask, unlinkOficioFromTask, updateTaskName, updateTaskAssignees, getOrCreateTempFolder, saveTempAndLink, resendTaskNotification, getTaskWALogs } from './actions'
-import { Task, Project } from '@/types'
+import { addComment, deleteComment, linkDocument, unlinkDocument, reprogramTask, uploadEntregable, approveEntregable, rejectEntregable, linkOficioToTask, unlinkOficioFromTask, updateTaskName, updateTaskAssignees, getOrCreateTempFolder, saveTempAndLink, resendTaskNotification, getTaskWALogs, updateTaskStatus } from './actions'
+import { Task, Project, TaskStatus } from '@/types'
 import {
   X, MessageSquare, Send, Trash2, Paperclip,
   FileText, HardDrive, ChevronDown, Calendar,
@@ -273,6 +274,11 @@ export default function TaskSlideOver({
   onClose:          () => void
 }) {
   const supabase = createClient()
+  const router = useRouter()
+
+  const [localStatus,     setLocalStatus]     = useState(task.status)
+  const [showStatusMenu,  setShowStatusMenu]  = useState(false)
+  const statusMenuRef = useRef<HTMLDivElement>(null)
 
   const [comments,     setComments]     = useState<Comment[]>([])
   const [taskDocs,     setTaskDocs]     = useState<TaskDoc[]>([])
@@ -367,9 +373,16 @@ export default function TaskSlideOver({
     setEditingAssignees(false)
   }
 
-  const status   = STATUS_CONFIG[task.status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.pending
+  const status   = STATUS_CONFIG[localStatus as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.pending
   const priority = PRIORITY_CONFIG[task.priority as keyof typeof PRIORITY_CONFIG] || PRIORITY_CONFIG.medium
   const StatusIcon = status.icon
+
+  async function handleStatusChange(newStatus: TaskStatus) {
+    setLocalStatus(newStatus)
+    setShowStatusMenu(false)
+    await updateTaskStatus(task.id, newStatus)
+    router.refresh()
+  }
 
   const taskAssignees = task.assignees && task.assignees.length > 0
     ? task.assignees
@@ -542,6 +555,18 @@ export default function TaskSlideOver({
     commentsEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [comments])
 
+  // Cerrar status menu al hacer clic fuera
+  useEffect(() => {
+    if (!showStatusMenu) return
+    const handler = (e: MouseEvent) => {
+      if (statusMenuRef.current && !statusMenuRef.current.contains(e.target as Node)) {
+        setShowStatusMenu(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [showStatusMenu])
+
   // Cerrar con Escape
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -707,10 +732,35 @@ export default function TaskSlideOver({
         <div className="flex items-start justify-between px-6 py-5 border-b border-slate-100 flex-shrink-0">
           <div className="flex-1 min-w-0 pr-4">
             <div className="flex items-center gap-2 mb-2 flex-wrap">
-              <span className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-semibold ${status.color}`}>
-                <StatusIcon className="w-3 h-3" />
-                {status.label}
-              </span>
+              <div className="relative" ref={statusMenuRef}>
+                <button
+                  onClick={() => setShowStatusMenu(v => !v)}
+                  className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-semibold cursor-pointer hover:opacity-80 transition-opacity ${status.color}`}
+                >
+                  <StatusIcon className="w-3 h-3" />
+                  {status.label}
+                  <ChevronDown className="w-3 h-3 opacity-60" />
+                </button>
+                {showStatusMenu && (
+                  <div className="absolute left-0 top-full mt-1 z-50 bg-white border border-slate-200 rounded-lg shadow-lg py-1 min-w-[140px]">
+                    {Object.entries(STATUS_CONFIG).map(([key, cfg]) => {
+                      const Icon = cfg.icon
+                      return (
+                        <button
+                          key={key}
+                          onClick={() => handleStatusChange(key as TaskStatus)}
+                          className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs font-semibold hover:bg-slate-50 transition-colors ${localStatus === key ? 'opacity-50 cursor-default' : ''}`}
+                        >
+                          <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full ${cfg.color}`}>
+                            <Icon className="w-3 h-3" />
+                            {cfg.label}
+                          </span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
               <span className={`text-xs font-semibold ${priority.color}`}>
                 ● {priority.label}
               </span>
