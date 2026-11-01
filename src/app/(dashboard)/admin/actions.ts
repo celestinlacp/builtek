@@ -81,20 +81,23 @@ export async function createProject(formData: FormData) {
   const parentProjectId = formData.get('parent_project_id') as string || null
   const builtek_id  = await nextMicIdentifier(workspaceId, parentProjectId)
 
+  const structureTypeId = formData.get('structure_type_id') as string || null
+
   const { error } = await admin.from('projects').insert({
-    workspace_id:     workspaceId,
-    name:             formData.get('name') as string,
-    description:      formData.get('description') as string || null,
-    status:           'active',
-    start_date:       formData.get('start_date') as string || null,
-    end_date:         formData.get('end_date') as string || null,
-    frente:           formData.get('frente') as string || null,
-    project_type:     formData.get('project_type') as string || null,
+    workspace_id:      workspaceId,
+    name:              formData.get('name') as string,
+    description:       formData.get('description') as string || null,
+    status:            'active',
+    start_date:        formData.get('start_date') as string || null,
+    end_date:          formData.get('end_date') as string || null,
+    frente:            formData.get('frente') as string || null,
+    project_type:      formData.get('project_type') as string || null,
+    structure_type_id: structureTypeId || null,
     parent_project_id: parentProjectId,
     builtek_id,
-    is_inah:          formData.get('is_inah') === 'on',
-    cruce_vial:       formData.get('cruce_vial') as string || null,
-    cauces_federales: formData.get('cauces_federales') === 'on',
+    is_inah:           formData.get('is_inah') === 'on',
+    cruce_vial:        formData.get('cruce_vial') as string || null,
+    cauces_federales:  formData.get('cauces_federales') === 'on',
   })
 
   if (error) return { error: error.message }
@@ -118,18 +121,21 @@ export async function updateProject(projectId: string, formData: FormData) {
     micIdentifier = current?.builtek_id ?? null
   }
 
+  const structureTypeIdUpd = formData.get('structure_type_id') as string || null
+
   const { error } = await admin.from('projects').update({
-    name: formData.get('name') as string,
-    description: formData.get('description') as string || null,
-    status: (formData.get('status') as string) || 'active',
-    start_date: formData.get('start_date') as string || null,
-    end_date: formData.get('end_date') as string || null,
-    frente: formData.get('frente') as string || null,
-    project_type: formData.get('project_type') as string || null,
-    builtek_id: micIdentifier,
-    is_inah:          formData.get('is_inah') === 'on',
-    cruce_vial:       formData.get('cruce_vial') as string || null,
-    cauces_federales: formData.get('cauces_federales') === 'on',
+    name:              formData.get('name') as string,
+    description:       formData.get('description') as string || null,
+    status:            (formData.get('status') as string) || 'active',
+    start_date:        formData.get('start_date') as string || null,
+    end_date:          formData.get('end_date') as string || null,
+    frente:            formData.get('frente') as string || null,
+    project_type:      formData.get('project_type') as string || null,
+    structure_type_id: structureTypeIdUpd || null,
+    builtek_id:        micIdentifier,
+    is_inah:           formData.get('is_inah') === 'on',
+    cruce_vial:        formData.get('cruce_vial') as string || null,
+    cauces_federales:  formData.get('cauces_federales') === 'on',
   }).eq('id', projectId)
 
   if (error) return { error: error.message }
@@ -870,6 +876,106 @@ export async function deleteMesaTecnica(id: string) {
   if (error) return { error: error.message }
   revalidatePath('/admin')
   revalidatePath('/oficios')
+  return { success: true }
+}
+
+// ── Tipos de Estructura ───────────────────────────────────────────────────────
+
+export async function createStructureType(data: {
+  code:     string
+  name:     string
+  category: string | null
+  icon:     string | null
+}) {
+  const { supabase, userId, workspaceId } = await getWorkspaceId()
+  if (!workspaceId) return { error: 'Sin workspace' }
+
+  // Verificar que sea owner
+  const { data: membership } = await supabase
+    .from('workspace_members')
+    .select('role')
+    .eq('workspace_id', workspaceId)
+    .eq('user_id', userId)
+    .single()
+
+  if (membership?.role !== 'owner') return { error: 'Solo el owner puede crear tipos de estructura' }
+
+  const { error } = await supabase.from('structure_types').insert({
+    workspace_id: workspaceId,
+    code:         data.code.trim().toUpperCase(),
+    name:         data.name.trim(),
+    category:     data.category?.trim() || null,
+    icon:         data.icon?.trim() || null,
+  })
+
+  if (error) return { error: error.message }
+  revalidatePath('/admin')
+  revalidatePath('/documents')
+  return { success: true }
+}
+
+export async function updateStructureType(id: string, data: {
+  code:      string
+  name:      string
+  category:  string | null
+  icon:      string | null
+  is_active: boolean
+}) {
+  const { supabase, userId, workspaceId } = await getWorkspaceId()
+  if (!workspaceId) return { error: 'Sin workspace' }
+
+  const { data: membership } = await supabase
+    .from('workspace_members')
+    .select('role')
+    .eq('workspace_id', workspaceId)
+    .eq('user_id', userId)
+    .single()
+
+  if (membership?.role !== 'owner') return { error: 'Solo el owner puede editar tipos de estructura' }
+
+  // Para tipos custom (workspace_id = workspaceId), usar cliente normal
+  // Para tipos globales (workspace_id IS NULL), usar admin client para bypass RLS
+  const admin = getAdminClient()
+  const { error } = await admin
+    .from('structure_types')
+    .update({
+      code:      data.code.trim().toUpperCase(),
+      name:      data.name.trim(),
+      category:  data.category?.trim() || null,
+      icon:      data.icon?.trim() || null,
+      is_active: data.is_active,
+    })
+    .eq('id', id)
+
+  if (error) return { error: error.message }
+  revalidatePath('/admin')
+  revalidatePath('/documents')
+  return { success: true }
+}
+
+export async function toggleStructureTypeActive(id: string, is_active: boolean) {
+  const { supabase, userId, workspaceId } = await getWorkspaceId()
+  if (!workspaceId) return { error: 'Sin workspace' }
+
+  const { data: membership } = await supabase
+    .from('workspace_members')
+    .select('role')
+    .eq('workspace_id', workspaceId)
+    .eq('user_id', userId)
+    .single()
+
+  if (membership?.role !== 'owner') return { error: 'Solo el owner puede activar/desactivar tipos de estructura' }
+
+  // Usar admin client para bypass RLS en tipos globales (workspace_id IS NULL)
+  const admin = getAdminClient()
+  const { error } = await admin
+    .from('structure_types')
+    .update({ is_active })
+    .eq('id', id)
+
+  if (error) return { error: error.message }
+  revalidatePath('/admin')
+  revalidatePath('/documents')
   return { success: true }
 }
 

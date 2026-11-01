@@ -1,8 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { Project, Workspace, WorkspaceMember, UserRole, Company } from '@/types'
-import { createProject, updateProject, deleteProject, updateWorkspace, updateMemberRole, removeMember, inviteMember, cancelInvite, createCompany, updateCompany, deleteCompany, updateMemberProfile, updateDocKey, updateDocSegments } from './actions'
+import { Project, Workspace, WorkspaceMember, UserRole, Company, StructureType } from '@/types'
+import { createProject, updateProject, deleteProject, updateWorkspace, updateMemberRole, removeMember, inviteMember, cancelInvite, createCompany, updateCompany, deleteCompany, updateMemberProfile, updateDocKey, updateDocSegments, createStructureType, updateStructureType, toggleStructureTypeActive } from './actions'
 import { deleteDocumentVersion } from '../documents/actions'
 import {
   Plus, Pencil, Trash2, X, FolderOpen, Users, Settings,
@@ -543,15 +543,30 @@ const STATUS_CONFIG = {
 }
 
 function ProjectModal({
-  project, projects, onClose
+  project, projects, structureTypes, onClose
 }: {
   project?: Project | null
   projects: Project[]
+  structureTypes: StructureType[]
   onClose: () => void
 }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [nameValue, setNameValue] = useState(project?.name || '')
+  const [autoSelectedTypeId, setAutoSelectedTypeId] = useState<string>(project?.structure_type_id || '')
   const isEdit = !!project
+
+  // Auto-sugerencia: si el nombre empieza con un código conocido, pre-seleccionar el tipo
+  function handleNameChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const val = e.target.value
+    setNameValue(val)
+    const upperVal = val.toUpperCase().trim()
+    const matched = structureTypes.find(st => {
+      const pattern = new RegExp(`^${st.code}\\b`, 'i')
+      return pattern.test(upperVal)
+    })
+    if (matched) setAutoSelectedTypeId(matched.id)
+  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -581,8 +596,8 @@ function ProjectModal({
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div>
             <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">Nombre *</label>
-            <input name="name" required defaultValue={project?.name}
-              placeholder="Ej: Carretera Federal Tramo A-B"
+            <input name="name" required value={nameValue} onChange={handleNameChange}
+              placeholder="Ej: PF 001 Río Lerma"
               className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50 focus:border-[#00C2FF]" />
           </div>
 
@@ -622,26 +637,19 @@ function ProjectModal({
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">Tipo de proyecto</label>
-              <select name="project_type" defaultValue={project?.project_type || ''}
+              {/* Hidden input to sync project_type (name) for legacy compatibility */}
+              <input type="hidden" name="project_type"
+                value={structureTypes.find(st => st.id === autoSelectedTypeId)?.name || ''} />
+              <select name="structure_type_id"
+                value={autoSelectedTypeId}
+                onChange={e => setAutoSelectedTypeId(e.target.value)}
                 className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50 focus:border-[#00C2FF]">
                 <option value="">Sin tipo</option>
-                <option value="Estación">Estación</option>
-                <option value="Puente Ferroviario">Puente Ferroviario</option>
-                <option value="Puente Vehicular">Puente Vehicular</option>
-                <option value="Paso Inferior Ferroviario">Paso Inf. Ferroviario</option>
-                <option value="Paso Superior Ferroviario">Paso Sup. Ferroviario</option>
-                <option value="Puente Peatonal">Puente Peatonal</option>
-                <option value="Viaducto">Viaducto</option>
-                <option value="Túnel">Túnel</option>
-                <option value="Muro">Muro</option>
-                <option value="Cruce a Nivel">Cruce a Nivel</option>
-                <option value="Drenaje Transversal">Drenaje Transversal</option>
-                <option value="Vía Ferrea">Vía Ferrea</option>
-                <option value="Vialidad">Vialidad</option>
-                <option value="Cuneta">Cuneta</option>
-                <option value="Parapeto">Parapeto</option>
-                <option value="Mesa">Mesa</option>
-                <option value="General">General</option>
+                {structureTypes.filter(st => st.is_active || st.id === autoSelectedTypeId).map(st => (
+                  <option key={st.id} value={st.id}>
+                    {st.icon ? `${st.icon} ` : ''}{st.code} — {st.name}
+                  </option>
+                ))}
               </select>
             </div>
           </div>
@@ -1059,7 +1067,7 @@ function StoragePanel({
   )
 }
 
-type Tab = 'projects' | 'team' | 'settings' | 'workspace' | 'storage' | 'empresas' | 'database' | 'nomenclaturas' | 'builtek-id' | 'bd-oficios'
+type Tab = 'projects' | 'team' | 'settings' | 'workspace' | 'storage' | 'empresas' | 'database' | 'nomenclaturas' | 'builtek-id' | 'bd-oficios' | 'tipos-estructura'
 
 type MicNomenclature = { id: string; segment: string; code: string; name: string; description: string | null; is_active: boolean; sort_order: number }
 
@@ -1258,6 +1266,180 @@ type BiDoc = {
   company?: { name: string; short_name: string | null } | null
   uploaded_by?: string | null
   uploader?: { full_name: string | null; initials: string | null } | null
+}
+
+function StructureTypesPanel({ structureTypes, workspaceId }: {
+  structureTypes: StructureType[]
+  workspaceId: string
+}) {
+  const [showForm,    setShowForm]    = useState(false)
+  const [editType,    setEditType]    = useState<StructureType | null>(null)
+  const [code,        setCode]        = useState('')
+  const [name,        setName]        = useState('')
+  const [category,    setCategory]    = useState('')
+  const [icon,        setIcon]        = useState('')
+  const [saving,      setSaving]      = useState(false)
+  const [error,       setError]       = useState<string | null>(null)
+  const [toggling,    setToggling]    = useState<string | null>(null)
+
+  function openCreate() {
+    setCode(''); setName(''); setCategory(''); setIcon('')
+    setEditType(null); setShowForm(true); setError(null)
+  }
+  function openEdit(st: StructureType) {
+    setCode(st.code); setName(st.name); setCategory(st.category || ''); setIcon(st.icon || '')
+    setEditType(st); setShowForm(true); setError(null)
+  }
+  function cancel() { setShowForm(false); setEditType(null); setError(null) }
+
+  async function handleSave() {
+    if (!code.trim() || !name.trim()) { setError('Código y nombre son requeridos'); return }
+    setSaving(true); setError(null)
+    const result = editType
+      ? await updateStructureType(editType.id, { code, name, category: category || null, icon: icon || null, is_active: editType.is_active })
+      : await createStructureType({ code, name, category: category || null, icon: icon || null })
+    setSaving(false)
+    if (result?.error) { setError(result.error); return }
+    setShowForm(false); setEditType(null)
+  }
+
+  async function handleToggle(st: StructureType) {
+    setToggling(st.id)
+    await toggleStructureTypeActive(st.id, !st.is_active)
+    setToggling(null)
+  }
+
+  const globalTypes = structureTypes.filter(st => st.workspace_id === null)
+  const customTypes = structureTypes.filter(st => st.workspace_id === workspaceId)
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-sm text-slate-500">
+          {globalTypes.length} tipos globales · {customTypes.length} custom
+        </p>
+        <button onClick={openCreate}
+          className="flex items-center gap-2 bg-[#1A2744] text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-[#243660] transition-colors">
+          <Plus className="w-4 h-4" />
+          Nuevo tipo custom
+        </button>
+      </div>
+
+      {/* Formulario crear/editar tipo custom */}
+      {showForm && (
+        <div className="mb-4 bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+          <h3 className="text-sm font-bold text-[#1A2744]">{editType ? 'Editar tipo' : 'Nuevo tipo de estructura'}</h3>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1 uppercase tracking-wide">
+                Código <span className="text-red-400">*</span>
+              </label>
+              <input value={code} onChange={e => setCode(e.target.value.toUpperCase())}
+                placeholder="Ej: PF, TUN, VIAD"
+                className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1 uppercase tracking-wide">
+                Icono
+              </label>
+              <input value={icon} onChange={e => setIcon(e.target.value)}
+                placeholder="Ej: 🌉"
+                className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50" />
+            </div>
+            <div className="col-span-2">
+              <label className="block text-xs font-semibold text-slate-600 mb-1 uppercase tracking-wide">
+                Nombre <span className="text-red-400">*</span>
+              </label>
+              <input value={name} onChange={e => setName(e.target.value)}
+                placeholder="Ej: Puente Ferroviario"
+                className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50" />
+            </div>
+            <div className="col-span-2">
+              <label className="block text-xs font-semibold text-slate-600 mb-1 uppercase tracking-wide">
+                Categoría
+              </label>
+              <input value={category} onChange={e => setCategory(e.target.value)}
+                placeholder="Ej: Puente, Túnel, Drenaje"
+                className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50" />
+            </div>
+          </div>
+          {error && <p className="text-xs text-red-500">{error}</p>}
+          <div className="flex gap-3">
+            <button onClick={cancel}
+              className="flex-1 py-2 rounded-lg border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-100">
+              Cancelar
+            </button>
+            <button onClick={handleSave} disabled={saving || !code.trim() || !name.trim()}
+              className="flex-1 py-2 rounded-lg bg-[#1A2744] text-white text-sm font-bold hover:bg-[#243660] disabled:opacity-60">
+              {saving ? 'Guardando...' : editType ? 'Guardar cambios' : 'Crear tipo'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Tabla de tipos */}
+      <div className="bg-white border border-slate-100 rounded-xl overflow-hidden">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-slate-100 bg-slate-50">
+              <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Código</th>
+              <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Nombre</th>
+              <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden sm:table-cell">Categoría</th>
+              <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Origen</th>
+              <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Acciones</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-50">
+            {structureTypes.length === 0 && (
+              <tr>
+                <td colSpan={5} className="px-4 py-8 text-center text-sm text-slate-400">
+                  Sin tipos de estructura. Ejecuta la migración 053 para cargar los tipos globales.
+                </td>
+              </tr>
+            )}
+            {structureTypes.map(st => (
+              <tr key={st.id} className={`hover:bg-slate-50 transition-colors ${!st.is_active ? 'opacity-50' : ''}`}>
+                <td className="px-4 py-3">
+                  <span className="font-mono text-xs font-bold text-[#1A2744] bg-[#1A2744]/5 px-2 py-0.5 rounded">
+                    {st.icon ? `${st.icon} ` : ''}{st.code}
+                  </span>
+                </td>
+                <td className="px-4 py-3 font-medium text-slate-700">{st.name}</td>
+                <td className="px-4 py-3 text-slate-500 hidden sm:table-cell">{st.category || '—'}</td>
+                <td className="px-4 py-3">
+                  {st.workspace_id === null ? (
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 font-medium">Global</span>
+                  ) : (
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-purple-50 text-purple-600 font-medium">Custom</span>
+                  )}
+                </td>
+                <td className="px-4 py-3 text-right">
+                  <div className="flex items-center justify-end gap-1">
+                    <button
+                      onClick={() => handleToggle(st)}
+                      disabled={toggling === st.id}
+                      title={st.is_active ? 'Desactivar' : 'Activar'}
+                      className={`w-7 h-7 flex items-center justify-center rounded-lg transition-colors ${
+                        st.is_active
+                          ? 'text-green-500 hover:bg-green-50'
+                          : 'text-slate-300 hover:bg-slate-100'
+                      }`}>
+                      <Check className="w-3.5 h-3.5" />
+                    </button>
+                    <button onClick={() => openEdit(st)}
+                      className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors">
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                    {/* Tipos globales no se eliminan */}
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
 }
 
 function EmpresasPanel({ companies, workspaceId, userRole }: {
@@ -2366,7 +2548,7 @@ function NomenclaturasPanel({ nomenclatures, workspaceId }: { nomenclatures: Mic
 export default function AdminPanel({
   projects, workspace, members, currentUserId, currentUserRole,
   currentUserEmail, currentUserName, pendingInvites, dropboxConnected,
-  storageUsed, storageByModule, storageByUser, companies, biDocs, workspaceId, micNomenclatures, mesasTecnicas,
+  storageUsed, storageByModule, storageByUser, companies, biDocs, workspaceId, micNomenclatures, mesasTecnicas, structureTypes,
 }: {
   projects: Project[]
   workspace: Workspace
@@ -2385,6 +2567,7 @@ export default function AdminPanel({
   workspaceId: string
   micNomenclatures: MicNomenclature[]
   mesasTecnicas: MesaTecnica[]
+  structureTypes: StructureType[]
 }) {
   const [tab, setTab] = useState<Tab>('projects')
   const [showModal, setShowModal] = useState(false)
@@ -2406,9 +2589,10 @@ export default function AdminPanel({
   const dbActiveLabel = tab === 'bd-oficios' ? 'BD Oficios' : tab === 'builtek-id' ? 'Builtek ID' : tab === 'database' ? 'Base de Datos' : 'Base de datos'
 
   const mainTabsBefore: { id: Tab; label: string; icon: React.ElementType }[] = [
-    { id: 'projects',      label: 'Proyectos',     icon: FolderOpen },
-    { id: 'empresas',      label: 'Empresas',       icon: Factory    },
-    { id: 'nomenclaturas', label: 'ID Builtek',      icon: BookOpen   },
+    { id: 'projects',         label: 'Proyectos',          icon: FolderOpen },
+    { id: 'empresas',         label: 'Empresas',            icon: Factory    },
+    { id: 'nomenclaturas',    label: 'ID Builtek',           icon: BookOpen   },
+    ...(currentUserRole === 'owner' ? [{ id: 'tipos-estructura' as Tab, label: 'Tipos Estructura', icon: Layers }] : []),
   ]
   const mainTabsAfter: { id: Tab; label: string; icon: React.ElementType }[] = [
     { id: 'team',      label: 'Equipo',         icon: Users     },
@@ -2639,6 +2823,14 @@ export default function AdminPanel({
         />
       )}
 
+      {/* Tipos de Estructura tab (solo owner) */}
+      {tab === 'tipos-estructura' && currentUserRole === 'owner' && (
+        <StructureTypesPanel
+          structureTypes={structureTypes}
+          workspaceId={workspaceId}
+        />
+      )}
+
       {/* Nomenclaturas ID Builtek tab */}
       {tab === 'nomenclaturas' && (
         <NomenclaturasPanel
@@ -2725,6 +2917,7 @@ export default function AdminPanel({
         <ProjectModal
           project={editProject}
           projects={projects}
+          structureTypes={structureTypes}
           onClose={() => { setShowModal(false); setEditProject(null) }}
         />
       )}

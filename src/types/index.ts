@@ -58,6 +58,18 @@ export interface Oficio {
   updated_at: string
 }
 
+export interface StructureType {
+  id: string
+  workspace_id: string | null
+  code: string
+  name: string
+  category: string | null
+  icon: string | null
+  kota_schema: Record<string, unknown>
+  is_active: boolean
+  created_at: string
+}
+
 export interface Project {
   id: string
   workspace_id: string
@@ -68,6 +80,7 @@ export interface Project {
   end_date: string | null
   frente: string | null
   project_type: string | null
+  structure_type_id: string | null
   cover_image_url: string | null
   parent_project_id: string | null
   chainage_start: number | null

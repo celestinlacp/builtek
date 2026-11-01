@@ -30,7 +30,7 @@ export default async function AdminPage() {
   const [workspaceRes, projectsRes, membersRes, myRoleRes, invitesRes, companiesRes, biDocsRes, nomenclaturesRes] = await Promise.all([
     supabase.from('workspaces').select('*, dropbox_token').eq('id', wsId).single(),
     supabase.from('projects')
-      .select('id, name, description, status, workspace_id, start_date, end_date, frente, project_type, cover_image_url, parent_project_id, chainage_start, chainage_end, builtek_id, is_inah, cruce_vial, cauces_federales, created_at')
+      .select('id, name, description, status, workspace_id, start_date, end_date, frente, project_type, structure_type_id, cover_image_url, parent_project_id, chainage_start, chainage_end, builtek_id, is_inah, cruce_vial, cauces_federales, created_at')
       .eq('workspace_id', wsId)
       .order('created_at', { ascending: false }),
     supabase.from('workspace_members')
@@ -65,13 +65,20 @@ export default async function AdminPage() {
 
   if (!workspaceRes.data) redirect('/onboarding')
 
-  // Cargar mesas técnicas (BD Oficios)
-  const mesasRes = await supabase
-    .from('mesas_tecnicas')
-    .select('id, nombre, codigo, especialidad, is_active, sort_order')
-    .eq('workspace_id', wsId)
-    .order('sort_order')
-    .order('nombre')
+  // Cargar mesas técnicas (BD Oficios) y tipos de estructura
+  const [mesasRes, structureTypesRes] = await Promise.all([
+    supabase
+      .from('mesas_tecnicas')
+      .select('id, nombre, codigo, especialidad, is_active, sort_order')
+      .eq('workspace_id', wsId)
+      .order('sort_order')
+      .order('nombre'),
+    supabase
+      .from('structure_types')
+      .select('id, workspace_id, code, name, category, icon, kota_schema, is_active, created_at')
+      .or(`workspace_id.is.null,workspace_id.eq.${wsId}`)
+      .order('code'),
+  ])
 
   const workspace         = workspaceRes.data
   const projects          = projectsRes.data         || []
@@ -80,6 +87,7 @@ export default async function AdminPage() {
   const rawMembers        = membersRes.data          || []
   const micNomenclatures  = nomenclaturesRes.data    || []
   const mesasTecnicas     = mesasRes.data            || []
+  const structureTypes    = structureTypesRes.data   || []
 
   // Fetch profiles separately (no FK between workspace_members and profiles)
   const memberUserIds = rawMembers.map((m: any) => m.user_id)
@@ -183,6 +191,7 @@ export default async function AdminPage() {
         workspaceId={wsId}
         micNomenclatures={micNomenclatures as any}
         mesasTecnicas={mesasTecnicas as any}
+        structureTypes={structureTypes as any}
       />
     </div>
   )

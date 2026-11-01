@@ -79,8 +79,27 @@ export async function saveDocument(data: {
 
     const troncal = troncalRow?.code
 
+    // Obtener el código del tipo de estructura del proyecto (si tiene structure_type_id)
+    let structureTypeCode: string | null = null
+    const { data: projectRow } = await admin
+      .from('projects')
+      .select('structure_type_id')
+      .eq('id', data.project_id)
+      .maybeSingle()
+
+    if (projectRow?.structure_type_id) {
+      const { data: stRow } = await admin
+        .from('structure_types')
+        .select('code')
+        .eq('id', projectRow.structure_type_id)
+        .maybeSingle()
+      structureTypeCode = stRow?.code ?? null
+    }
+
     if (troncal) {
-      constructedDocKey = `${troncal}-${data.identificador}-${data.doc_type}-${data.specialty_code}-${data.doc_view}`
+      constructedDocKey = structureTypeCode
+        ? `${troncal}-${structureTypeCode}-${data.identificador}-${data.doc_type}-${data.specialty_code}-${data.doc_view}`
+        : `${troncal}-${data.identificador}-${data.doc_type}-${data.specialty_code}-${data.doc_view}`
 
       // Buscar versión existente del mismo plano y mismo tipo de archivo
       const { data: existing } = await admin
