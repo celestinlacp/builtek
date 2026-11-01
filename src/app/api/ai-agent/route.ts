@@ -164,15 +164,26 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Falta archivo o documentId' }, { status: 400 })
   }
 
-  // [KOTA] Datos técnicos del proyecto (kota_data en lugar de cota_brief)
+  // [KOTA] Datos técnicos del proyecto
   const admin = getAdminClient()
   const { data: projRow } = await admin
     .from('projects')
-    .select('kota_data, name')
+    .select('kota_data, name, frente, chainage_start, chainage_end, structure_type_id')
     .eq('id', projectId)
     .single()
 
   if (projRow?.name && !docHints.proyecto_name) docHints.proyecto_name = projRow.name
+
+  // Resolver código de tipo de estructura del proyecto
+  let structureTypeCode: string | null = null
+  if (projRow?.structure_type_id) {
+    const { data: stRow } = await admin
+      .from('structure_types')
+      .select('code, name')
+      .eq('id', projRow.structure_type_id)
+      .single()
+    if (stRow) structureTypeCode = stRow.code
+  }
 
   // Serializar kota_data a texto legible para el prompt
   const kotaData = projRow?.kota_data as Record<string, unknown> | null | undefined
@@ -225,18 +236,56 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // ── Construir prompt con hints de contexto ───────────────────────────────────
-  const tipoPlanHint = docHints.tipo_plano
-    ? TIPO_PLANO_HINTS[docHints.tipo_plano.toUpperCase()]
+  // ── Parsear doc_key en segmentos ─────────────────────────────────────────────
+  function parseDocKeySegments(docKey: string) {
+    const p = docKey.split('-')
+    if (p.length === 6) return { troncal: p[0], tipo_est: p[1], identificador: p[2], tipo_doc: p[3], especialidad: p[4], tipo_plano: p[5] }
+    if (p.length === 5) return { troncal: p[0], tipo_est: null,  identificador: p[1], tipo_doc: p[2], especialidad: p[3], tipo_plano: p[4] }
+    return null
+  }
+
+  const docKeyParsed = docHints.doc_key ? parseDocKeySegments(docHints.doc_key) : null
+
+  // Cadena km formateada
+  function fmtKm(m: number) { return `${Math.floor(m / 1000)}+${String(m % 1000).padStart(3, '0')}` }
+  const chainageText = (projRow?.chainage_start != null && projRow?.chainage_end != null)
+    ? `${fmtKm(projRow.chainage_start)} — ${fmtKm(projRow.chainage_end)}`
     : null
 
+  // ── Construir prompt con hints de contexto ───────────────────────────────────
+  const tipoPlanHint = (docKeyParsed?.tipo_plano ?? docHints.tipo_plano)
+    ? TIPO_PLANO_HINTS[(docKeyParsed?.tipo_plano ?? docHints.tipo_plano)!.toUpperCase()]
+    : null
+
+  // Línea resumen del proyecto
+  const proyectoLine = [
+    docHints.proyecto_name && `Proyecto: ${docHints.proyecto_name}`,
+    structureTypeCode      && `Tipo de estructura: ${structureTypeCode}`,
+    projRow?.frente        && `Frente: ${projRow.frente}`,
+    chainageText           && `Cadena km: ${chainageText}`,
+  ].filter(Boolean).join(' | ')
+
+  // Desglose del ID Builtek
+  const docKeyBlock = docKeyParsed
+    ? [
+        `ID Builtek: ${docHints.doc_key}`,
+        `  Troncal: ${docKeyParsed.troncal}`,
+        docKeyParsed.tipo_est    && `  Tipo de estructura: ${docKeyParsed.tipo_est}`,
+        `  Identificador: ${docKeyParsed.identificador}`,
+        `  Tipo de documento: ${docKeyParsed.tipo_doc}`,
+        `  Especialidad: ${docKeyParsed.especialidad}`,
+        `  Tipo de plano: ${docKeyParsed.tipo_plano}`,
+      ].filter(Boolean).join('\n')
+    : docHints.doc_key
+      ? `ID Builtek: ${docHints.doc_key}`
+      : null
+
   const contextLines = [
-    projectBrief               && `DATOS TÉCNICOS DEL PROYECTO:\n${projectBrief}`,
-    docHints.proyecto_name     && `Proyecto: ${docHints.proyecto_name}`,
-    docHints.doc_key           && `Clave de documento: ${docHints.doc_key}`,
-    docHints.especialidad      && `Especialidad: ${docHints.especialidad}`,
-    docHints.version           && `Versión: ${docHints.version}`,
-    tipoPlanHint               && `Contexto específico del tipo de plano: ${tipoPlanHint}`,
+    projectBrief   && `DATOS TÉCNICOS DEL PROYECTO:\n${projectBrief}`,
+    proyectoLine,
+    docKeyBlock,
+    docHints.version  && `Versión del plano: ${docHints.version}`,
+    tipoPlanHint      && `Contexto del tipo de plano:\n${tipoPlanHint}`,
   ].filter(Boolean).join('\n\n')
 
   let userText = [
