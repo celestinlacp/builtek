@@ -784,10 +784,19 @@ export type ProjectExtraction = {
   created_at: string
   confidence: string | null
   titulo: string | null
+  descripcion: string | null
   especialidades_count: number
   document_name: string
   doc_key: string | null
   file_type: string
+}
+
+export type AggregatedElement = {
+  tipo: string
+  unidad: string
+  total: number
+  count: number
+  especialidad: string
 }
 
 export async function getProjectExtractions(
@@ -815,28 +824,77 @@ export async function getProjectExtractions(
 
   const { data: extractions, error } = await admin
     .from('extractions')
-    .select('id, document_id, status, created_at, confidence, raw_extraction')
+    .select('id, document_id, status, created_at, confidence, raw_extraction, corrected_extraction')
     .in('document_id', docIds)
     .order('created_at', { ascending: false })
 
   if (error) return { error: error.message }
 
   const result: ProjectExtraction[] = (extractions ?? []).map(e => {
-    const doc = e.document_id ? docMap[e.document_id] : null
-    const raw = e.raw_extraction as any
+    const doc    = e.document_id ? docMap[e.document_id] : null
+    const raw    = e.raw_extraction as any
+    const active = (e as any).corrected_extraction ?? raw
     return {
-      id:                  e.id,
-      document_id:         e.document_id,
-      status:              e.status as 'raw' | 'reviewed' | 'approved',
-      created_at:          e.created_at,
-      confidence:          e.confidence ?? null,
-      titulo:              raw?.titulo ?? null,
-      especialidades_count: Array.isArray(raw?.especialidades) ? raw.especialidades.length : 0,
-      document_name:       doc?.display_name || doc?.name || '',
-      doc_key:             doc?.doc_key ?? null,
-      file_type:           doc?.file_type ?? '',
+      id:                   e.id,
+      document_id:          e.document_id,
+      status:               e.status as 'raw' | 'reviewed' | 'approved',
+      created_at:           e.created_at,
+      confidence:           e.confidence ?? null,
+      titulo:               active?.titulo ?? null,
+      descripcion:          active?.descripcion ?? raw?.descripcion ?? null,
+      especialidades_count: Array.isArray(active?.especialidades) ? active.especialidades.length : 0,
+      document_name:        doc?.display_name || doc?.name || '',
+      doc_key:              doc?.doc_key ?? null,
+      file_type:            doc?.file_type ?? '',
     }
   })
 
+  return { data: result }
+}
+
+export async function getProjectKotaSummary(
+  projectId: string,
+  workspaceId: string
+): Promise<{ data?: AggregatedElement[]; error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Unauthorized' }
+
+  const admin = getAdminClient()
+
+  const { data: docs } = await admin
+    .from('documents')
+    .select('id')
+    .eq('project_id', projectId)
+    .eq('workspace_id', workspaceId)
+    .eq('is_current', true)
+    .neq('doc_status', 'deleted')
+
+  if (!docs?.length) return { data: [] }
+
+  const { data: extractions, error } = await admin
+    .from('extractions')
+    .select('raw_extraction, corrected_extraction')
+    .in('document_id', docs.map(d => d.id))
+
+  if (error) return { error: error.message }
+
+  // Agregar cantidades por (tipo, unidad, especialidad)
+  const agg: Record<string, AggregatedElement> = {}
+  for (const ext of (extractions ?? [])) {
+    const data = ((ext as any).corrected_extraction ?? ext.raw_extraction) as any
+    for (const esp of (data?.especialidades ?? [])) {
+      for (const el of (esp.elementos ?? [])) {
+        if (el.tipo && el.unidad) {
+          const key = `${esp.nombre}||${el.tipo}||${el.unidad}`
+          if (!agg[key]) agg[key] = { tipo: el.tipo, unidad: el.unidad, total: 0, count: 0, especialidad: esp.nombre }
+          if (el.cantidad !== null) agg[key].total += Number(el.cantidad)
+          agg[key].count++
+        }
+      }
+    }
+  }
+
+  const result = Object.values(agg).sort((a, b) => b.total - a.total)
   return { data: result }
 }

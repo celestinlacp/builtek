@@ -25,6 +25,7 @@ Responde ÚNICAMENTE con un JSON válido con la siguiente estructura, sin texto 
 
 {
   "titulo": "nombre del plano o documento detectado",
+  "descripcion": "resumen ejecutivo de 2-3 oraciones de lo encontrado en este plano: tipo de estructura, elementos principales con sus cantidades más relevantes, alcance geométrico si aplica",
   "especialidades": [
     {
       "nombre": "nombre de la especialidad (Geométrico, Estructuras, Hidráulica, Electromecánico, Arquitectura, etc.)",
@@ -56,6 +57,74 @@ function getAdminClient() {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
+}
+
+// ── Genera resumen ejecutivo del proyecto a partir de todas sus extracciones ──
+async function generateProjectSummary(projectId: string, adminClient: ReturnType<typeof getAdminClient>) {
+  try {
+    const [{ data: extractions }, { data: proj }] = await Promise.all([
+      adminClient
+        .from('extractions')
+        .select('raw_extraction, corrected_extraction')
+        .eq('project_id', projectId)
+        .order('created_at', { ascending: false })
+        .limit(20),
+      adminClient
+        .from('projects')
+        .select('name, frente, kota_data, structure_type_id')
+        .eq('id', projectId)
+        .single(),
+    ])
+
+    if (!extractions?.length) return
+
+    // Agregar cantidades: (tipo, unidad) → total
+    const agg: Record<string, { total: number; unidad: string }> = {}
+    for (const ext of extractions) {
+      const data = (ext.corrected_extraction ?? ext.raw_extraction) as any
+      for (const esp of (data?.especialidades ?? [])) {
+        for (const el of (esp.elementos ?? [])) {
+          if (el.cantidad !== null && el.tipo && el.unidad) {
+            const key = `${el.tipo}||${el.unidad}`
+            if (!agg[key]) agg[key] = { total: 0, unidad: el.unidad }
+            agg[key].total += Number(el.cantidad)
+          }
+        }
+      }
+    }
+
+    const topElements = Object.entries(agg)
+      .sort((a, b) => b[1].total - a[1].total)
+      .slice(0, 12)
+      .map(([key, v]) => `- ${key.split('||')[0]}: ${v.total.toLocaleString('es-MX', { maximumFractionDigits: 2 })} ${v.unidad}`)
+      .join('\n')
+
+    const prompt = `Genera un párrafo ejecutivo de 3-4 oraciones sobre este proyecto de construcción basándote en las cantidades acumuladas de sus planos técnicos analizados hasta ahora.
+
+Proyecto: ${proj?.name ?? ''}${proj?.frente ? ` — ${proj.frente}` : ''}
+Planos analizados: ${extractions.length}
+
+Cantidades principales:
+${topElements || '(sin datos aún)'}
+
+Describe: tipo de estructura, materiales principales, cantidades destacadas y alcance de obra. Español técnico pero comprensible. Solo el párrafo, sin título ni viñetas.`
+
+    const response = await claude.messages.create({
+      model:      CLAUDE_MODEL,
+      max_tokens: 300,
+      messages:   [{ role: 'user', content: prompt }],
+    })
+
+    const text = (response.content.find(b => b.type === 'text') as any)?.text?.trim() ?? ''
+    if (!text) return
+
+    const current = proj?.kota_data ? JSON.parse(JSON.stringify(proj.kota_data)) : {}
+    current.resumen_ejecutivo      = text
+    current.resumen_generado_en    = new Date().toISOString()
+    await adminClient.from('projects').update({ kota_data: current }).eq('id', projectId)
+  } catch (err) {
+    console.error('[KOTA] generateProjectSummary error:', err)
+  }
 }
 
 // [KOTA] GET /api/ai-agent?projectId=...&documentId=... — historial de extracciones
@@ -350,6 +419,9 @@ export async function POST(req: NextRequest) {
       .single()
 
     if (dbError) console.error('[KOTA] Error saving extraction:', dbError.message)
+
+    // Generar resumen ejecutivo del proyecto en background (fire & forget)
+    generateProjectSummary(projectId, admin)
 
     // [KOTA] Infer technical fields from extraction and PATCH kota_data
     // Only update fields that are empty or have source: 'kota' (never overwrite source: 'human')

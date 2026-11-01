@@ -67,6 +67,7 @@ type Elemento = { tipo: string; cantidad: number | null; unidad: string; descrip
 type Especialidad = { nombre: string; elementos: Elemento[] }
 type ExtractionData = {
   titulo: string
+  descripcion?: string
   especialidades: Especialidad[]
   notas: string
   confianza: 'alta' | 'media' | 'baja'
@@ -1222,7 +1223,12 @@ export default function DocumentSlideOver({
                       <p className="font-semibold text-slate-800 text-sm leading-tight">
                         {(kotaExtraction.corrected_extraction ?? kotaExtraction.raw_extraction).titulo || 'Plano analizado'}
                       </p>
-                      <p className="text-xs text-slate-400 mt-0.5">
+                      {(kotaExtraction.corrected_extraction ?? kotaExtraction.raw_extraction).descripcion && (
+                        <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
+                          {(kotaExtraction.corrected_extraction ?? kotaExtraction.raw_extraction).descripcion}
+                        </p>
+                      )}
+                      <p className="text-xs text-slate-400 mt-1">
                         {new Date(kotaExtraction.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}
                       </p>
                       {kotaExtraction.corrected_at && (
