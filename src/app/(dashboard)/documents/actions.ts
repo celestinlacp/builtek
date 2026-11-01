@@ -774,3 +774,69 @@ export async function moveFolderToProject(folderId: string, targetProjectId: str
   await admin.from('documents').update({ project_id: targetProjectId }).eq('folder_id', folderId)
   revalidatePath('/documents')
 }
+
+// ── Kota Dashboard ────────────────────────────────────────────────────────────
+
+export type ProjectExtraction = {
+  id: string
+  document_id: string | null
+  status: 'raw' | 'reviewed' | 'approved'
+  created_at: string
+  confidence: string | null
+  titulo: string | null
+  especialidades_count: number
+  document_name: string
+  doc_key: string | null
+  file_type: string
+}
+
+export async function getProjectExtractions(
+  projectId: string,
+  workspaceId: string
+): Promise<{ data?: ProjectExtraction[]; error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Unauthorized' }
+
+  const admin = getAdminClient()
+
+  const { data: docs } = await admin
+    .from('documents')
+    .select('id, name, display_name, doc_key, file_type')
+    .eq('project_id', projectId)
+    .eq('workspace_id', workspaceId)
+    .eq('is_current', true)
+    .neq('doc_status', 'deleted')
+
+  if (!docs?.length) return { data: [] }
+
+  const docMap = Object.fromEntries(docs.map(d => [d.id, d]))
+  const docIds = docs.map(d => d.id)
+
+  const { data: extractions, error } = await admin
+    .from('extractions')
+    .select('id, document_id, status, created_at, confidence, raw_extraction')
+    .in('document_id', docIds)
+    .order('created_at', { ascending: false })
+
+  if (error) return { error: error.message }
+
+  const result: ProjectExtraction[] = (extractions ?? []).map(e => {
+    const doc = e.document_id ? docMap[e.document_id] : null
+    const raw = e.raw_extraction as any
+    return {
+      id:                  e.id,
+      document_id:         e.document_id,
+      status:              e.status as 'raw' | 'reviewed' | 'approved',
+      created_at:          e.created_at,
+      confidence:          e.confidence ?? null,
+      titulo:              raw?.titulo ?? null,
+      especialidades_count: Array.isArray(raw?.especialidades) ? raw.especialidades.length : 0,
+      document_name:       doc?.display_name || doc?.name || '',
+      doc_key:             doc?.doc_key ?? null,
+      file_type:           doc?.file_type ?? '',
+    }
+  })
+
+  return { data: result }
+}

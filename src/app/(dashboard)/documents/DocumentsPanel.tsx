@@ -7,9 +7,10 @@ import { saveDocument, updateDocumentStatus, requestDeleteDocument, approveDelet
 import { createOficio } from '../oficios/actions'
 import {
   Upload, Download, Trash2, ChevronDown, ChevronRight, ArrowLeft, Package,
-  FolderOpen, FolderPlus, Folder, CheckCircle2, Clock, XCircle, Eye, AlertTriangle, ShieldCheck, ShieldX, X, Loader2, History, GitBranch, SlidersHorizontal, Info, RefreshCw, Camera, Plus, Layers, Pencil, Milestone, LayoutList, AlignJustify, Share2, BookOpen,
+  FolderOpen, FolderPlus, Folder, CheckCircle2, Clock, XCircle, Eye, AlertTriangle, ShieldCheck, ShieldX, X, Loader2, History, GitBranch, SlidersHorizontal, Info, RefreshCw, Camera, Plus, Layers, Pencil, Milestone, LayoutList, AlignJustify, Share2, BookOpen, Sparkles,
 } from 'lucide-react'
 import ProjectBriefTab, { type BriefSection } from './ProjectBriefTab'
+import KotaDashboard from './KotaDashboard'
 import DocumentMetricsTab from './DocumentMetricsTab'
 import { parseDocKey, TIPO_PLANO_DEFAULT, TIPO_DOC_DEFAULT, detectFileFormat } from './utils'
 import DocumentSlideOver from './DocumentSlideOver'
@@ -1938,7 +1939,7 @@ function ProjectDetailView({
   project, documents, workspaceId, userRole, deleteRequests, currentUserId,
   subprojects, parentProject, onBack, onUpload, onSelectSub, coverUrls, docFolders, docBrief,
 }: {
-  project: Project
+  project: Project & { kota_data?: Record<string, any> | null }
   documents: Doc[]
   workspaceId: string
   userRole: string
@@ -1989,7 +1990,7 @@ function ProjectDetailView({
   const [savingFolderModal, setSavingFolderModal] = useState(false)
   const [showMoveMenu,     setShowMoveMenu]     = useState(false)
   const [movingToFolder,   setMovingToFolder]   = useState(false)
-  const [activeTab,        setActiveTab]        = useState<'documents' | 'metrics' | 'brief'>('documents')
+  const [activeTab,        setActiveTab]        = useState<'documents' | 'metrics' | 'brief' | 'kota'>('documents')
   // Move folder modal
   const [movingFolder,     setMovingFolder]     = useState<DocFolder | null>(null)
   const [moveFolderTarget, setMoveFolderTarget] = useState('')  // target projectId
@@ -2415,6 +2416,17 @@ function ProjectDetailView({
           <BookOpen className="w-3.5 h-3.5" />
           Brief técnico
         </button>
+        {userRole === 'owner' && (
+          <button
+            onClick={() => setActiveTab('kota')}
+            className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px transition-colors ${
+              activeTab === 'kota' ? 'border-[#00C2FF] text-[#007A9E]' : 'border-transparent text-slate-400 hover:text-slate-600'
+            }`}
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            Kota
+          </button>
+        )}
       </div>
 
       {activeTab === 'metrics' ? (
@@ -2425,6 +2437,17 @@ function ProjectDetailView({
           workspaceId={workspaceId}
           initialSections={docBrief?.sections ?? []}
           canEdit={canManageProjects}
+        />
+      ) : activeTab === 'kota' ? (
+        <KotaDashboard
+          projectId={project.id}
+          workspaceId={workspaceId}
+          kotaData={project.kota_data ?? null}
+          totalDocs={currentDocs.length}
+          onOpenDocument={(docId) => {
+            const doc = documents.find(d => d.id === docId)
+            if (doc) setSlideDoc(doc)
+          }}
         />
       ) : (
         <>
