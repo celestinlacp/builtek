@@ -797,6 +797,7 @@ export type AggregatedElement = {
   total: number
   count: number
   especialidad: string
+  tipo_medicion?: string | null
 }
 
 export async function getProjectExtractions(
@@ -874,27 +875,81 @@ export async function getProjectKotaSummary(
 
   const { data: extractions, error } = await admin
     .from('extractions')
-    .select('raw_extraction, corrected_extraction')
+    .select('document_id, raw_extraction, corrected_extraction, created_at')
     .in('document_id', docs.map(d => d.id))
+    .order('created_at', { ascending: false })
 
   if (error) return { error: error.message }
 
-  // Agregar cantidades por (tipo, unidad, especialidad)
-  const agg: Record<string, AggregatedElement> = {}
+  // Usar solo la extracción más reciente por documento para evitar doble conteo al reanalizar
+  const latestPerDoc = new Map<string, (typeof extractions)[0]>()
   for (const ext of (extractions ?? [])) {
+    if (ext.document_id && !latestPerDoc.has(ext.document_id)) {
+      latestPerDoc.set(ext.document_id, ext)
+    }
+  }
+
+  // Agregar cantidades por (especialidad, tipo, unidad)
+  const agg: Record<string, AggregatedElement> = {}
+  for (const ext of latestPerDoc.values()) {
     const data = ((ext as any).corrected_extraction ?? ext.raw_extraction) as any
     for (const esp of (data?.especialidades ?? [])) {
       for (const el of (esp.elementos ?? [])) {
         if (el.tipo && el.unidad) {
           const key = `${esp.nombre}||${el.tipo}||${el.unidad}`
-          if (!agg[key]) agg[key] = { tipo: el.tipo, unidad: el.unidad, total: 0, count: 0, especialidad: esp.nombre }
-          if (el.cantidad !== null) agg[key].total += Number(el.cantidad)
+          if (!agg[key]) agg[key] = { tipo: el.tipo, unidad: el.unidad, total: 0, count: 0, especialidad: esp.nombre, tipo_medicion: el.tipo_medicion ?? null }
+          if (el.cantidad != null) agg[key].total += Number(el.cantidad)
           agg[key].count++
         }
       }
     }
   }
 
-  const result = Object.values(agg).sort((a, b) => b.total - a.total)
-  return { data: result }
+  return { data: Object.values(agg).sort((a, b) => b.total - a.total) }
+}
+
+export type ExtractionElement = {
+  tipo: string
+  unidad: string
+  cantidad: number
+  especialidad: string
+  tipo_medicion?: string | null
+  especificacion?: string | null
+}
+
+export async function getExtractionElements(
+  extractionId: string
+): Promise<{ data?: ExtractionElement[]; error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Unauthorized' }
+
+  const admin = getAdminClient()
+  const { data: ext, error } = await admin
+    .from('extractions')
+    .select('raw_extraction, corrected_extraction')
+    .eq('id', extractionId)
+    .single()
+
+  if (error || !ext) return { error: error?.message ?? 'Not found' }
+
+  const active = ((ext as any).corrected_extraction ?? ext.raw_extraction) as any
+  const result: ExtractionElement[] = []
+
+  for (const esp of (active?.especialidades ?? [])) {
+    for (const el of (esp.elementos ?? [])) {
+      if (el.tipo && el.unidad && el.cantidad != null) {
+        result.push({
+          tipo: el.tipo,
+          unidad: el.unidad,
+          cantidad: Number(el.cantidad),
+          especialidad: esp.nombre ?? '',
+          tipo_medicion: el.tipo_medicion ?? null,
+          especificacion: el.especificacion ?? null,
+        })
+      }
+    }
+  }
+
+  return { data: result.sort((a, b) => b.cantidad - a.cantidad) }
 }

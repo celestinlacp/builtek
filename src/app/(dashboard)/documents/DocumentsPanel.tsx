@@ -2440,9 +2440,8 @@ function ProjectDetailView({
         />
       ) : activeTab === 'kota' ? (
         <KotaDashboard
-          projectId={project.id}
+          project={project}
           workspaceId={workspaceId}
-          kotaData={project.kota_data ?? null}
           totalDocs={currentDocs.length}
           onOpenDocument={(docId) => {
             const doc = documents.find(d => d.id === docId)

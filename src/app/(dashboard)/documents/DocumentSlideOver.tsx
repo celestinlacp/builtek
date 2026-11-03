@@ -63,11 +63,23 @@ type VersionRow = {
   uploader?: { full_name: string | null; initials: string | null } | null
 }
 
-type Elemento = { tipo: string; cantidad: number | null; unidad: string; descripcion?: string }
+type Elemento = {
+  tipo: string
+  cantidad: number | null
+  unidad: string
+  tipo_medicion?: string | null
+  especificacion?: string | null
+  descripcion?: string
+}
 type Especialidad = { nombre: string; elementos: Elemento[] }
 type ExtractionData = {
   titulo: string
   descripcion?: string
+  numero_plano?: string | null
+  revision?: string | null
+  escala?: string | null
+  disciplina?: string | null
+  notas_materiales?: string[] | null
   especialidades: Especialidad[]
   notas: string
   confianza: 'alta' | 'media' | 'baja'
@@ -1219,7 +1231,7 @@ export default function DocumentSlideOver({
 
                   {/* Extraction header */}
                   <div className="flex items-start justify-between mb-2">
-                    <div>
+                    <div className="flex-1 min-w-0">
                       <p className="font-semibold text-slate-800 text-sm leading-tight">
                         {(kotaExtraction.corrected_extraction ?? kotaExtraction.raw_extraction).titulo || 'Plano analizado'}
                       </p>
@@ -1228,7 +1240,26 @@ export default function DocumentSlideOver({
                           {(kotaExtraction.corrected_extraction ?? kotaExtraction.raw_extraction).descripcion}
                         </p>
                       )}
-                      <p className="text-xs text-slate-400 mt-1">
+                      {/* Metadata del title block */}
+                      {(() => {
+                        const d = kotaExtraction.corrected_extraction ?? kotaExtraction.raw_extraction
+                        const pills = [
+                          d.numero_plano  && { label: d.numero_plano,  title: 'N° Plano' },
+                          d.revision      && { label: `Rev. ${d.revision}`, title: 'Revisión' },
+                          d.escala        && { label: d.escala,         title: 'Escala' },
+                          d.disciplina    && { label: d.disciplina,     title: 'Disciplina' },
+                        ].filter(Boolean) as { label: string; title: string }[]
+                        return pills.length > 0 ? (
+                          <div className="flex flex-wrap gap-1 mt-2">
+                            {pills.map((p, i) => (
+                              <span key={i} title={p.title} className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded font-mono">
+                                {p.label}
+                              </span>
+                            ))}
+                          </div>
+                        ) : null
+                      })()}
+                      <p className="text-xs text-slate-400 mt-1.5">
                         {new Date(kotaExtraction.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}
                       </p>
                       {kotaExtraction.corrected_at && (
@@ -1421,7 +1452,12 @@ export default function DocumentSlideOver({
                                     <tbody className="divide-y divide-slate-50">
                                       {esp.elementos.map((el, j) => (
                                         <tr key={j}>
-                                          <td className="py-1.5 font-medium text-slate-700">{el.tipo}</td>
+                                          <td className="py-1.5 font-medium text-slate-700">
+                                            {el.tipo}
+                                            {el.especificacion && (
+                                              <span className="block text-[10px] text-slate-400 font-normal mt-0.5">{el.especificacion}</span>
+                                            )}
+                                          </td>
                                           <td className="py-1.5 text-right tabular-nums text-[#1A2744] font-semibold">
                                             {el.cantidad !== null && el.cantidad !== undefined ? el.cantidad.toLocaleString('es-MX') : '—'}
                                           </td>
@@ -1435,6 +1471,21 @@ export default function DocumentSlideOver({
                             </div>
                           ))}
                         </div>
+
+                        {/* Notas de materiales */}
+                        {activeData.notas_materiales && activeData.notas_materiales.length > 0 && (
+                          <div className="bg-amber-50 border border-amber-100 rounded-xl px-3 py-2.5">
+                            <p className="text-[10px] font-bold text-amber-700 uppercase tracking-wide mb-1.5">Especificaciones de materiales</p>
+                            <ul className="space-y-0.5">
+                              {activeData.notas_materiales.map((n, i) => (
+                                <li key={i} className="text-xs text-amber-900 flex items-start gap-1.5">
+                                  <span className="text-amber-400 mt-0.5 flex-shrink-0">—</span>
+                                  {n}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
 
                         {activeData.notas && (
                           <p className="text-xs text-slate-500 bg-slate-50 rounded-xl px-3 py-2">

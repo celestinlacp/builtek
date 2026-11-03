@@ -118,15 +118,17 @@ function ConstructionBg() {
 function Ticker() {
   const items = [
     'Proyectos ilimitados',
+    'Kota · cuantificación AI de planos',
     'Sin cobros por usuario',
     'Viewers gratis en todos los planes',
     'WhatsApp integrado',
-    'CFDI en planes pagados',
+    'Dashboard por proyecto',
     'Control de versiones',
     'Aprobaciones firmadas',
     'Empresa mexicana · CDMX',
     'Trazabilidad total',
     'Drive compartido',
+    'Acero · Concreto · Longitudes · Áreas',
   ]
   return (
     <div className="bg-[#0a1220] border-y border-white/5 py-3 overflow-hidden">
@@ -156,10 +158,10 @@ function Navbar() {
 
         <div className="hidden md:flex items-center gap-8">
           <a href="#modulos"  className="text-white/50 hover:text-white text-sm font-normal transition-colors">Módulos</a>
-          <a href="#ia"       className="text-white/50 hover:text-white text-sm font-normal transition-colors">Agente AI</a>
-          <a href="#rag"      className="text-[#00C2FF]/70 hover:text-[#00C2FF] text-sm font-normal transition-colors flex items-center gap-1">
-            <Sparkles className="w-3 h-3" />RAG
+          <a href="#ia"       className="text-[#00C2FF]/70 hover:text-[#00C2FF] text-sm font-normal transition-colors flex items-center gap-1">
+            <Sparkles className="w-3 h-3" />Kota AI
           </a>
+          <a href="#rag"      className="text-white/50 hover:text-white text-sm font-normal transition-colors">Kota Chat</a>
           <a href="#drive"    className="text-white/50 hover:text-white text-sm font-normal transition-colors">Drive</a>
           <a href="#whatsapp" className="text-white/50 hover:text-white text-sm font-normal transition-colors">WhatsApp</a>
           <a href="#partner"  className="text-white/50 hover:text-white text-sm font-normal transition-colors">Partner</a>
@@ -276,11 +278,11 @@ function Hero() {
             entiende tus planos,
           </span>{' '}
           <span className="font-bold text-white">habla por WhatsApp</span>{' '}
-          <span className="font-bold text-white">y crece contigo.</span>
+          <span className="font-bold text-white">y aprende de cada obra.</span>
         </h1>
 
         <p className="hero-enter text-white/25 text-xs tracking-widest uppercase font-light mb-8" style={{ animationDelay: '300ms' }}>
-          El sistema operativo de la construcción
+          Control documental en la nube · Gestión de proyectos · IA para la construcción
         </p>
 
         <div className="hero-enter flex flex-col sm:flex-row items-center justify-center gap-3 mb-5" style={{ animationDelay: '430ms' }}>
@@ -356,6 +358,21 @@ function Problem() {
       title: 'Tus aprobaciones son por email',
       desc: 'Sin trazabilidad, sin firma, sin historial. Imposible auditar qué aprobó quién.',
     },
+    {
+      emoji: '🏗️',
+      title: 'Tu campo trabaja desconectado',
+      desc: 'El maestro, el supervisor, el subcontratista — toman decisiones sin acceso a los planos vigentes ni al avance real.',
+    },
+    {
+      emoji: '👔',
+      title: 'Tus clientes trabajan a ciegas',
+      desc: 'No tienen acceso a planos vigentes ni al avance real. Llaman a preguntar, tú buscas, mandas un PDF y al día siguiente ya está desactualizado.',
+    },
+    {
+      emoji: '📐',
+      title: 'Tu presupuesto falla en el metrado',
+      desc: 'Contar varillas y calcular concreto a mano tarda días y tiene errores del 10-15%. El sobrecosto empieza antes de poner el primer block.',
+    },
   ]
 
   return (
@@ -381,10 +398,14 @@ function Problem() {
           ))}
         </div>
 
-        <div className="mt-12 text-center">
-          <p className="text-white/50 text-lg font-light">
+        <div className="mt-12 text-center max-w-2xl mx-auto">
+          <p className="text-white/50 text-lg font-light mb-2">
             Builtek cierra ese ciclo.{' '}
             <span className="text-white font-normal">Una sola plataforma para toda la obra.</span>
+          </p>
+          <p className="text-white/28 text-sm font-light">
+            Con Kota, la IA ya viene integrada — sin configuración, sin equipo de IT, sin curva de aprendizaje.
+            Subes un plano, das clic en Analizar, y el agente hace el resto.
           </p>
         </div>
       </div>
@@ -417,7 +438,7 @@ function Modules() {
       icon: HardDrive,
       color: 'text-purple-400 bg-purple-400/10',
       title: 'Drive',
-      desc: 'Un disco compartido para todo el equipo: sube, organiza y accede a los archivos del proyecto desde un solo lugar. Comparte con terceros vía link o QR — sin que necesiten cuenta.',
+      desc: 'Disco compartido para todo el equipo. Sube, organiza y accede a archivos del proyecto. Comparte con terceros vía link o QR sin que necesiten cuenta.',
     },
     {
       icon: Calendar,
@@ -473,82 +494,144 @@ function Modules() {
   )
 }
 
-// ── AI Feature ────────────────────────────────────────────────────────────────
-function AIFeature() {
+// ── Kota Feature ──────────────────────────────────────────────────────────────
+function KotaFeature() {
   return (
     <section id="ia" className="bg-[#060e1c] py-14 md:py-24 px-4 md:px-6 relative overflow-hidden">
       <div className="absolute inset-0 bg-gradient-to-br from-[#00C2FF]/5 via-transparent to-transparent pointer-events-none" />
 
       <AnimateIn>
       <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-8 lg:gap-16 items-center">
+
+        {/* Text */}
         <div>
           <div className="inline-flex items-center gap-2 bg-[#00C2FF]/10 border border-[#00C2FF]/20 rounded-full px-4 py-1.5 mb-8">
-            <Bot className="w-3.5 h-3.5 text-[#00C2FF]" />
-            <span className="text-[#00C2FF] text-xs font-medium">Agente AI — Diferenciador clave</span>
+            <Sparkles className="w-3.5 h-3.5 text-[#00C2FF]" />
+            <span className="text-[#00C2FF] text-xs font-medium">Kota · Agente AI de construcción</span>
           </div>
 
-          <h2 className="text-2xl md:text-4xl text-white leading-tight mb-5">
-            <span className="font-light">Sube un plano.</span><br />
-            <span className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#00C2FF] to-[#0077FF]">
-              La IA hace el resto.
-            </span>
+          <h2 className="text-2xl md:text-4xl text-white leading-tight mb-3">
+            <span className="font-light">Extrae. Entiende.</span><br />
+            <span className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#00C2FF] to-[#0077FF]">Responde.</span>
           </h2>
+          <p className="text-white/25 text-sm font-light mb-7 italic">El agente que aprende tu proyecto plano por plano.</p>
 
-          <p className="text-white/40 text-lg leading-relaxed mb-8 font-light">
-            Nuestro agente AI lee tus planos estructurales en PDF y extrae automáticamente cantidades de obra, elementos y especificaciones técnicas — en segundos, sin errores de captura.
+          <p className="text-white/40 text-base leading-relaxed mb-8 font-light">
+            Kota no solo extrae cantidades — entrena un agente técnico con cada plano que sube tu equipo. Acumula especificaciones, clasifica materiales y queda listo para responder preguntas sobre el proyecto en lenguaje natural.
           </p>
 
-          <div className="space-y-4">
+          <div className="space-y-5">
             {[
-              'Extracción de cuantificación estructural automática',
-              'Compatible con planos PDF de cualquier formato',
-              'Resultados auditables y exportables',
-              'Nadie más en LATAM tiene esto integrado en una PM tool',
+              {
+                title: 'Extrae — cuantificación en 30 segundos',
+                desc: 'Acero (kg/ton), Concreto (m³), Longitudes y Áreas por plano. Lee el número de plano, revisión y escala del cuadro de referencia. Sin captura manual.',
+              },
+              {
+                title: 'Entiende — acumula contexto técnico',
+                desc: "Captura f'c, fy, diámetros y recubrimientos de las notas generales. Con cada plano analizado, Kota sabe más sobre el proyecto.",
+              },
+              {
+                title: 'Entrena — el proyecto se vuelve inteligente',
+                desc: 'Cada extracción alimenta la base de conocimiento del proyecto. Materiales, disciplinas, especificaciones y versiones — todo indexado.',
+              },
+              {
+                title: 'Responde — Kota Chat (Beta privada)',
+                desc: '"¿Cuánto acero hay en el frente 3?" → respuesta inmediata con fuente. El agente que sabe todo lo que dice cada plano.',
+              },
             ].map(f => (
-              <div key={f} className="flex items-start gap-3">
+              <div key={f.title} className="flex items-start gap-3">
                 <div className="w-5 h-5 rounded-full bg-[#00C2FF]/20 flex items-center justify-center flex-shrink-0 mt-0.5">
                   <div className="w-2 h-2 rounded-full bg-[#00C2FF]" />
                 </div>
-                <p className="text-white/50 text-sm font-light">{f}</p>
+                <div>
+                  <p className="text-white/70 text-sm font-semibold">{f.title}</p>
+                  <p className="text-white/35 text-xs font-light mt-0.5 leading-relaxed">{f.desc}</p>
+                </div>
               </div>
             ))}
           </div>
         </div>
 
-        {/* AI Mock */}
+        {/* Kota Mock — dashboard view */}
         <div className="bg-[#1A2744]/60 border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
-          <div className="flex items-center gap-2 px-4 py-3 border-b border-white/5 bg-white/3">
-            <Bot className="w-4 h-4 text-[#00C2FF]" />
-            <span className="text-white/50 text-xs font-medium">Agente AI — Extracción de plano</span>
+          {/* Header */}
+          <div className="bg-gradient-to-r from-[#1A2744] to-[#243660] px-4 py-3 flex items-center gap-2">
+            <Sparkles className="w-3.5 h-3.5 text-[#00C2FF]" />
+            <span className="text-[#00C2FF] text-[10px] font-bold uppercase tracking-wide">Kota</span>
+            <span className="text-white/25 text-[10px] mx-1">·</span>
+            <span className="text-white/45 text-[10px] truncate">Frente 12 — Viaducto Sur</span>
+            <span className="ml-auto text-[9px] bg-green-400/15 text-green-400 px-2 py-0.5 rounded-full font-medium flex-shrink-0">47 planos</span>
           </div>
-          <div className="p-5 space-y-3">
-            <div className="border-2 border-dashed border-[#00C2FF]/30 rounded-xl p-5 text-center bg-[#00C2FF]/5">
-              <Upload className="w-7 h-7 text-[#00C2FF]/60 mx-auto mb-2" />
-              <p className="text-xs text-white/50 font-medium">plano_estructuras_frente3_rev2.pdf</p>
-              <p className="text-xs text-white/30 mt-1 font-light">4.2 MB · Procesando...</p>
-            </div>
 
-            <div className="bg-white/3 rounded-xl p-4 space-y-2">
-              <p className="text-[10px] text-[#00C2FF] font-semibold uppercase tracking-wide mb-3">Extracción completada ✓</p>
-              {[
-                { label: 'Columnas de concreto', val: '48 pzas', type: 'EST' },
-                { label: 'Trabes principales',   val: '96 ml',  type: 'EST' },
-                { label: 'Losa reticular N+3.50', val: '1,240 m²', type: 'EST' },
-                { label: 'Acero de refuerzo (est.)', val: '18.4 ton', type: 'EST' },
-              ].map(r => (
-                <div key={r.label} className="flex items-center justify-between py-1.5 border-b border-white/5 last:border-0">
-                  <span className="text-[11px] text-white/50 font-light">{r.label}</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[9px] bg-[#00C2FF]/10 text-[#00C2FF] px-1.5 py-0.5 rounded font-semibold">{r.type}</span>
-                    <span className="text-[11px] text-white font-semibold">{r.val}</span>
-                  </div>
-                </div>
+          <div className="p-4 space-y-3">
+            {/* Title block pills */}
+            <div className="flex flex-wrap gap-1.5">
+              {['EST-SEC-002', 'Rev. A', '1:50', 'Estructural'].map(p => (
+                <span key={p} className="text-[9px] bg-white/6 text-white/45 px-2 py-0.5 rounded font-mono border border-white/8">{p}</span>
               ))}
             </div>
 
-            <div className="flex gap-2">
-              <button className="flex-1 py-2 rounded-lg bg-[#00C2FF]/10 text-[#00C2FF] text-xs font-semibold">Exportar Excel</button>
-              <button className="flex-1 py-2 rounded-lg bg-white/5 text-white/40 text-xs font-normal">Ver plano</button>
+            {/* Material specs */}
+            <div className="bg-amber-950/50 border border-amber-400/20 rounded-xl p-3">
+              <p className="text-[9px] text-amber-400/80 font-bold uppercase tracking-wide mb-1.5">Especificaciones detectadas</p>
+              <div className="space-y-0.5">
+                {["Concreto f'c=250 kg/cm² clase 1", "Acero de refuerzo fy=4,200 kg/cm²", "Recubrimiento mínimo 4 cm"].map(s => (
+                  <p key={s} className="text-[10px] text-amber-200/50">— {s}</p>
+                ))}
+              </div>
+            </div>
+
+            {/* Acero + Concreto */}
+            <div className="grid grid-cols-2 gap-2">
+              <div className="bg-white/3 rounded-xl p-3">
+                <div className="flex items-center gap-1.5 mb-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-red-400 flex-shrink-0" />
+                  <p className="text-[9px] text-red-400 font-bold uppercase tracking-wide">Acero</p>
+                </div>
+                {[
+                  { n: 'Arm. long. MC-01', v: '8.4 ton' },
+                  { n: 'Estribos Ø10mm', v: '2.1 ton' },
+                  { n: 'Arm. zapata Z-3', v: '1.8 ton' },
+                ].map(r => (
+                  <div key={r.n} className="flex justify-between py-0.5">
+                    <span className="text-[9px] text-white/28 truncate pr-1">{r.n}</span>
+                    <span className="text-[9px] text-white/60 font-mono flex-shrink-0">{r.v}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="bg-white/3 rounded-xl p-3">
+                <div className="flex items-center gap-1.5 mb-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#00C2FF] flex-shrink-0" />
+                  <p className="text-[9px] text-[#00C2FF] font-bold uppercase tracking-wide">Concreto</p>
+                </div>
+                {[
+                  { n: "Muro MC-01 f'c=250", v: '42.8 m³' },
+                  { n: 'Zapata Z-03', v: '12.6 m³' },
+                  { n: 'Losa N+5.50', v: '68.4 m³' },
+                ].map(r => (
+                  <div key={r.n} className="flex justify-between py-0.5">
+                    <span className="text-[9px] text-white/28 truncate pr-1">{r.n}</span>
+                    <span className="text-[9px] text-white/60 font-mono flex-shrink-0">{r.v}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Project totals */}
+            <div className="bg-[#00C2FF]/5 border border-[#00C2FF]/15 rounded-xl px-3 py-2.5">
+              <p className="text-[9px] text-[#00C2FF]/50 font-bold uppercase tracking-wide mb-2">Proyecto · Acumulado 47 planos · sin doble conteo</p>
+              <div className="flex justify-between">
+                {[
+                  { label: 'Acero', val: '842.3 ton', color: 'text-red-300' },
+                  { label: 'Concreto', val: '12,840 m³', color: 'text-[#00C2FF]' },
+                  { label: 'Longitud', val: '3,220 ml', color: 'text-emerald-300' },
+                ].map(k => (
+                  <div key={k.label} className="text-center">
+                    <p className={`text-[12px] font-bold font-mono ${k.color}`}>{k.val}</p>
+                    <p className="text-[8px] text-white/25 mt-0.5">{k.label}</p>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>
@@ -558,11 +641,12 @@ function AIFeature() {
       {/* Inline CTA */}
       <div className="max-w-7xl mx-auto mt-14 px-6">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-[#00C2FF]/5 border border-[#00C2FF]/15 rounded-2xl px-7 py-5">
-          <p className="text-white/55 text-sm font-light text-center sm:text-left">
-            ¿Quieres ver la extracción AI funcionando con un plano tuyo?
-          </p>
+          <div>
+            <p className="text-white/65 text-sm font-semibold mb-0.5">¿Quieres ver Kota en acción con un plano tuyo?</p>
+            <p className="text-white/30 text-xs font-light">Sube tu PDF y te mostramos la extracción en vivo — sin compromiso.</p>
+          </div>
           <Link href="/demo" className="flex-shrink-0 flex items-center gap-2 bg-[#00C2FF] text-[#0D1729] px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-white transition-colors whitespace-nowrap">
-            Ver demo en vivo <ArrowRight className="w-4 h-4" />
+            Ver demo con Kota <ArrowRight className="w-4 h-4" />
           </Link>
         </div>
       </div>
@@ -570,27 +654,84 @@ function AIFeature() {
   )
 }
 
-// ── RAG Feature ───────────────────────────────────────────────────────────────
+// ── Kota Chat (RAG) Feature ────────────────────────────────────────────────────
 function RAGFeature() {
   return (
-    <section id="rag" className="bg-[#060e1c] px-6 py-10">
+    <section id="rag" className="bg-[#060e1c] px-4 md:px-6 py-12">
+      <AnimateIn>
       <div className="max-w-7xl mx-auto">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-[#00C2FF]/4 border border-[#00C2FF]/12 rounded-2xl px-7 py-5">
-          <div className="flex items-start gap-4">
-            <Sparkles className="w-5 h-5 text-[#00C2FF] flex-shrink-0 mt-0.5" />
+        <div className="grid lg:grid-cols-[1fr_auto] gap-6 bg-gradient-to-br from-[#00C2FF]/6 to-[#0077FF]/3 border border-[#00C2FF]/15 rounded-2xl px-7 py-7 items-center">
+          <div className="flex items-start gap-5">
+            <div className="w-10 h-10 rounded-xl bg-[#00C2FF]/15 flex items-center justify-center flex-shrink-0 mt-0.5">
+              <MessageSquare className="w-5 h-5 text-[#00C2FF]" />
+            </div>
             <div>
-              <p className="text-white/65 text-sm font-semibold mb-1">Agente RAG — En desarrollo</p>
-              <p className="text-white/30 text-xs font-light leading-relaxed max-w-xl">
-                Un consultor técnico que conoce todos tus documentos: planos, memorias, oficios, revisiones.
-                Pregunta y te dice la respuesta con la fuente exacta. Acceso anticipado gratis para clientes Pro y Contractor al lanzarse.
+              <div className="flex items-center flex-wrap gap-2 mb-2">
+                <p className="text-white/80 text-base font-semibold">Kota Chat — Pregunta a tus documentos</p>
+                <span className="text-[10px] bg-[#00C2FF]/10 text-[#00C2FF] border border-[#00C2FF]/20 px-2.5 py-1 rounded-full font-semibold">Beta privada</span>
+              </div>
+              <p className="text-white/35 text-sm font-light leading-relaxed max-w-2xl mb-3">
+                El siguiente nivel de Kota: pregúntale a todos tus planos y documentos a la vez.
               </p>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  "¿Cuánto acero hay en el frente 3?",
+                  "¿Qué planos no están aprobados aún?",
+                  "¿Cuál es el f'c de los muros MC-01?",
+                ].map(q => (
+                  <span key={q} className="text-[10px] text-white/40 bg-white/4 border border-white/8 rounded-full px-3 py-1 italic font-light">{q}</span>
+                ))}
+              </div>
+              <p className="text-white/25 text-xs font-light mt-3">Respuesta inmediata, con la fuente exacta. Acceso anticipado para clientes Pro y Contractor.</p>
             </div>
           </div>
-          <span className="flex-shrink-0 text-[10px] bg-[#00C2FF]/10 text-[#00C2FF] border border-[#00C2FF]/20 px-3 py-1.5 rounded-full font-semibold whitespace-nowrap">
-            Próximamente
-          </span>
+          <Link href="/demo" className="flex-shrink-0 flex items-center gap-2 bg-[#00C2FF]/10 text-[#00C2FF] border border-[#00C2FF]/20 px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#00C2FF]/20 transition-colors whitespace-nowrap">
+            Quiero acceso anticipado <ChevronRight className="w-4 h-4" />
+          </Link>
         </div>
       </div>
+      </AnimateIn>
+    </section>
+  )
+}
+
+// ── MCP Feature ───────────────────────────────────────────────────────────────
+function MCPFeature() {
+  return (
+    <section id="mcp" className="bg-[#060e1c] px-4 md:px-6 pb-12">
+      <AnimateIn>
+      <div className="max-w-7xl mx-auto">
+        <div className="grid lg:grid-cols-[1fr_auto] gap-6 bg-gradient-to-br from-violet-500/6 to-violet-800/3 border border-violet-500/15 rounded-2xl px-7 py-7 items-center">
+          <div className="flex items-start gap-5">
+            <div className="w-10 h-10 rounded-xl bg-violet-500/15 flex items-center justify-center flex-shrink-0 mt-0.5">
+              <Wrench className="w-5 h-5 text-violet-400" />
+            </div>
+            <div>
+              <div className="flex items-center flex-wrap gap-2 mb-2">
+                <p className="text-white/80 text-base font-semibold">Usa Claude o ChatGPT para preguntarle a tu proyecto</p>
+                <span className="text-[10px] bg-violet-500/10 text-violet-400 border border-violet-500/20 px-2.5 py-1 rounded-full font-semibold">Próximamente</span>
+              </div>
+              <p className="text-white/35 text-sm font-light leading-relaxed max-w-2xl mb-3">
+                ¿Ya usas IA en tu día a día? Conecta tu asistente favorito a Builtek y pregúntale directamente a tus proyectos — sin copiar datos, sin pantallas intermedias, sin perder contexto.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  '"¿Cuánto acero hay en Puente Norte?"',
+                  '"Analiza este plano y agrégalo al proyecto"',
+                  '"¿Qué documentos faltan por aprobar?"',
+                ].map(q => (
+                  <span key={q} className="text-[10px] text-white/40 bg-white/4 border border-white/8 rounded-full px-3 py-1 italic font-light">{q}</span>
+                ))}
+              </div>
+              <p className="text-white/25 text-xs font-light mt-3">El primer sistema de gestión de obra en LATAM con conector nativo para agentes IA. Lista de espera abierta.</p>
+            </div>
+          </div>
+          <Link href="/demo" className="flex-shrink-0 flex items-center gap-2 bg-violet-500/10 text-violet-400 border border-violet-500/20 px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-violet-500/20 transition-colors whitespace-nowrap">
+            Quiero acceso anticipado <ChevronRight className="w-4 h-4" />
+          </Link>
+        </div>
+      </div>
+      </AnimateIn>
     </section>
   )
 }
@@ -813,16 +954,16 @@ function PartnerSection() {
         <div className="max-w-3xl mx-auto text-center mb-14">
           <div className="inline-flex items-center gap-2 bg-white/5 border border-white/10 rounded-full px-4 py-1.5 mb-6">
             <Wrench className="w-3.5 h-3.5 text-white/40" />
-            <span className="text-white/40 text-xs font-medium">Plan Partner</span>
+            <span className="text-white/40 text-xs font-medium">Plan Partner · Implementación a medida</span>
           </div>
           <h2 className="text-2xl md:text-4xl text-white leading-tight mb-5">
-            <span className="font-light">Builtek se adapta</span><br />
+            <span className="font-light">No somos software genérico.</span><br />
             <span className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#00C2FF] to-[#0077FF]">
-              a tu empresa.
+              Construimos para la construcción.
             </span>
           </h2>
           <p className="text-white/40 text-lg leading-relaxed font-light">
-            Otros softwares esperan que tú te adaptes a ellos. Con el Plan Partner, analizamos cómo trabaja tu empresa y programamos las funciones que necesitas — directamente en tu workspace, mes a mes con el fundador.
+            Builtek nació para la industria AEC en LATAM — no es un Excel disfrazado ni un Jira con otro logo. Entendemos planos estructurales, flujos de aprobación, cadenas de subcontratistas y el caos real de una obra. Con el Plan Partner, personalizamos el sistema para que funcione exactamente como trabaja tu empresa.
           </p>
         </div>
 
@@ -836,7 +977,7 @@ function PartnerSection() {
             {
               num: '02',
               title: 'Programamos a tu medida',
-              desc: '4 horas de desarrollo dedicado al mes: automatización de RFI y submittals, administración de precios unitarios, reportes ejecutivos, integraciones — lo que tu empresa necesite.',
+              desc: '4 horas de desarrollo dedicado al mes: conectamos APIs externas, migramos bases de datos existentes, automatizamos RFI y submittals, generamos reportes ejecutivos — lo que tu empresa necesite.',
             },
             {
               num: '03',
@@ -851,6 +992,22 @@ function PartnerSection() {
                 <p className="text-white/35 text-sm leading-relaxed font-light">{s.desc}</p>
               </div>
             </AnimateIn>
+          ))}
+        </div>
+
+        <div className="flex flex-wrap items-center justify-center gap-3 mb-8">
+          {[
+            'Integración con ERP / SAP',
+            'Conexión de APIs externas',
+            'Migración de datos existentes',
+            'Reportes ejecutivos a medida',
+            'Base de datos personalizada',
+            'Flujos de aprobación custom',
+          ].map(cap => (
+            <span key={cap} className="flex items-center gap-2 text-white/30 text-xs font-light bg-white/3 border border-white/8 rounded-full px-4 py-2">
+              <span className="text-[#00C2FF]/50 text-[10px]">✓</span>
+              {cap}
+            </span>
           ))}
         </div>
 
@@ -1011,7 +1168,7 @@ function Footer() {
 
         <div className="flex flex-wrap items-center justify-center gap-4 md:gap-6 text-sm text-white/25 font-light">
           <a href="#modulos"  className="hover:text-white/50 transition-colors">Módulos</a>
-          <a href="#ia"       className="hover:text-white/50 transition-colors">Agente AI</a>
+          <a href="#ia"       className="hover:text-white/50 transition-colors">Kota AI</a>
           <a href="#precios"  className="hover:text-white/50 transition-colors">Precios</a>
           <Link href="/demo"  className="hover:text-white/50 transition-colors">Demo</Link>
           <Link href="/login" className="hover:text-white/50 transition-colors">Iniciar sesión</Link>
@@ -1246,8 +1403,9 @@ export default function LandingPage() {
       <Problem />
       <Modules />
       <TasksFeature />
-      <AIFeature />
+      <KotaFeature />
       <RAGFeature />
+      <MCPFeature />
       <DriveFeature />
       <WhatsAppFeature />
       <PartnerSection />

@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import Sidebar from '@/components/layout/Sidebar'
 import Topbar from '@/components/layout/Topbar'
 import ChatShell from '@/components/layout/ChatShell'
+import { PostHogIdentify } from '@/components/PostHogIdentify'
 
 const MOCK_WORKSPACE = { id: 'dev', name: 'Builtek Dev', features: {} as Record<string, boolean> }
 const MOCK_USER = 'Celestin'
@@ -32,8 +33,19 @@ export default async function DashboardLayout({ children }: { children: React.Re
     userRole = membership.role as string
   }
 
+  const userId = process.env.BYPASS_AUTH === 'true' ? '' : (await (await createClient()).auth.getUser()).data.user?.id || ''
+  const userEmail = process.env.BYPASS_AUTH === 'true' ? '' : (await (await createClient()).auth.getUser()).data.user?.email || ''
+
   return (
     <ChatShell workspaceId={workspace.id}>
+      <PostHogIdentify
+        userId={userId}
+        email={userEmail}
+        fullName={fullName}
+        workspaceId={workspace.id}
+        workspaceName={workspace.name}
+        role={userRole}
+      />
       <div className="flex h-screen bg-slate-50 overflow-hidden">
         <Sidebar workspaceName={workspace.name} features={workspace.features} role={userRole} />
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">

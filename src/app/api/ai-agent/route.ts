@@ -24,22 +24,34 @@ Tu tarea es analizar el plano o documento técnico proporcionado y extraer TODOS
 Responde ÚNICAMENTE con un JSON válido con la siguiente estructura, sin texto adicional:
 
 {
-  "titulo": "nombre del plano o documento detectado",
-  "descripcion": "resumen ejecutivo de 2-3 oraciones de lo encontrado en este plano: tipo de estructura, elementos principales con sus cantidades más relevantes, alcance geométrico si aplica",
+  "titulo": "nombre del plano o documento detectado en el cuadro de referencia",
+  "descripcion": "resumen ejecutivo de 2-3 oraciones: tipo de estructura, elementos principales con cantidades más relevantes, alcance geométrico si aplica",
+  "numero_plano": "código alfanumérico del cuadro de referencia (ej. EST-COR-001, PF-001-A). null si no se lee.",
+  "revision": "letra o número de revisión del cuadro de referencia (A, B, 0, 1). null si no se lee.",
+  "escala": "escala principal del plano (ej. 1:50, 1:100, 1:200). null si no aplica o no se lee.",
+  "disciplina": "Estructural | Hidráulico | Arquitectónico | Geotécnico | Electromecánico | Geométrico | General",
+  "notas_materiales": [
+    "Lista de especificaciones de materiales extraídas de notas generales del plano",
+    "Ej: Concreto f'c=250 kg/cm²",
+    "Ej: Acero de refuerzo fy=4200 kg/cm²",
+    "Ej: Recubrimiento mínimo 4 cm"
+  ],
   "especialidades": [
     {
-      "nombre": "nombre de la especialidad (Geométrico, Estructuras, Hidráulica, Electromecánico, Arquitectura, etc.)",
+      "nombre": "nombre de la especialidad (Estructuras, Hidráulica, Electromecánico, Arquitectura, Geométrico, etc.)",
       "elementos": [
         {
           "tipo": "nombre del elemento o concepto",
           "cantidad": número_o_null,
-          "unidad": "m², m³, ml, pza, kg, etc.",
+          "unidad": "m², m³, ml, pza, kg, ton, etc.",
+          "tipo_medicion": "volumen | area | lineal | conteo | peso | otro",
+          "especificacion": "detalle técnico del material o norma (ej. f'c=250 kg/cm², fy=4200 kg/cm², Ø16mm, Clase I). null si no aplica.",
           "descripcion": "descripción adicional si aplica"
         }
       ]
     }
   ],
-  "notas": "observaciones generales sobre el plano o extracción",
+  "notas": "observaciones generales sobre el plano o limitaciones de la extracción",
   "confianza": "alta | media | baja"
 }
 
@@ -50,7 +62,11 @@ REGLAS DE EXTRACCIÓN — OBLIGATORIAS:
 2. Detecta SIEMPRE los identificadores de estructura del plano (MC-01, MC-02, PF-01, ODT-01, PSF-03, etc.) y úsalos como prefijo o sufijo del nombre del elemento en el campo "tipo".
 3. Si el plano tiene múltiples módulos o tipos del mismo elemento, crea una fila por cada tipo, no una fila agregada.
 4. Cuando el usuario proporcione instrucciones específicas, síguelas con prioridad máxima sobre estas reglas generales.
-5. Para cantidades desconocidas o ilegibles usa null, no 0 ni un guion.`
+5. Para cantidades desconocidas o ilegibles usa null, no 0 ni un guion.
+6. Lee SIEMPRE el cuadro de referencia (title block): extrae numero_plano, revision y escala. Si alguno no es legible, usa null.
+7. Para tipo_medicion: "volumen" para m³/m3, "area" para m²/m2/ha, "lineal" para m/ml/km/lm, "conteo" para pza/und/piezas/no., "peso" para kg/ton/t, "otro" para el resto.
+8. En especificacion incluye resistencia o norma técnica del material cuando aparezca en el plano (f'c, fy, clase, tipo, diámetro).
+9. notas_materiales: extrae TODAS las especificaciones de materiales de las notas generales del plano, aunque no tengan cantidad asociada.`
 
 function getAdminClient() {
   return createAdmin(
