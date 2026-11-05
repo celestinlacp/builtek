@@ -2098,7 +2098,19 @@ function ProjectDetailView({
 
   // Helper: obtener código de especialidad desde specialty o doc_key
   function getSpecCode(d: Doc): string | null {
-    return d.specialty?.code || d.specialty_code || null
+    if (d.specialty?.code) return d.specialty.code
+    if (d.specialty_code) return d.specialty_code
+    // Fallback legacy para docs sin specialty_code en BD
+    if (d.doc_key) {
+      const parts = d.doc_key.split('-')
+      // Si conocemos doc_type, la especialidad está en la posición siguiente
+      if (d.doc_type) {
+        const idx = parts.lastIndexOf(d.doc_type)
+        if (idx >= 0 && idx + 1 < parts.length) return parts[idx + 1]
+      }
+      return parts[3] || null
+    }
+    return null
   }
 
   // Especialidades usadas en este proyecto (solo docs vigentes)
@@ -2107,14 +2119,14 @@ function ProjectDetailView({
     if (d.specialty) {
       specMap.set(d.specialty.code, d.specialty)
     } else {
-      const code = d.specialty_code
+      const code = getSpecCode(d)
       if (code && !specMap.has(code)) specMap.set(code, { code, name: code, category: '' })
     }
   })
   // Ordenar disciplinas por el doc más recientemente subido en cada una
   const latestBySpec: Record<string, number> = {}
   currentDocs.forEach(d => {
-    const code = d.specialty?.code || d.specialty_code || '__none__'
+    const code = getSpecCode(d) || '__none__'
     const t = new Date(d.created_at).getTime()
     if (!latestBySpec[code] || t > latestBySpec[code]) latestBySpec[code] = t
   })
@@ -2125,7 +2137,7 @@ function ProjectDetailView({
   const allTreeSpecCodes = new Set<string>()
   const allTreeIds = new Set([project.id, ...subprojects.map(s => s.id)])
   documents.filter(d => d.project_id && allTreeIds.has(d.project_id)).forEach(d => {
-    const code = d.specialty?.code || d.specialty_code
+    const code = getSpecCode(d)
     const name = d.specialty?.name || code
     if (code && !allTreeSpecCodes.has(code)) { allTreeSpecCodes.add(code); allTreeSpecialties.push({ code, name: name || code }) }
   })
