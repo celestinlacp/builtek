@@ -24,21 +24,34 @@ Tu tarea es analizar el plano o documento técnico proporcionado y extraer TODOS
 Responde ÚNICAMENTE con un JSON válido con la siguiente estructura, sin texto adicional:
 
 {
-  "titulo": "nombre del plano o documento detectado",
+  "titulo": "nombre del plano o documento detectado en el cuadro de referencia",
+  "descripcion": "resumen ejecutivo de 2-3 oraciones: tipo de estructura, elementos principales con cantidades más relevantes, alcance geométrico si aplica",
+  "numero_plano": "código alfanumérico del cuadro de referencia (ej. EST-COR-001, PF-001-A). null si no se lee.",
+  "revision": "letra o número de revisión del cuadro de referencia (A, B, 0, 1). null si no se lee.",
+  "escala": "escala principal del plano (ej. 1:50, 1:100, 1:200). null si no aplica o no se lee.",
+  "disciplina": "Estructural | Hidráulico | Arquitectónico | Geotécnico | Electromecánico | Geométrico | General",
+  "notas_materiales": [
+    "Lista de especificaciones de materiales extraídas de notas generales del plano",
+    "Ej: Concreto f'c=250 kg/cm²",
+    "Ej: Acero de refuerzo fy=4200 kg/cm²",
+    "Ej: Recubrimiento mínimo 4 cm"
+  ],
   "especialidades": [
     {
-      "nombre": "nombre de la especialidad (Geométrico, Estructuras, Hidráulica, Electromecánico, Arquitectura, etc.)",
+      "nombre": "nombre de la especialidad (Estructuras, Hidráulica, Electromecánico, Arquitectura, Geométrico, etc.)",
       "elementos": [
         {
           "tipo": "nombre del elemento o concepto",
           "cantidad": número_o_null,
-          "unidad": "m², m³, ml, pza, kg, etc.",
+          "unidad": "m², m³, ml, pza, kg, ton, etc.",
+          "tipo_medicion": "volumen | area | lineal | conteo | peso | otro",
+          "especificacion": "detalle técnico del material o norma (ej. f'c=250 kg/cm², fy=4200 kg/cm², Ø16mm, Clase I). null si no aplica.",
           "descripcion": "descripción adicional si aplica"
         }
       ]
     }
   ],
-  "notas": "observaciones generales sobre el plano o extracción",
+  "notas": "observaciones generales sobre el plano o limitaciones de la extracción",
   "confianza": "alta | media | baja"
 }
 
@@ -49,13 +62,85 @@ REGLAS DE EXTRACCIÓN — OBLIGATORIAS:
 2. Detecta SIEMPRE los identificadores de estructura del plano (MC-01, MC-02, PF-01, ODT-01, PSF-03, etc.) y úsalos como prefijo o sufijo del nombre del elemento en el campo "tipo".
 3. Si el plano tiene múltiples módulos o tipos del mismo elemento, crea una fila por cada tipo, no una fila agregada.
 4. Cuando el usuario proporcione instrucciones específicas, síguelas con prioridad máxima sobre estas reglas generales.
-5. Para cantidades desconocidas o ilegibles usa null, no 0 ni un guion.`
+5. Para cantidades desconocidas o ilegibles usa null, no 0 ni un guion.
+6. Lee SIEMPRE el cuadro de referencia (title block): extrae numero_plano, revision y escala. Si alguno no es legible, usa null.
+7. Para tipo_medicion: "volumen" para m³/m3, "area" para m²/m2/ha, "lineal" para m/ml/km/lm, "conteo" para pza/und/piezas/no., "peso" para kg/ton/t, "otro" para el resto.
+8. En especificacion incluye resistencia o norma técnica del material cuando aparezca en el plano (f'c, fy, clase, tipo, diámetro).
+9. notas_materiales: extrae TODAS las especificaciones de materiales de las notas generales del plano, aunque no tengan cantidad asociada.`
 
 function getAdminClient() {
   return createAdmin(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
+}
+
+// ── Genera resumen ejecutivo del proyecto a partir de todas sus extracciones ──
+async function generateProjectSummary(projectId: string, adminClient: ReturnType<typeof getAdminClient>) {
+  try {
+    const [{ data: extractions }, { data: proj }] = await Promise.all([
+      adminClient
+        .from('extractions')
+        .select('raw_extraction, corrected_extraction')
+        .eq('project_id', projectId)
+        .order('created_at', { ascending: false })
+        .limit(20),
+      adminClient
+        .from('projects')
+        .select('name, frente, kota_data, structure_type_id')
+        .eq('id', projectId)
+        .single(),
+    ])
+
+    if (!extractions?.length) return
+
+    // Agregar cantidades: (tipo, unidad) → total
+    const agg: Record<string, { total: number; unidad: string }> = {}
+    for (const ext of extractions) {
+      const data = (ext.corrected_extraction ?? ext.raw_extraction) as any
+      for (const esp of (data?.especialidades ?? [])) {
+        for (const el of (esp.elementos ?? [])) {
+          if (el.cantidad !== null && el.tipo && el.unidad) {
+            const key = `${el.tipo}||${el.unidad}`
+            if (!agg[key]) agg[key] = { total: 0, unidad: el.unidad }
+            agg[key].total += Number(el.cantidad)
+          }
+        }
+      }
+    }
+
+    const topElements = Object.entries(agg)
+      .sort((a, b) => b[1].total - a[1].total)
+      .slice(0, 12)
+      .map(([key, v]) => `- ${key.split('||')[0]}: ${v.total.toLocaleString('es-MX', { maximumFractionDigits: 2 })} ${v.unidad}`)
+      .join('\n')
+
+    const prompt = `Genera un párrafo ejecutivo de 3-4 oraciones sobre este proyecto de construcción basándote en las cantidades acumuladas de sus planos técnicos analizados hasta ahora.
+
+Proyecto: ${proj?.name ?? ''}${proj?.frente ? ` — ${proj.frente}` : ''}
+Planos analizados: ${extractions.length}
+
+Cantidades principales:
+${topElements || '(sin datos aún)'}
+
+Describe: tipo de estructura, materiales principales, cantidades destacadas y alcance de obra. Español técnico pero comprensible. Solo el párrafo, sin título ni viñetas.`
+
+    const response = await claude.messages.create({
+      model:      CLAUDE_MODEL,
+      max_tokens: 300,
+      messages:   [{ role: 'user', content: prompt }],
+    })
+
+    const text = (response.content.find(b => b.type === 'text') as any)?.text?.trim() ?? ''
+    if (!text) return
+
+    const current = proj?.kota_data ? JSON.parse(JSON.stringify(proj.kota_data)) : {}
+    current.resumen_ejecutivo      = text
+    current.resumen_generado_en    = new Date().toISOString()
+    await adminClient.from('projects').update({ kota_data: current }).eq('id', projectId)
+  } catch (err) {
+    console.error('[KOTA] generateProjectSummary error:', err)
+  }
 }
 
 // [KOTA] GET /api/ai-agent?projectId=...&documentId=... — historial de extracciones
@@ -164,15 +249,26 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Falta archivo o documentId' }, { status: 400 })
   }
 
-  // [KOTA] Datos técnicos del proyecto (kota_data en lugar de cota_brief)
+  // [KOTA] Datos técnicos del proyecto
   const admin = getAdminClient()
   const { data: projRow } = await admin
     .from('projects')
-    .select('kota_data, name')
+    .select('kota_data, name, frente, chainage_start, chainage_end, structure_type_id')
     .eq('id', projectId)
     .single()
 
   if (projRow?.name && !docHints.proyecto_name) docHints.proyecto_name = projRow.name
+
+  // Resolver código de tipo de estructura del proyecto
+  let structureTypeCode: string | null = null
+  if (projRow?.structure_type_id) {
+    const { data: stRow } = await admin
+      .from('structure_types')
+      .select('code, name')
+      .eq('id', projRow.structure_type_id)
+      .single()
+    if (stRow) structureTypeCode = stRow.code
+  }
 
   // Serializar kota_data a texto legible para el prompt
   const kotaData = projRow?.kota_data as Record<string, unknown> | null | undefined
@@ -225,18 +321,56 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // ── Construir prompt con hints de contexto ───────────────────────────────────
-  const tipoPlanHint = docHints.tipo_plano
-    ? TIPO_PLANO_HINTS[docHints.tipo_plano.toUpperCase()]
+  // ── Parsear doc_key en segmentos ─────────────────────────────────────────────
+  function parseDocKeySegments(docKey: string) {
+    const p = docKey.split('-')
+    if (p.length === 6) return { troncal: p[0], tipo_est: p[1], identificador: p[2], tipo_doc: p[3], especialidad: p[4], tipo_plano: p[5] }
+    if (p.length === 5) return { troncal: p[0], tipo_est: null,  identificador: p[1], tipo_doc: p[2], especialidad: p[3], tipo_plano: p[4] }
+    return null
+  }
+
+  const docKeyParsed = docHints.doc_key ? parseDocKeySegments(docHints.doc_key) : null
+
+  // Cadena km formateada
+  function fmtKm(m: number) { return `${Math.floor(m / 1000)}+${String(m % 1000).padStart(3, '0')}` }
+  const chainageText = (projRow?.chainage_start != null && projRow?.chainage_end != null)
+    ? `${fmtKm(projRow.chainage_start)} — ${fmtKm(projRow.chainage_end)}`
     : null
 
+  // ── Construir prompt con hints de contexto ───────────────────────────────────
+  const tipoPlanHint = (docKeyParsed?.tipo_plano ?? docHints.tipo_plano)
+    ? TIPO_PLANO_HINTS[(docKeyParsed?.tipo_plano ?? docHints.tipo_plano)!.toUpperCase()]
+    : null
+
+  // Línea resumen del proyecto
+  const proyectoLine = [
+    docHints.proyecto_name && `Proyecto: ${docHints.proyecto_name}`,
+    structureTypeCode      && `Tipo de estructura: ${structureTypeCode}`,
+    projRow?.frente        && `Frente: ${projRow.frente}`,
+    chainageText           && `Cadena km: ${chainageText}`,
+  ].filter(Boolean).join(' | ')
+
+  // Desglose del ID Builtek
+  const docKeyBlock = docKeyParsed
+    ? [
+        `ID Builtek: ${docHints.doc_key}`,
+        `  Troncal: ${docKeyParsed.troncal}`,
+        docKeyParsed.tipo_est    && `  Tipo de estructura: ${docKeyParsed.tipo_est}`,
+        `  Identificador: ${docKeyParsed.identificador}`,
+        `  Tipo de documento: ${docKeyParsed.tipo_doc}`,
+        `  Especialidad: ${docKeyParsed.especialidad}`,
+        `  Tipo de plano: ${docKeyParsed.tipo_plano}`,
+      ].filter(Boolean).join('\n')
+    : docHints.doc_key
+      ? `ID Builtek: ${docHints.doc_key}`
+      : null
+
   const contextLines = [
-    projectBrief               && `DATOS TÉCNICOS DEL PROYECTO:\n${projectBrief}`,
-    docHints.proyecto_name     && `Proyecto: ${docHints.proyecto_name}`,
-    docHints.doc_key           && `Clave de documento: ${docHints.doc_key}`,
-    docHints.especialidad      && `Especialidad: ${docHints.especialidad}`,
-    docHints.version           && `Versión: ${docHints.version}`,
-    tipoPlanHint               && `Contexto específico del tipo de plano: ${tipoPlanHint}`,
+    projectBrief   && `DATOS TÉCNICOS DEL PROYECTO:\n${projectBrief}`,
+    proyectoLine,
+    docKeyBlock,
+    docHints.version  && `Versión del plano: ${docHints.version}`,
+    tipoPlanHint      && `Contexto del tipo de plano:\n${tipoPlanHint}`,
   ].filter(Boolean).join('\n\n')
 
   let userText = [
@@ -301,6 +435,9 @@ export async function POST(req: NextRequest) {
       .single()
 
     if (dbError) console.error('[KOTA] Error saving extraction:', dbError.message)
+
+    // Generar resumen ejecutivo del proyecto en background (fire & forget)
+    generateProjectSummary(projectId, admin)
 
     // [KOTA] Infer technical fields from extraction and PATCH kota_data
     // Only update fields that are empty or have source: 'kota' (never overwrite source: 'human')

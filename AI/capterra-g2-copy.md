@@ -21,12 +21,12 @@ https://builtek.app
 - Field Service Management Software
 
 ## Tagline (menos de 100 caracteres)
-> El software de gestión de obra que entiende tus planos y habla por WhatsApp.
+> El sistema de gestión de obra que lee tus planos, entiende tu proyecto y responde tus preguntas.
 
 ---
 
 ## Descripción corta (150 caracteres — para listados)
-> Builtek es el SaaS de gestión de proyectos para constructoras en México y LATAM. Control documental, agente AI y notificaciones por WhatsApp en una sola plataforma.
+> Builtek gestiona proyectos de construcción con AI integrada: cuantifica planos PDF en segundos, entrena un agente técnico por proyecto y notifica por WhatsApp.
 
 ---
 
@@ -36,8 +36,12 @@ Builtek es una plataforma SaaS diseñada para la industria de la construcción e
 
 **Lo que hace diferente a Builtek:**
 
-**1. Agente AI que lee planos**
-Sube un plano estructural en PDF y el agente extrae automáticamente las cantidades de obra: columnas, trabes, losas, acero de refuerzo. En segundos, sin errores de captura manual. Ningún otro PM tool en LATAM tiene esto integrado.
+**1. Kota — El agente AI que aprende tu proyecto**
+Kota no es un simple extractor de datos. Trabaja en tres niveles:
+
+- **Extrae:** Sube un plano estructural en PDF y Kota cuantifica automáticamente acero (kg/ton), concreto (m³), longitudes (ml) y áreas (m²), clasificados por material y especialidad. Lee el cuadro de referencia del plano (número, revisión, escala) y captura especificaciones técnicas de las notas generales (f'c, fy, recubrimiento). En 30 segundos.
+- **Entiende:** Con cada plano analizado, Kota acumula el contexto técnico del proyecto: tipos de materiales, especificaciones estructurales, disciplinas, referencias cruzadas. El proyecto se vuelve más inteligente con cada documento que sube el equipo.
+- **Responde (Kota Chat):** Una vez entrenado con los documentos del proyecto, el agente responde preguntas técnicas con fuentes verificables — "¿Qué f'c especifica el plano MC-03?", "¿Cuánto acero hay en el frente 2?", "¿Qué planos no están aprobados?". Ningún otro sistema de gestión de obra en LATAM tiene esto.
 
 **2. Control documental con trazabilidad total**
 Gestión de versiones de planos y especificaciones, flujo de aprobación Two-Person Rule, historial completo de quién aprobó qué y cuándo. Compatible con proyectos que requieren evidencia auditable (infraestructura, ferroviaria, gobierno).

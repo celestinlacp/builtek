@@ -89,6 +89,7 @@ export interface Project {
   is_inah: boolean
   cruce_vial: string | null
   cauces_federales: boolean
+  kota_data?: Record<string, any> | null
   created_at: string
 }
 

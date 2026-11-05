@@ -774,3 +774,182 @@ export async function moveFolderToProject(folderId: string, targetProjectId: str
   await admin.from('documents').update({ project_id: targetProjectId }).eq('folder_id', folderId)
   revalidatePath('/documents')
 }
+
+// ── Kota Dashboard ────────────────────────────────────────────────────────────
+
+export type ProjectExtraction = {
+  id: string
+  document_id: string | null
+  status: 'raw' | 'reviewed' | 'approved'
+  created_at: string
+  confidence: string | null
+  titulo: string | null
+  descripcion: string | null
+  especialidades_count: number
+  document_name: string
+  doc_key: string | null
+  file_type: string
+}
+
+export type AggregatedElement = {
+  tipo: string
+  unidad: string
+  total: number
+  count: number
+  especialidad: string
+  tipo_medicion?: string | null
+}
+
+export async function getProjectExtractions(
+  projectId: string,
+  workspaceId: string
+): Promise<{ data?: ProjectExtraction[]; error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Unauthorized' }
+
+  const admin = getAdminClient()
+
+  const { data: docs } = await admin
+    .from('documents')
+    .select('id, name, display_name, doc_key, file_type')
+    .eq('project_id', projectId)
+    .eq('workspace_id', workspaceId)
+    .eq('is_current', true)
+    .neq('doc_status', 'deleted')
+
+  if (!docs?.length) return { data: [] }
+
+  const docMap = Object.fromEntries(docs.map(d => [d.id, d]))
+  const docIds = docs.map(d => d.id)
+
+  const { data: extractions, error } = await admin
+    .from('extractions')
+    .select('id, document_id, status, created_at, confidence, raw_extraction, corrected_extraction')
+    .in('document_id', docIds)
+    .order('created_at', { ascending: false })
+
+  if (error) return { error: error.message }
+
+  const result: ProjectExtraction[] = (extractions ?? []).map(e => {
+    const doc    = e.document_id ? docMap[e.document_id] : null
+    const raw    = e.raw_extraction as any
+    const active = (e as any).corrected_extraction ?? raw
+    return {
+      id:                   e.id,
+      document_id:          e.document_id,
+      status:               e.status as 'raw' | 'reviewed' | 'approved',
+      created_at:           e.created_at,
+      confidence:           e.confidence ?? null,
+      titulo:               active?.titulo ?? null,
+      descripcion:          active?.descripcion ?? raw?.descripcion ?? null,
+      especialidades_count: Array.isArray(active?.especialidades) ? active.especialidades.length : 0,
+      document_name:        doc?.display_name || doc?.name || '',
+      doc_key:              doc?.doc_key ?? null,
+      file_type:            doc?.file_type ?? '',
+    }
+  })
+
+  return { data: result }
+}
+
+export async function getProjectKotaSummary(
+  projectId: string,
+  workspaceId: string
+): Promise<{ data?: AggregatedElement[]; error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Unauthorized' }
+
+  const admin = getAdminClient()
+
+  const { data: docs } = await admin
+    .from('documents')
+    .select('id')
+    .eq('project_id', projectId)
+    .eq('workspace_id', workspaceId)
+    .eq('is_current', true)
+    .neq('doc_status', 'deleted')
+
+  if (!docs?.length) return { data: [] }
+
+  const { data: extractions, error } = await admin
+    .from('extractions')
+    .select('document_id, raw_extraction, corrected_extraction, created_at')
+    .in('document_id', docs.map(d => d.id))
+    .order('created_at', { ascending: false })
+
+  if (error) return { error: error.message }
+
+  // Usar solo la extracción más reciente por documento para evitar doble conteo al reanalizar
+  const latestPerDoc = new Map<string, (typeof extractions)[0]>()
+  for (const ext of (extractions ?? [])) {
+    if (ext.document_id && !latestPerDoc.has(ext.document_id)) {
+      latestPerDoc.set(ext.document_id, ext)
+    }
+  }
+
+  // Agregar cantidades por (especialidad, tipo, unidad)
+  const agg: Record<string, AggregatedElement> = {}
+  for (const ext of latestPerDoc.values()) {
+    const data = ((ext as any).corrected_extraction ?? ext.raw_extraction) as any
+    for (const esp of (data?.especialidades ?? [])) {
+      for (const el of (esp.elementos ?? [])) {
+        if (el.tipo && el.unidad) {
+          const key = `${esp.nombre}||${el.tipo}||${el.unidad}`
+          if (!agg[key]) agg[key] = { tipo: el.tipo, unidad: el.unidad, total: 0, count: 0, especialidad: esp.nombre, tipo_medicion: el.tipo_medicion ?? null }
+          if (el.cantidad != null) agg[key].total += Number(el.cantidad)
+          agg[key].count++
+        }
+      }
+    }
+  }
+
+  return { data: Object.values(agg).sort((a, b) => b.total - a.total) }
+}
+
+export type ExtractionElement = {
+  tipo: string
+  unidad: string
+  cantidad: number
+  especialidad: string
+  tipo_medicion?: string | null
+  especificacion?: string | null
+}
+
+export async function getExtractionElements(
+  extractionId: string
+): Promise<{ data?: ExtractionElement[]; error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Unauthorized' }
+
+  const admin = getAdminClient()
+  const { data: ext, error } = await admin
+    .from('extractions')
+    .select('raw_extraction, corrected_extraction')
+    .eq('id', extractionId)
+    .single()
+
+  if (error || !ext) return { error: error?.message ?? 'Not found' }
+
+  const active = ((ext as any).corrected_extraction ?? ext.raw_extraction) as any
+  const result: ExtractionElement[] = []
+
+  for (const esp of (active?.especialidades ?? [])) {
+    for (const el of (esp.elementos ?? [])) {
+      if (el.tipo && el.unidad && el.cantidad != null) {
+        result.push({
+          tipo: el.tipo,
+          unidad: el.unidad,
+          cantidad: Number(el.cantidad),
+          especialidad: esp.nombre ?? '',
+          tipo_medicion: el.tipo_medicion ?? null,
+          especificacion: el.especificacion ?? null,
+        })
+      }
+    }
+  }
+
+  return { data: result.sort((a, b) => b.cantidad - a.cantidad) }
+}

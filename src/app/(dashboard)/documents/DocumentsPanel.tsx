@@ -7,9 +7,10 @@ import { saveDocument, updateDocumentStatus, requestDeleteDocument, approveDelet
 import { createOficio } from '../oficios/actions'
 import {
   Upload, Download, Trash2, ChevronDown, ChevronRight, ArrowLeft, Package,
-  FolderOpen, FolderPlus, Folder, CheckCircle2, Clock, XCircle, Eye, AlertTriangle, ShieldCheck, ShieldX, X, Loader2, History, GitBranch, SlidersHorizontal, Info, RefreshCw, Camera, Plus, Layers, Pencil, Milestone, LayoutList, AlignJustify, Share2, BookOpen,
+  FolderOpen, FolderPlus, Folder, CheckCircle2, Clock, XCircle, Eye, AlertTriangle, ShieldCheck, ShieldX, X, Loader2, History, GitBranch, SlidersHorizontal, Info, RefreshCw, Camera, Plus, Layers, Pencil, Milestone, LayoutList, AlignJustify, Share2, BookOpen, Sparkles,
 } from 'lucide-react'
 import ProjectBriefTab, { type BriefSection } from './ProjectBriefTab'
+import KotaDashboard from './KotaDashboard'
 import DocumentMetricsTab from './DocumentMetricsTab'
 import { parseDocKey, TIPO_PLANO_DEFAULT, TIPO_DOC_DEFAULT, detectFileFormat } from './utils'
 import DocumentSlideOver from './DocumentSlideOver'
@@ -59,6 +60,7 @@ type Doc = {
   version_number: number | null
   doc_key: string | null
   specialty_id: string | null
+  specialty_code: string | null
   is_current: boolean
   emission_date: string | null
   author: string | null
@@ -1328,7 +1330,7 @@ function DocInfoPopover({ doc }: { doc: Doc }) {
                 <Row label="Disciplina"
                   value={doc.specialty
                     ? `[${doc.specialty.code}] ${doc.specialty.name}`
-                    : doc.doc_key?.split('-')[3] || '—'} />
+                    : doc.specialty_code || doc.doc_key?.split('-')[4] || '—'} />
                 {doc.doc_view    && <Row label="Tipo de plano" value={doc.doc_view} />}
                 {doc.doc_element && <Row label="Elemento" value={doc.doc_element} />}
                 {doc.mic_version && <Row label="Versión MIC"
@@ -1938,7 +1940,7 @@ function ProjectDetailView({
   project, documents, workspaceId, userRole, deleteRequests, currentUserId,
   subprojects, parentProject, onBack, onUpload, onSelectSub, coverUrls, docFolders, docBrief,
 }: {
-  project: Project
+  project: Project & { kota_data?: Record<string, any> | null }
   documents: Doc[]
   workspaceId: string
   userRole: string
@@ -1989,7 +1991,7 @@ function ProjectDetailView({
   const [savingFolderModal, setSavingFolderModal] = useState(false)
   const [showMoveMenu,     setShowMoveMenu]     = useState(false)
   const [movingToFolder,   setMovingToFolder]   = useState(false)
-  const [activeTab,        setActiveTab]        = useState<'documents' | 'metrics' | 'brief'>('documents')
+  const [activeTab,        setActiveTab]        = useState<'documents' | 'metrics' | 'brief' | 'kota'>('documents')
   // Move folder modal
   const [movingFolder,     setMovingFolder]     = useState<DocFolder | null>(null)
   const [moveFolderTarget, setMoveFolderTarget] = useState('')  // target projectId
@@ -2096,7 +2098,7 @@ function ProjectDetailView({
 
   // Helper: obtener código de especialidad desde specialty o doc_key
   function getSpecCode(d: Doc): string | null {
-    return d.specialty?.code || d.doc_key?.split('-')[3] || null
+    return d.specialty?.code || d.specialty_code || null
   }
 
   // Especialidades usadas en este proyecto (solo docs vigentes)
@@ -2105,14 +2107,14 @@ function ProjectDetailView({
     if (d.specialty) {
       specMap.set(d.specialty.code, d.specialty)
     } else {
-      const code = d.doc_key?.split('-')[3]
+      const code = d.specialty_code
       if (code && !specMap.has(code)) specMap.set(code, { code, name: code, category: '' })
     }
   })
   // Ordenar disciplinas por el doc más recientemente subido en cada una
   const latestBySpec: Record<string, number> = {}
   currentDocs.forEach(d => {
-    const code = d.specialty?.code || d.doc_key?.split('-')[3] || '__none__'
+    const code = d.specialty?.code || d.specialty_code || '__none__'
     const t = new Date(d.created_at).getTime()
     if (!latestBySpec[code] || t > latestBySpec[code]) latestBySpec[code] = t
   })
@@ -2123,7 +2125,7 @@ function ProjectDetailView({
   const allTreeSpecCodes = new Set<string>()
   const allTreeIds = new Set([project.id, ...subprojects.map(s => s.id)])
   documents.filter(d => d.project_id && allTreeIds.has(d.project_id)).forEach(d => {
-    const code = d.specialty?.code || d.doc_key?.split('-')[3]
+    const code = d.specialty?.code || d.specialty_code
     const name = d.specialty?.name || code
     if (code && !allTreeSpecCodes.has(code)) { allTreeSpecCodes.add(code); allTreeSpecialties.push({ code, name: name || code }) }
   })
@@ -2415,6 +2417,17 @@ function ProjectDetailView({
           <BookOpen className="w-3.5 h-3.5" />
           Brief técnico
         </button>
+        {userRole === 'owner' && (
+          <button
+            onClick={() => setActiveTab('kota')}
+            className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px transition-colors ${
+              activeTab === 'kota' ? 'border-[#00C2FF] text-[#007A9E]' : 'border-transparent text-slate-400 hover:text-slate-600'
+            }`}
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            Kota
+          </button>
+        )}
       </div>
 
       {activeTab === 'metrics' ? (
@@ -2425,6 +2438,16 @@ function ProjectDetailView({
           workspaceId={workspaceId}
           initialSections={docBrief?.sections ?? []}
           canEdit={canManageProjects}
+        />
+      ) : activeTab === 'kota' ? (
+        <KotaDashboard
+          project={project}
+          workspaceId={workspaceId}
+          totalDocs={currentDocs.length}
+          onOpenDocument={(docId) => {
+            const doc = documents.find(d => d.id === docId)
+            if (doc) setSlideDoc(doc)
+          }}
         />
       ) : (
         <>
@@ -2732,7 +2755,7 @@ function ProjectDetailView({
           {Object.entries(displayGroups).map(([group, docs]) => {
             const isCollapsed  = collapsedGroups.has(group)
             // Carpetas de esta disciplina (solo en modo disciplina)
-            const specCode     = docs[0]?.specialty?.code || docs[0]?.doc_key?.split('-')[3] || group
+            const specCode     = docs[0]?.specialty?.code || docs[0]?.specialty_code || group
             const groupFolders = sortMode === 'discipline'
               ? folders.filter(f => f.project_id === project.id && f.specialty_code === specCode)
               : []

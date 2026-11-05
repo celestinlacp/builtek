@@ -979,6 +979,32 @@ export async function toggleStructureTypeActive(id: string, is_active: boolean) 
   return { success: true }
 }
 
+export async function deleteStructureType(id: string) {
+  const { supabase, userId, workspaceId } = await getWorkspaceId()
+  if (!workspaceId) return { error: 'Sin workspace' }
+
+  const { data: membership } = await supabase
+    .from('workspace_members')
+    .select('role')
+    .eq('workspace_id', workspaceId)
+    .eq('user_id', userId)
+    .single()
+
+  if (membership?.role !== 'owner') return { error: 'Solo el owner puede eliminar tipos de estructura' }
+
+  // Solo tipos custom (workspace_id IS NOT NULL) — nunca globales
+  const { error } = await supabase
+    .from('structure_types')
+    .delete()
+    .eq('id', id)
+    .eq('workspace_id', workspaceId) // RLS + constraint extra: solo del propio workspace
+
+  if (error) return { error: error.message }
+  revalidatePath('/admin')
+  revalidatePath('/documents')
+  return { success: true }
+}
+
 export async function upsertProjectShare(projectId: string) {
   const { userId, workspaceId } = await getWorkspaceId()
   const admin = getAdminClient()

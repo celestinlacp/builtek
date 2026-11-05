@@ -32,13 +32,13 @@ export default async function DocumentsPage() {
   const [projectsRes, docsRes, deleteReqRes, companiesRes, membersRes, nomenclaturesRes, oficiosRes, mesasRes, foldersRes, briefsRes] = await Promise.all([
     supabase
       .from('projects')
-      .select('id, name, status, workspace_id, description, start_date, end_date, frente, project_type, cover_image_url, parent_project_id, chainage_start, chainage_end, builtek_id, created_at, is_inah, cruce_vial, cauces_federales')
+      .select('id, name, status, workspace_id, description, start_date, end_date, frente, project_type, cover_image_url, parent_project_id, chainage_start, chainage_end, builtek_id, created_at, is_inah, cruce_vial, cauces_federales, kota_data')
       .eq('workspace_id', wsId)
       .eq('status', 'active')
       .order('name'),
     supabase
       .from('documents')
-      .select('id, name, file_name, display_name, specialty_id, project_id, folder_id, storage_key, file_type, file_size, status, doc_status, version, version_number, doc_key, is_current, emission_date, author, company_id, notes, created_at, approved_by, approved_at, review_requested_by, review_requested_at, rejection_note, doc_view, doc_element, doc_type, mic_version, sheet_count, project:projects(name), specialty:specialties(name, code, category), uploader:profiles!documents_uploaded_by_fkey(full_name, initials)')
+      .select('id, name, file_name, display_name, specialty_id, specialty_code, project_id, folder_id, storage_key, file_type, file_size, status, doc_status, version, version_number, doc_key, is_current, emission_date, author, company_id, notes, created_at, approved_by, approved_at, review_requested_by, review_requested_at, rejection_note, doc_view, doc_element, doc_type, mic_version, sheet_count, project:projects(name), specialty:specialties(name, code, category), uploader:profiles!documents_uploaded_by_fkey(full_name, initials)')
       .eq('workspace_id', wsId)
       .neq('doc_status', 'deleted')
       .order('version_number', { ascending: false })

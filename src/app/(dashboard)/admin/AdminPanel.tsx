@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Project, Workspace, WorkspaceMember, UserRole, Company, StructureType } from '@/types'
-import { createProject, updateProject, deleteProject, updateWorkspace, updateMemberRole, removeMember, inviteMember, cancelInvite, createCompany, updateCompany, deleteCompany, updateMemberProfile, updateDocKey, updateDocSegments, createStructureType, updateStructureType, toggleStructureTypeActive } from './actions'
+import { createProject, updateProject, deleteProject, updateWorkspace, updateMemberRole, removeMember, inviteMember, cancelInvite, createCompany, updateCompany, deleteCompany, updateMemberProfile, updateDocKey, updateDocSegments, createStructureType, updateStructureType, toggleStructureTypeActive, deleteStructureType } from './actions'
 import { deleteDocumentVersion } from '../documents/actions'
 import {
   Plus, Pencil, Trash2, X, FolderOpen, Users, Settings,
@@ -647,7 +647,7 @@ function ProjectModal({
                 <option value="">Sin tipo</option>
                 {structureTypes.filter(st => st.is_active || st.id === autoSelectedTypeId).map(st => (
                   <option key={st.id} value={st.id}>
-                    {st.icon ? `${st.icon} ` : ''}{st.code} — {st.name}
+                    {st.code} — {st.name}
                   </option>
                 ))}
               </select>
@@ -1281,6 +1281,7 @@ function StructureTypesPanel({ structureTypes, workspaceId }: {
   const [saving,      setSaving]      = useState(false)
   const [error,       setError]       = useState<string | null>(null)
   const [toggling,    setToggling]    = useState<string | null>(null)
+  const [deleting,    setDeleting]    = useState<string | null>(null)
 
   function openCreate() {
     setCode(''); setName(''); setCategory(''); setIcon('')
@@ -1307,6 +1308,13 @@ function StructureTypesPanel({ structureTypes, workspaceId }: {
     setToggling(st.id)
     await toggleStructureTypeActive(st.id, !st.is_active)
     setToggling(null)
+  }
+
+  async function handleDelete(st: StructureType) {
+    if (!confirm(`¿Eliminar el tipo "${st.code} — ${st.name}"? Esta acción no se puede deshacer.`)) return
+    setDeleting(st.id)
+    await deleteStructureType(st.id)
+    setDeleting(null)
   }
 
   const globalTypes = structureTypes.filter(st => st.workspace_id === null)
@@ -1401,7 +1409,7 @@ function StructureTypesPanel({ structureTypes, workspaceId }: {
               <tr key={st.id} className={`hover:bg-slate-50 transition-colors ${!st.is_active ? 'opacity-50' : ''}`}>
                 <td className="px-4 py-3">
                   <span className="font-mono text-xs font-bold text-[#1A2744] bg-[#1A2744]/5 px-2 py-0.5 rounded">
-                    {st.icon ? `${st.icon} ` : ''}{st.code}
+                    {st.code}
                   </span>
                 </td>
                 <td className="px-4 py-3 font-medium text-slate-700">{st.name}</td>
@@ -1430,7 +1438,13 @@ function StructureTypesPanel({ structureTypes, workspaceId }: {
                       className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors">
                       <Pencil className="w-3.5 h-3.5" />
                     </button>
-                    {/* Tipos globales no se eliminan */}
+                    {st.workspace_id !== null && (
+                      <button onClick={() => handleDelete(st)} disabled={deleting === st.id}
+                        title="Eliminar tipo custom"
+                        className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-50 text-slate-300 hover:text-red-500 transition-colors disabled:opacity-40">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>
@@ -2255,9 +2269,9 @@ function MesasTecnicasPanel({
   )
 }
 
-const MIC_SEGMENTS = ['TRONCAL', 'IDENTIFICADOR', 'TIPO_DOC', 'ESPECIALIDAD', 'TIPO_PLANO'] as const
+const MIC_SEGMENTS = ['TRONCAL', 'TIPO_EST', 'IDENTIFICADOR', 'TIPO_DOC', 'ESPECIALIDAD', 'TIPO_PLANO'] as const
 
-function NomenclaturasPanel({ nomenclatures, workspaceId }: { nomenclatures: MicNomenclature[]; workspaceId: string }) {
+function NomenclaturasPanel({ nomenclatures, structureTypes, workspaceId }: { nomenclatures: MicNomenclature[]; structureTypes: StructureType[]; workspaceId: string }) {
   const router = useRouter()
   const [activeSegment, setActiveSegment] = useState<string>('TIPO_PLANO')
   const [showForm,      setShowForm]      = useState(false)
@@ -2272,6 +2286,9 @@ function NomenclaturasPanel({ nomenclatures, workspaceId }: { nomenclatures: Mic
   const [syncing,       setSyncing]       = useState(false)
   const [backfilling,   setBackfilling]   = useState(false)
   const [error,         setError]         = useState<string | null>(null)
+  const [editStructureType, setEditStructureType] = useState<StructureType | null>(null)
+  const [stToggling,        setStToggling]        = useState<string | null>(null)
+  const [stDeleting,        setStDeleting]        = useState<string | null>(null)
 
   // Auto-seed si la tabla está vacía
   useEffect(() => {
@@ -2337,8 +2354,41 @@ function NomenclaturasPanel({ nomenclatures, workspaceId }: { nomenclatures: Mic
     router.refresh()
   }
 
+  function openCreateST() {
+    setEditStructureType(null)
+    setFormCode(''); setFormName(''); setFormDesc('')
+    setShowForm(true); setError(null)
+  }
+  function openEditST(st: StructureType) {
+    setEditStructureType(st)
+    setFormCode(st.code); setFormName(st.name); setFormDesc(st.category || '')
+    setShowForm(true); setError(null)
+  }
+  async function handleSaveST() {
+    if (!formCode.trim() || !formName.trim()) { setError('Código y nombre son requeridos'); return }
+    setSaving(true); setError(null)
+    const result = editStructureType
+      ? await updateStructureType(editStructureType.id, { code: formCode, name: formName, category: formDesc || null, icon: null, is_active: editStructureType.is_active })
+      : await createStructureType({ code: formCode, name: formName, category: formDesc || null, icon: null })
+    setSaving(false)
+    if (result?.error) { setError(result.error); return }
+    setShowForm(false); setEditStructureType(null)
+  }
+  async function handleToggleST(st: StructureType) {
+    setStToggling(st.id)
+    await toggleStructureTypeActive(st.id, !st.is_active)
+    setStToggling(null)
+  }
+  async function handleDeleteST(st: StructureType) {
+    if (!confirm(`¿Eliminar el tipo "${st.code} — ${st.name}"? Solo tipos custom pueden eliminarse.`)) return
+    setStDeleting(st.id)
+    await deleteStructureType(st.id)
+    setStDeleting(null)
+  }
+
   const segmentDescriptions: Record<string, string> = {
     TRONCAL:       'Clave del proyecto troncal (ej: TQM = Tren México-Querétaro)',
+    TIPO_EST:      'Tipo de estructura (ej: PF = Puente Ferroviario, PSF = Paso Superior Ferroviario)',
     IDENTIFICADOR: 'Subtramo o frente de trabajo (ej: F012 = Frente 12, 0000 = Global)',
     TIPO_DOC:      'Naturaleza del documento (ej: PLA = Plano, MEM = Memorias, ESP = Especificaciones)',
     ESPECIALIDAD:  'Disciplina de ingeniería (ej: EEST = Estructuras, AARQ = Arquitectura)',
@@ -2351,7 +2401,7 @@ function NomenclaturasPanel({ nomenclatures, workspaceId }: { nomenclatures: Mic
         <div>
           <p className="text-sm text-slate-500 max-w-lg">
             Catálogo de segmentos del ID Builtek.<br />
-            <span className="font-mono text-[#00C2FF] text-xs">TRONCAL-IDENTIFICADOR-TIPO_DOC-ESPECIALIDAD-TIPO_PLANO-0001</span>
+            <span className="font-mono text-[#00C2FF] text-xs">TRONCAL-TIPOEST-IDENTIFICADOR-TIPO_DOC-ESPECIALIDAD-TIPO_PLANO-0001</span>
           </p>
         </div>
         <button onClick={handleSeedAll} disabled={seeding}
@@ -2399,25 +2449,29 @@ function NomenclaturasPanel({ nomenclatures, workspaceId }: { nomenclatures: Mic
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wide">Descripción</label>
+              <label className="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wide">
+                {activeSegment === 'TIPO_EST' ? 'Categoría' : 'Descripción'}
+              </label>
               <input value={formDesc} onChange={e => setFormDesc(e.target.value)}
-                placeholder="Descripción opcional"
+                placeholder={activeSegment === 'TIPO_EST' ? 'Ej: Puente, Muro, Drenaje' : 'Descripción opcional'}
                 className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50" />
             </div>
-            <div className="flex items-end gap-3">
-              <div className="flex-1">
-                <label className="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wide">Orden</label>
-                <input type="number" value={formOrder} onChange={e => setFormOrder(parseInt(e.target.value) || 0)}
-                  className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50" />
+            {activeSegment !== 'TIPO_EST' && (
+              <div className="flex items-end gap-3">
+                <div className="flex-1">
+                  <label className="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wide">Orden</label>
+                  <input type="number" value={formOrder} onChange={e => setFormOrder(parseInt(e.target.value) || 0)}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C2FF]/50" />
+                </div>
+                {editItem && (
+                  <label className="flex items-center gap-2 text-xs font-semibold text-slate-600 cursor-pointer pb-2">
+                    <input type="checkbox" checked={formActive} onChange={e => setFormActive(e.target.checked)}
+                      className="w-4 h-4 accent-[#1A2744]" />
+                    Activo
+                  </label>
+                )}
               </div>
-              {editItem && (
-                <label className="flex items-center gap-2 text-xs font-semibold text-slate-600 cursor-pointer pb-2">
-                  <input type="checkbox" checked={formActive} onChange={e => setFormActive(e.target.checked)}
-                    className="w-4 h-4 accent-[#1A2744]" />
-                  Activo
-                </label>
-              )}
-            </div>
+            )}
           </div>
           {error && <p className="text-xs text-red-500">{error}</p>}
           <div className="flex gap-2">
@@ -2425,7 +2479,7 @@ function NomenclaturasPanel({ nomenclatures, workspaceId }: { nomenclatures: Mic
               className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-100">
               Cancelar
             </button>
-            <button onClick={handleSave} disabled={saving || !formCode.trim() || !formName.trim()}
+            <button onClick={activeSegment === 'TIPO_EST' ? handleSaveST : handleSave} disabled={saving || !formCode.trim() || !formName.trim()}
               className="px-4 py-1.5 rounded-lg bg-[#1A2744] text-white text-xs font-bold hover:bg-[#243660] disabled:opacity-60 flex items-center gap-1.5">
               {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
               {editItem ? 'Guardar' : 'Agregar'}
@@ -2438,7 +2492,7 @@ function NomenclaturasPanel({ nomenclatures, workspaceId }: { nomenclatures: Mic
       <div className="bg-white border border-slate-100 rounded-xl overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
           <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">
-            {activeSegment} — {segmentItems.length} entrada{segmentItems.length !== 1 ? 's' : ''}
+            {activeSegment} — {activeSegment === 'TIPO_EST' ? structureTypes.length : segmentItems.length} entrada{(activeSegment === 'TIPO_EST' ? structureTypes.length : segmentItems.length) !== 1 ? 's' : ''}
           </span>
           <div className="flex items-center gap-2">
             {/* Botones IDENTIFICADOR */}
@@ -2460,7 +2514,7 @@ function NomenclaturasPanel({ nomenclatures, workspaceId }: { nomenclatures: Mic
             )}
             {/* No mostrar botón Agregar para TRONCAL (es fijo: TQM) */}
             {activeSegment !== 'TRONCAL' && (
-              <button onClick={openCreate}
+              <button onClick={activeSegment === 'TIPO_EST' ? openCreateST : openCreate}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1A2744] text-white text-xs font-bold hover:bg-[#243660]">
                 <Plus className="w-3.5 h-3.5" />
                 Agregar
@@ -2479,7 +2533,66 @@ function NomenclaturasPanel({ nomenclatures, workspaceId }: { nomenclatures: Mic
           </div>
         )}
 
-        {segmentItems.length === 0 ? (
+        {/* Tabla especial para TIPO_EST */}
+        {activeSegment === 'TIPO_EST' && (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-slate-100 bg-slate-50">
+                <th className="text-left px-4 py-2.5 text-xs font-bold text-slate-400 uppercase tracking-wide w-24">Código</th>
+                <th className="text-left px-4 py-2.5 text-xs font-bold text-slate-400 uppercase tracking-wide">Nombre</th>
+                <th className="text-left px-4 py-2.5 text-xs font-bold text-slate-400 uppercase tracking-wide hidden md:table-cell">Categoría</th>
+                <th className="text-center px-4 py-2.5 text-xs font-bold text-slate-400 uppercase tracking-wide w-20">Tipo</th>
+                <th className="text-center px-4 py-2.5 text-xs font-bold text-slate-400 uppercase tracking-wide w-20">Estado</th>
+                <th className="w-24" />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {structureTypes.map(st => (
+                <tr key={st.id} className={`hover:bg-slate-50 ${!st.is_active ? 'opacity-50' : ''}`}>
+                  <td className="px-4 py-2.5">
+                    <span className="font-mono font-bold text-[#1A2744] bg-[#00C2FF]/10 text-[#0099CC] px-2 py-0.5 rounded text-xs">{st.code}</span>
+                  </td>
+                  <td className="px-4 py-2.5 font-medium text-slate-700">{st.name}</td>
+                  <td className="px-4 py-2.5 text-slate-400 text-xs hidden md:table-cell">{st.category || '—'}</td>
+                  <td className="px-4 py-2.5 text-center">
+                    {st.workspace_id === null
+                      ? <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-600">Global</span>
+                      : <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-purple-50 text-purple-600">Custom</span>
+                    }
+                  </td>
+                  <td className="px-4 py-2.5 text-center">
+                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${st.is_active ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-400'}`}>
+                      {st.is_active ? 'Activo' : 'Inactivo'}
+                    </span>
+                  </td>
+                  <td className="px-4 py-2.5">
+                    <div className="flex items-center gap-1 justify-end">
+                      <button onClick={() => handleToggleST(st)} disabled={stToggling === st.id}
+                        title={st.is_active ? 'Desactivar' : 'Activar'}
+                        className={`w-7 h-7 flex items-center justify-center rounded-lg transition-colors ${st.is_active ? 'text-green-500 hover:bg-green-50' : 'text-slate-300 hover:bg-slate-100'}`}>
+                        <Check className="w-3.5 h-3.5" />
+                      </button>
+                      <button onClick={() => openEditST(st)} title="Editar"
+                        className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600">
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                      {st.workspace_id !== null && (
+                        <button onClick={() => handleDeleteST(st)} disabled={stDeleting === st.id}
+                          title="Eliminar tipo custom"
+                          className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-50 text-slate-300 hover:text-red-500 disabled:opacity-40">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+
+        {/* Tabla MIC para los demás segmentos */}
+        {activeSegment !== 'TIPO_EST' && segmentItems.length === 0 ? (
           <div className="p-10 text-center">
             <BookOpen className="w-8 h-8 text-slate-200 mx-auto mb-3" />
             <p className="text-sm text-slate-400">Sin entradas para este segmento.</p>
@@ -2592,7 +2705,6 @@ export default function AdminPanel({
     { id: 'projects',         label: 'Proyectos',          icon: FolderOpen },
     { id: 'empresas',         label: 'Empresas',            icon: Factory    },
     { id: 'nomenclaturas',    label: 'ID Builtek',           icon: BookOpen   },
-    ...(currentUserRole === 'owner' ? [{ id: 'tipos-estructura' as Tab, label: 'Tipos Estructura', icon: Layers }] : []),
   ]
   const mainTabsAfter: { id: Tab; label: string; icon: React.ElementType }[] = [
     { id: 'team',      label: 'Equipo',         icon: Users     },
@@ -2823,18 +2935,12 @@ export default function AdminPanel({
         />
       )}
 
-      {/* Tipos de Estructura tab (solo owner) */}
-      {tab === 'tipos-estructura' && currentUserRole === 'owner' && (
-        <StructureTypesPanel
-          structureTypes={structureTypes}
-          workspaceId={workspaceId}
-        />
-      )}
 
       {/* Nomenclaturas ID Builtek tab */}
       {tab === 'nomenclaturas' && (
         <NomenclaturasPanel
           nomenclatures={micNomenclatures}
+          structureTypes={structureTypes}
           workspaceId={workspaceId}
         />
       )}
