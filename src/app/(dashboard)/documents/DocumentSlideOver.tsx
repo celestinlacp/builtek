@@ -31,6 +31,7 @@ type Doc = {
   mic_version: string | null
   sheet_count?: number | null
   specialty?: { name: string; code: string } | null
+  specialty_code?: string | null
   project?: { name: string } | null
   project_id?: string | null
   approved_by?: string | null
@@ -836,7 +837,7 @@ export default function DocumentSlideOver({
                 <MetaRow icon={Tag}      label="Disciplina"
                   value={doc.specialty
                     ? `[${doc.specialty.code}] ${doc.specialty.name}`
-                    : doc.doc_key?.split('-')[3] || '—'} />
+                    : doc.specialty_code || doc.doc_key?.split('-')[4] || '—'} />
                 {doc.project && (
                   <MetaRow icon={FileText} label="Proyecto" value={doc.project.name} />
                 )}

@@ -60,6 +60,7 @@ type Doc = {
   version_number: number | null
   doc_key: string | null
   specialty_id: string | null
+  specialty_code: string | null
   is_current: boolean
   emission_date: string | null
   author: string | null
@@ -1329,7 +1330,7 @@ function DocInfoPopover({ doc }: { doc: Doc }) {
                 <Row label="Disciplina"
                   value={doc.specialty
                     ? `[${doc.specialty.code}] ${doc.specialty.name}`
-                    : doc.doc_key?.split('-')[3] || '—'} />
+                    : doc.specialty_code || doc.doc_key?.split('-')[4] || '—'} />
                 {doc.doc_view    && <Row label="Tipo de plano" value={doc.doc_view} />}
                 {doc.doc_element && <Row label="Elemento" value={doc.doc_element} />}
                 {doc.mic_version && <Row label="Versión MIC"
@@ -2097,7 +2098,7 @@ function ProjectDetailView({
 
   // Helper: obtener código de especialidad desde specialty o doc_key
   function getSpecCode(d: Doc): string | null {
-    return d.specialty?.code || d.doc_key?.split('-')[3] || null
+    return d.specialty?.code || d.specialty_code || null
   }
 
   // Especialidades usadas en este proyecto (solo docs vigentes)
@@ -2106,14 +2107,14 @@ function ProjectDetailView({
     if (d.specialty) {
       specMap.set(d.specialty.code, d.specialty)
     } else {
-      const code = d.doc_key?.split('-')[3]
+      const code = d.specialty_code
       if (code && !specMap.has(code)) specMap.set(code, { code, name: code, category: '' })
     }
   })
   // Ordenar disciplinas por el doc más recientemente subido en cada una
   const latestBySpec: Record<string, number> = {}
   currentDocs.forEach(d => {
-    const code = d.specialty?.code || d.doc_key?.split('-')[3] || '__none__'
+    const code = d.specialty?.code || d.specialty_code || '__none__'
     const t = new Date(d.created_at).getTime()
     if (!latestBySpec[code] || t > latestBySpec[code]) latestBySpec[code] = t
   })
@@ -2124,7 +2125,7 @@ function ProjectDetailView({
   const allTreeSpecCodes = new Set<string>()
   const allTreeIds = new Set([project.id, ...subprojects.map(s => s.id)])
   documents.filter(d => d.project_id && allTreeIds.has(d.project_id)).forEach(d => {
-    const code = d.specialty?.code || d.doc_key?.split('-')[3]
+    const code = d.specialty?.code || d.specialty_code
     const name = d.specialty?.name || code
     if (code && !allTreeSpecCodes.has(code)) { allTreeSpecCodes.add(code); allTreeSpecialties.push({ code, name: name || code }) }
   })
@@ -2754,7 +2755,7 @@ function ProjectDetailView({
           {Object.entries(displayGroups).map(([group, docs]) => {
             const isCollapsed  = collapsedGroups.has(group)
             // Carpetas de esta disciplina (solo en modo disciplina)
-            const specCode     = docs[0]?.specialty?.code || docs[0]?.doc_key?.split('-')[3] || group
+            const specCode     = docs[0]?.specialty?.code || docs[0]?.specialty_code || group
             const groupFolders = sortMode === 'discipline'
               ? folders.filter(f => f.project_id === project.id && f.specialty_code === specCode)
               : []
