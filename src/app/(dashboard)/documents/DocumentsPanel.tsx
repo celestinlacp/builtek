@@ -60,7 +60,6 @@ type Doc = {
   version_number: number | null
   doc_key: string | null
   specialty_id: string | null
-  specialty_code: string | null
   is_current: boolean
   emission_date: string | null
   author: string | null
@@ -1330,7 +1329,7 @@ function DocInfoPopover({ doc }: { doc: Doc }) {
                 <Row label="Disciplina"
                   value={doc.specialty
                     ? `[${doc.specialty.code}] ${doc.specialty.name}`
-                    : doc.specialty_code || doc.doc_key?.split('-')[4] || '—'} />
+                    : doc.doc_key?.split('-')[4] || '—'} />
                 {doc.doc_view    && <Row label="Tipo de plano" value={doc.doc_view} />}
                 {doc.doc_element && <Row label="Elemento" value={doc.doc_element} />}
                 {doc.mic_version && <Row label="Versión MIC"
@@ -2099,8 +2098,7 @@ function ProjectDetailView({
   // Helper: obtener código de especialidad desde specialty o doc_key
   function getSpecCode(d: Doc): string | null {
     if (d.specialty?.code) return d.specialty.code
-    if (d.specialty_code) return d.specialty_code
-    // Fallback legacy para docs sin specialty_code en BD
+    // Fallback para docs sin specialty join — parsear doc_key
     if (d.doc_key) {
       const parts = d.doc_key.split('-')
       // Si conocemos doc_type, la especialidad está en la posición siguiente
@@ -2767,7 +2765,7 @@ function ProjectDetailView({
           {Object.entries(displayGroups).map(([group, docs]) => {
             const isCollapsed  = collapsedGroups.has(group)
             // Carpetas de esta disciplina (solo en modo disciplina)
-            const specCode     = docs[0]?.specialty?.code || docs[0]?.specialty_code || group
+            const specCode     = docs[0]?.specialty?.code || getSpecCode(docs[0]) || group
             const groupFolders = sortMode === 'discipline'
               ? folders.filter(f => f.project_id === project.id && f.specialty_code === specCode)
               : []
