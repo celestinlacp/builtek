@@ -10,13 +10,13 @@ const plans = [
   {
     id: 'starter',
     name: 'Starter',
-    monthly: 1890,
-    annual: 1490,
+    monthly: 2190,
+    annual: 1750,
     billingNote: 'por empresa / mes + IVA',
-    seats: '5 usuarios activos',
+    seats: '3 usuarios activos',
     storage: '100 GB',
     aiExtractions: '10 extracciones AI/mes',
-    whatsapp: null,
+    whatsapp: '25 mensajes WhatsApp/mes',
     desc: 'Para equipos pequeños que quieren dejar el Excel.',
     cta: 'Empezar gratis 14 días',
     ctaHref: '/register?plan=starter',
@@ -28,15 +28,15 @@ const plans = [
       { text: 'Drive + links públicos y QR (100 GB)', ok: true },
       { text: '10 extracciones AI/mes', ok: true, highlight: true },
       { text: 'Roles completos (5 niveles)', ok: true },
-      { text: 'Notificaciones WhatsApp', ok: false },
+      { text: '25 mensajes WhatsApp/mes', ok: true },
       { text: 'Versiones y flujo de aprobación', ok: false },
     ],
   },
   {
     id: 'obra',
     name: 'Obra',
-    monthly: 3790,
-    annual: 2990,
+    monthly: 3890,
+    annual: 3110,
     billingNote: 'por empresa / mes + IVA',
     seats: '8 usuarios activos',
     storage: '500 GB',
@@ -61,8 +61,8 @@ const plans = [
   {
     id: 'pro',
     name: 'Pro',
-    monthly: 8490,
-    annual: 6790,
+    monthly: 6490,
+    annual: 5190,
     billingNote: 'por empresa / mes + IVA',
     seats: '15 usuarios activos',
     storage: '3 TB',
@@ -81,7 +81,7 @@ const plans = [
       { text: 'Módulo Oficios (correspondencia técnica)', ok: true },
       { text: 'Panel BI: base de datos documental', ok: true },
       { text: 'Visor PDF en browser', ok: true },
-      { text: 'Agente RAG: acceso anticipado gratis al lanzarse', ok: true, highlight: true },
+      { text: 'Kota Chat: acceso completo al lanzarse', ok: true, highlight: true },
     ],
   },
   {
@@ -143,8 +143,8 @@ const faqs = [
     a: 'Puedes agregar bloques adicionales desde $149 MXN/mes sin cambiar de plan. El almacenamiento se suma al incluido. Puedes agregar o quitar bloques cuando quieras desde tu configuración.',
   },
   {
-    q: '¿Qué es el Plan Partner?',
-    a: 'Es un servicio de desarrollo y consultoría a la medida: analizamos cómo trabaja tu empresa y programamos las funciones que necesitas en tu workspace, mes a mes con el fundador. Todo lo desarrollado se queda en tu cuenta aunque cambies de plan. Incluye 1 sesión mensual y 4 horas de desarrollo. Requiere un plan base (Pro o Contractor). Escríbenos a hola@menvio.app para cotizar.',
+    q: '¿Qué es "Builtek a la medida"?',
+    a: 'Es un servicio premium de desarrollo personalizado: analizamos cómo trabaja tu empresa y programamos las funciones que necesitas en tu workspace, mes a mes. Incluye 1 sesión mensual con el fundador y 4 horas de desarrollo al mes. Todo lo desarrollado se queda en tu cuenta aunque cambies de plan. Disponible para máximo 5 empresas simultáneamente. Desde $8,000 MXN/mes.',
   },
 ]
 
@@ -322,7 +322,7 @@ export default function PricingSection() {
             </span>
           </h2>
           <p className="text-white/40 text-lg max-w-xl mx-auto font-light leading-relaxed">
-            Sin cobros por usuario. Sin sorpresas. Proyectos ilimitados y Viewers gratis en todos los planes pagados.
+            Viewers gratis ilimitados en todos los planes. Sin sorpresas. Proyectos ilimitados y cuota fija mensual.
           </p>
         </div>
 
@@ -365,38 +365,13 @@ export default function PricingSection() {
           ))}
         </div>
 
-        {/* Partner + Enterprise callouts */}
-        <div className="grid md:grid-cols-2 gap-4 mb-10">
-          {/* Partner */}
-          <div className="bg-gradient-to-r from-[#00C2FF]/5 to-transparent border border-[#00C2FF]/15 rounded-2xl p-6 flex flex-col justify-between gap-4">
-            <div>
-              <p className="text-xs font-bold tracking-widest uppercase text-[#00C2FF]/60 mb-2">Partner</p>
-              <p className="text-white font-semibold text-xl mb-2">Desde $8,000 MXN/mes</p>
-              <p className="text-white/35 text-sm font-light leading-relaxed">
-                Desarrollo a la medida, mes a mes. Tu Builtek construido exactamente para cómo trabaja tu empresa — cada mes una sesión de planeación con el fundador + un módulo o mejora programada e implementada en producción. Lo que se construye es tuyo, para siempre.
-              </p>
-            </div>
-            <a href="mailto:hola@builtek.mx?subject=Plan Partner"
-              className="inline-flex items-center gap-2 text-[#00C2FF] text-sm font-semibold hover:gap-3 transition-all">
-              Hablar con el fundador <ArrowRight className="w-4 h-4" />
-            </a>
-          </div>
-
-          {/* Enterprise */}
-          <div className="bg-white/3 border border-white/8 rounded-2xl p-6 flex flex-col justify-between gap-4">
-            <div>
-              <p className="text-xs font-bold tracking-widest uppercase text-white/30 mb-2">Enterprise</p>
-              <p className="text-white font-semibold text-xl mb-2">Cotización</p>
-              <p className="text-white/35 text-sm font-light leading-relaxed">
-                31+ usuarios · Almacenamiento ilimitado · SLA garantizado · API completa · CFDI (facturación electrónica MX) · Onboarding dedicado · Roles personalizados.
-              </p>
-            </div>
-            <a href="mailto:hola@menvio.app?subject=Enterprise"
-              className="inline-flex items-center gap-2 text-white/40 text-sm font-semibold hover:text-white hover:gap-3 transition-all">
-              Hablar con ventas <ArrowRight className="w-4 h-4" />
-            </a>
-          </div>
-        </div>
+        {/* Enterprise line */}
+        <p className="text-center text-white/25 text-sm font-light mb-10">
+          ¿Más de 30 usuarios?{' '}
+          <a href="mailto:hola@builtek.mx?subject=Enterprise" className="text-white/50 underline underline-offset-2 hover:text-white transition-colors">
+            Hablemos
+          </a>
+        </p>
 
         {/* Viewer callout */}
         <div className="bg-emerald-400/5 border border-emerald-400/15 rounded-2xl px-6 py-4 flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-12">

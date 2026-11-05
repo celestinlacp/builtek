@@ -72,7 +72,7 @@ export default function SobreBuiltek() {
           <section className="mb-12">
             <h2 className="text-2xl font-semibold mb-4">Diferenciadores</h2>
             <ul className="space-y-2 text-gray-300 list-disc list-inside">
-              <li>Kota AI extrae cuantificación de planos PDF automáticamente — único en el mercado local</li>
+              <li>Kota AI extrae cuantificación de planos PDF automáticamente, integrada en la misma plataforma de gestión</li>
               <li>WhatsApp integrado nativo desde plan Obra — notificaciones y alertas directo al equipo</li>
               <li>Precio en MXN con CFDI en todos los planes pagados</li>
               <li>Módulo de Oficios para obra civil con trazabilidad de documentos</li>

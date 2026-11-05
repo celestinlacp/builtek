@@ -119,8 +119,8 @@ function Ticker() {
   const items = [
     'Proyectos ilimitados',
     'Kota · cuantificación AI de planos',
-    'Sin cobros por usuario',
-    'Viewers gratis en todos los planes',
+    'Viewers gratis ilimitados en todos los planes',
+    'Cuota fija mensual, sin sorpresas',
     'WhatsApp integrado',
     'Dashboard por proyecto',
     'Control de versiones',
@@ -723,7 +723,7 @@ function MCPFeature() {
                   <span key={q} className="text-[10px] text-white/40 bg-white/4 border border-white/8 rounded-full px-3 py-1 italic font-light">{q}</span>
                 ))}
               </div>
-              <p className="text-white/25 text-xs font-light mt-3">El primer sistema de gestión de obra en LATAM con conector nativo para agentes IA. Lista de espera abierta.</p>
+              <p className="text-white/25 text-xs font-light mt-3">Sistema de gestión de obra con conector nativo para agentes IA. Lista de espera abierta.</p>
             </div>
           </div>
           <Link href="/demo" className="flex-shrink-0 flex items-center gap-2 bg-violet-500/10 text-violet-400 border border-violet-500/20 px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-violet-500/20 transition-colors whitespace-nowrap">
@@ -880,7 +880,7 @@ function WhatsAppFeature() {
               'Aviso al equipo cuando se sube un plano nuevo o una revisión',
               'Recordatorio cuando una tarea está próxima a vencer',
               'Notificación al aprobador cuando un documento espera su firma',
-              'Ningún software de construcción en LATAM tiene esto integrado',
+              'Integración nativa con WhatsApp Business — sin apps externas ni configuración técnica',
             ].map(f => (
               <div key={f} className="flex items-start gap-3">
                 <div className="w-5 h-5 rounded-full bg-emerald-400/20 flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -954,7 +954,7 @@ function PartnerSection() {
         <div className="max-w-3xl mx-auto text-center mb-14">
           <div className="inline-flex items-center gap-2 bg-white/5 border border-white/10 rounded-full px-4 py-1.5 mb-6">
             <Wrench className="w-3.5 h-3.5 text-white/40" />
-            <span className="text-white/40 text-xs font-medium">Plan Partner · Implementación a medida</span>
+            <span className="text-white/40 text-xs font-medium">Builtek a la medida · Desarrollo personalizado</span>
           </div>
           <h2 className="text-2xl md:text-4xl text-white leading-tight mb-5">
             <span className="font-light">No somos software genérico.</span><br />
@@ -1013,16 +1013,16 @@ function PartnerSection() {
 
         <div className="bg-gradient-to-r from-[#00C2FF]/6 to-transparent border border-[#00C2FF]/15 rounded-2xl px-8 py-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
           <div>
-            <p className="text-white font-semibold text-lg mb-1">Plan Partner — desde $8,000 MXN/mes</p>
+            <p className="text-white font-semibold text-lg mb-1">Builtek a la medida — desde $8,000 MXN/mes</p>
             <p className="text-white/35 text-sm font-light">
-              Sobre el plan base (Pro o Contractor) · Máximo 5 empresas simultáneas por la naturaleza del servicio.
+              1 sesión mensual con el fundador · 4 horas de desarrollo al mes · Limitado a 5 empresas a la vez.
             </p>
           </div>
           <a
             href="mailto:hola@menvio.app?subject=Plan Partner"
             className="flex-shrink-0 flex items-center gap-2 border border-[#00C2FF]/30 text-[#00C2FF] px-6 py-3 rounded-xl text-sm font-semibold hover:bg-[#00C2FF]/10 transition-colors whitespace-nowrap"
           >
-            Solicitar información
+            Hablar con nuestros desarrolladores
             <ArrowRight className="w-4 h-4" />
           </a>
         </div>
