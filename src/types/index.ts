@@ -153,3 +153,38 @@ export interface Comment {
     avatar_url: string | null
   }
 }
+
+export interface Photo {
+  id: string
+  workspace_id: string
+  project_id: string | null
+  name: string | null
+  captured_at: string
+  uploaded_at: string
+  uploaded_by: string | null
+  storage_key_hot: string
+  storage_key_cold: string
+  file_size: number | null
+  width: number | null
+  height: number | null
+  is_favorite: boolean
+  tier_storage: 'hot' | 'cold'
+  annotations_json: unknown | null
+  exif_data: unknown | null
+  created_at: string
+  tags?: PhotoTag[]
+}
+
+export interface PhotoTag {
+  id: string
+  workspace_id: string
+  name: string
+  color: string
+  created_by: string | null
+  created_at: string
+}
+
+export interface PhotoTagAssignment {
+  photo_id: string
+  tag_id: string
+}

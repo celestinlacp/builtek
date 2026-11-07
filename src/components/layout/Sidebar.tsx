@@ -7,7 +7,7 @@ import Logo from '@/components/Logo'
 import { useChat } from '@/components/chat/ChatContext'
 import {
   LayoutDashboard, CheckSquare, Calendar, Package,
-  FileText, Bot, Settings, LogOut, ChevronRight, HardDrive, Mail, MessageSquare, BookOpen, BarChart2, TrendingUp, Activity, GitBranch
+  FileText, Bot, Settings, LogOut, ChevronRight, HardDrive, Mail, MessageSquare, BookOpen, BarChart2, TrendingUp, Activity, GitBranch, Camera
 } from 'lucide-react'
 
 const BASE_NAV = [
@@ -18,7 +18,8 @@ const BASE_NAV = [
   { href: '/deliverables',    icon: Package,         label: 'Entregables' },
   { href: '/documents',       icon: FileText,        label: 'Proyectos' },
   { href: '/especificaciones',icon: BookOpen,        label: 'Especificaciones' },
-  { href: '/drive',           icon: HardDrive,       label: 'Drive', badge: 'NEW' },
+  { href: '/bitacora',        icon: Camera,          label: 'Bitácora', badge: 'NEW' as const },
+  { href: '/drive',           icon: HardDrive,       label: 'Drive' },
   { href: '/ai-agent',        icon: Bot,             label: 'Agente AI' },
 ]
 
