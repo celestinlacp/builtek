@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Trash2, CheckSquare, XSquare, Loader2 } from 'lucide-react'
+import { Trash2, CheckSquare, XSquare, Loader2, Download } from 'lucide-react'
 import { deletePhotos } from '../actions'
 
 interface Props {
@@ -22,9 +22,32 @@ export default function MultiSelectToolbar({
   onDeleted,
 }: Props) {
   const [isDeleting, setIsDeleting] = useState(false)
+  const [isDownloading, setIsDownloading] = useState(false)
   const count = selectedIds.size
 
   if (count === 0) return null
+
+  async function handleDownload() {
+    setIsDownloading(true)
+    for (const id of selectedIds) {
+      try {
+        const res = await fetch(`/api/photos/download/${id}`)
+        if (!res.ok) continue
+        const { url, name } = await res.json()
+        const a = document.createElement('a')
+        a.href = url
+        a.download = name ?? `foto-${id}`
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        // Brief pause so browser doesn't block multiple downloads
+        await new Promise(r => setTimeout(r, 300))
+      } catch {
+        // skip failed photo, continue with rest
+      }
+    }
+    setIsDownloading(false)
+  }
 
   async function handleDelete() {
     const confirmed = window.confirm(
@@ -71,6 +94,20 @@ export default function MultiSelectToolbar({
         >
           <XSquare className="w-4 h-4" />
           <span className="hidden sm:inline">Deseleccionar</span>
+        </button>
+
+        {/* Download */}
+        <button
+          onClick={handleDownload}
+          disabled={isDownloading || isDeleting}
+          className="flex items-center gap-1.5 text-sm text-white/70 hover:text-white disabled:opacity-50 transition-colors"
+        >
+          {isDownloading ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <Download className="w-4 h-4" />
+          )}
+          <span className="hidden sm:inline">Descargar</span>
         </button>
 
         <div className="w-px h-5 bg-white/20 mx-1" />

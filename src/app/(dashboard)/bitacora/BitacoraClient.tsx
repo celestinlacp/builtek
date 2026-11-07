@@ -165,6 +165,7 @@ export default function BitacoraClient({
         <PhotoUploadModal
           workspaceId={workspaceId}
           projectId={activeProjectFilter ?? undefined}
+          projects={workspaceProjects}
           onClose={() => setShowUpload(false)}
         />
       )}

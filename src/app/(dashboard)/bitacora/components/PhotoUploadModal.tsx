@@ -7,6 +7,7 @@ import { X, Upload, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react'
 interface Props {
   workspaceId: string
   projectId?: string
+  projects: { id: string; name: string }[]
   onClose: () => void
 }
 
@@ -23,9 +24,10 @@ interface FileEntry {
 const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/heic', 'image/heif', 'image/webp']
 const MAX_FILES = 20
 
-export default function PhotoUploadModal({ workspaceId, projectId, onClose }: Props) {
+export default function PhotoUploadModal({ workspaceId, projectId, projects, onClose }: Props) {
   const router = useRouter()
   const [entries, setEntries] = useState<FileEntry[]>([])
+  const [selectedProjectId, setSelectedProjectId] = useState<string>(projectId ?? '')
   const [isDragging, setIsDragging] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -124,7 +126,7 @@ export default function PhotoUploadModal({ workspaceId, projectId, onClose }: Pr
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           workspaceId,
-          projectId: projectId ?? null,
+          projectId: selectedProjectId || null,
           photoId: entry.id,
           name: entry.file.name,
           capturedAt,
@@ -169,6 +171,26 @@ export default function PhotoUploadModal({ workspaceId, projectId, onClose }: Pr
             <X className="w-5 h-5" />
           </button>
         </div>
+
+        {/* Project selector */}
+        {projects.length > 0 && (
+          <div className="mx-6 mt-4">
+            <label className="block text-xs font-medium text-slate-600 mb-1">
+              Proyecto (opcional)
+            </label>
+            <select
+              value={selectedProjectId}
+              onChange={e => setSelectedProjectId(e.target.value)}
+              disabled={isUploading}
+              className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+            >
+              <option value="">Sin proyecto asignado</option>
+              {projects.map(p => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {/* Drop zone */}
         <div
