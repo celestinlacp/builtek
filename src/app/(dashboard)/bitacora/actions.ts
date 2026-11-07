@@ -152,7 +152,7 @@ export async function createPhotoTag(
 
 export async function updatePhotoMeta(
   photoId: string,
-  data: { name?: string; project_id?: string | null }
+  data: { name?: string | null; project_id?: string | null }
 ) {
   const { supabase } = await getUser()
   const admin = getAdminClient()
