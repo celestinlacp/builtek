@@ -154,6 +154,14 @@ export interface Comment {
   }
 }
 
+export interface PinData {
+  document_id: string
+  page: number
+  x: number
+  y: number
+  label?: string
+}
+
 export interface Photo {
   id: string
   workspace_id: string
@@ -173,6 +181,7 @@ export interface Photo {
   exif_data: unknown | null
   created_at: string
   tags?: PhotoTag[]
+  pin_data: PinData | null
 }
 
 export interface PhotoTag {
