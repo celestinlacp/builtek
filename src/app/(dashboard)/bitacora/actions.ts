@@ -6,7 +6,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { DeleteObjectCommand } from '@aws-sdk/client-s3'
 import { getR2Client, R2_BUCKET, r2IsConfigured } from '@/lib/r2/client'
-import type { PhotoTag } from '@/types'
+import type { PhotoTag, PinData } from '@/types'
 
 function getAdminClient() {
   return createAdmin(
@@ -158,6 +158,48 @@ export async function createPhotoTag(
 
   revalidatePath('/bitacora')
   return { tag: tag as PhotoTag }
+}
+
+export async function updatePhotoPin(photoId: string, pinData: PinData | null) {
+  const { supabase } = await getUser()
+  const admin = getAdminClient()
+
+  // Verify access via RLS
+  const { data: photo } = await supabase
+    .from('photos')
+    .select('id')
+    .eq('id', photoId)
+    .single()
+
+  if (!photo) return { error: 'Foto no encontrada' }
+
+  const { error } = await admin
+    .from('photos')
+    .update({ pin_data: pinData })
+    .eq('id', photoId)
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/bitacora')
+  return { success: true }
+}
+
+export async function getPlanosForProject(
+  projectId: string,
+  workspaceId: string
+): Promise<Array<{ id: string; name: string; display_name: string | null; file_name: string | null }>> {
+  const { supabase } = await getUser()
+
+  const { data } = await supabase
+    .from('documents')
+    .select('id, name, display_name, file_name')
+    .eq('project_id', projectId)
+    .eq('workspace_id', workspaceId)
+    .eq('doc_type', 'PLA')
+    .eq('is_current', true)
+    .order('name')
+
+  return data ?? []
 }
 
 export async function updatePhotoMeta(

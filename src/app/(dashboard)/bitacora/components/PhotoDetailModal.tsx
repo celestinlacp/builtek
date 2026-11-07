@@ -1,10 +1,13 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { X, ChevronLeft, ChevronRight, Star, Save, Loader2, Trash2 } from 'lucide-react'
-import type { Photo, PhotoTag, Project } from '@/types'
-import { toggleFavorite, updatePhotoMeta, updatePhotoTags, deletePhotos } from '../actions'
+import { X, ChevronLeft, ChevronRight, Star, Save, Loader2, Trash2, MapPin } from 'lucide-react'
+import type { Photo, PhotoTag, Project, PinData } from '@/types'
+import { toggleFavorite, updatePhotoMeta, updatePhotoTags, deletePhotos, updatePhotoPin } from '../actions'
+import { createClient } from '@/lib/supabase/client'
 import TagSelector from './TagSelector'
+import PinPickerModal from './PinPickerModal'
+import PlanSplitViewModal from './PlanSplitViewModal'
 
 interface Props {
   photo: Photo
@@ -45,6 +48,10 @@ export default function PhotoDetailModal({
   const [isSaving, setIsSaving] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [isDirty, setIsDirty] = useState(false)
+  const [showPinPicker, setShowPinPicker] = useState(false)
+  const [showSplitView, setShowSplitView] = useState(false)
+  const [pinDocName, setPinDocName] = useState<string | null>(null)
+  const [currentPin, setCurrentPin] = useState<PinData | null>(photo.pin_data ?? null)
 
   const currentIndex = photos.findIndex(p => p.id === photo.id)
   const hasPrev = currentIndex > 0
@@ -80,6 +87,20 @@ export default function PhotoDetailModal({
     return () => window.removeEventListener('keydown', handleKey)
   }, [currentIndex, photos])
 
+  // Load pin document name when photo changes
+  useEffect(() => {
+    setCurrentPin(photo.pin_data ?? null)
+    setPinDocName(null)
+    if (!photo.pin_data?.document_id) return
+    const supabase = createClient()
+    supabase
+      .from('documents')
+      .select('display_name, name')
+      .eq('id', photo.pin_data.document_id)
+      .single()
+      .then(({ data }) => { if (data) setPinDocName(data.display_name ?? data.name) })
+  }, [photo.id, photo.pin_data?.document_id])
+
   async function handleSave() {
     setIsSaving(true)
     await Promise.all([
@@ -106,6 +127,12 @@ export default function PhotoDetailModal({
     const newVal = !isFav
     setIsFav(newVal)
     await toggleFavorite(photo.id, newVal)
+  }
+
+  async function handleRemovePin() {
+    setCurrentPin(null)
+    setPinDocName(null)
+    await updatePhotoPin(photo.id, null)
   }
 
   const capturedDate = new Date(photo.captured_at).toLocaleDateString('es-MX', {
@@ -251,6 +278,42 @@ export default function PhotoDetailModal({
               />
             </div>
 
+            {/* Pin section */}
+            <div className="border-t border-gray-100 pt-3 mt-3">
+              <p className="text-xs font-medium text-gray-500 mb-2">Ubicación en plano</p>
+              {!currentPin ? (
+                <button
+                  onClick={() => setShowPinPicker(true)}
+                  disabled={!photo.project_id}
+                  title={!photo.project_id ? 'Asigna la foto a un proyecto para pinear' : 'Pinear foto en un plano PDF'}
+                  className="flex items-center gap-2 text-sm text-indigo-600 hover:text-indigo-800 disabled:text-gray-300 disabled:cursor-not-allowed transition-colors"
+                >
+                  <MapPin className="w-4 h-4" />
+                  Pinear en plano
+                </button>
+              ) : (
+                <div className="bg-indigo-50 rounded-lg p-2.5 space-y-1">
+                  <div className="flex items-start gap-2">
+                    <MapPin className="w-3.5 h-3.5 text-indigo-600 mt-0.5 flex-shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium text-indigo-900 truncate">{pinDocName ?? 'Cargando...'}</p>
+                      <p className="text-[10px] text-indigo-500">x: {currentPin.x.toFixed(1)}% · y: {currentPin.y.toFixed(1)}%</p>
+                      {currentPin.label && <p className="text-[10px] text-indigo-600 italic">&quot;{currentPin.label}&quot;</p>}
+                    </div>
+                  </div>
+                  <div className="flex gap-2 pt-1">
+                    <button onClick={() => setShowSplitView(true)} className="text-[11px] font-medium text-indigo-600 hover:underline">
+                      Ver en plano
+                    </button>
+                    <span className="text-gray-300">·</span>
+                    <button onClick={handleRemovePin} className="text-[11px] text-gray-400 hover:text-red-500">
+                      Quitar pin
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* Save button */}
             {isDirty && (
               <button
@@ -288,6 +351,23 @@ export default function PhotoDetailModal({
           </div>
         </div>
       </div>
+
+      {showPinPicker && (
+        <PinPickerModal
+          photo={photo}
+          workspaceId={workspaceId}
+          onPinned={(pin, docName) => { setCurrentPin(pin); setPinDocName(docName); setShowPinPicker(false) }}
+          onClose={() => setShowPinPicker(false)}
+        />
+      )}
+      {showSplitView && currentPin && (
+        <PlanSplitViewModal
+          photo={photo}
+          pin={currentPin}
+          planDocName={pinDocName ?? ''}
+          onClose={() => setShowSplitView(false)}
+        />
+      )}
     </div>
   )
 }

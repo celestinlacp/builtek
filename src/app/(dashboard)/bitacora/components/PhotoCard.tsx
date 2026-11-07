@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Star } from 'lucide-react'
+import { Star, MapPin } from 'lucide-react'
 import type { Photo } from '@/types'
 import { toggleFavorite } from '../actions'
 
@@ -102,6 +102,15 @@ export default function PhotoCard({ photo, isSelected, onSelect, onClick }: Prop
           }`}
         />
       </button>
+
+      {/* Pin indicator — always visible when pinned */}
+      {photo.pin_data && (
+        <div className="absolute bottom-2 left-2 z-10 pointer-events-none">
+          <div className="flex items-center gap-1 bg-indigo-600/80 backdrop-blur-sm rounded-full px-1.5 py-0.5">
+            <MapPin className="w-3 h-3 text-white" />
+          </div>
+        </div>
+      )}
 
       {/* Bottom: tags + date */}
       <div
