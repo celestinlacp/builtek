@@ -3,7 +3,7 @@
 import React, { useState, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Project, Company } from '@/types'
-import { saveDocument, updateDocumentStatus, requestDeleteDocument, approveDeleteRequest, rejectDeleteRequest, deleteDocument, deleteDocumentVersion, deleteArchivedVersion, submitForReview, approveDocument, rejectDocument, replaceDocument, updateProjectCover, createSubproject, updateProjectClassification, createDocumentFolder, renameDocumentFolder, deleteDocumentFolder, moveDocumentToFolder, moveFolderToProject } from './actions'
+import { saveDocument, checkDocumentDuplicate, updateDocumentStatus, requestDeleteDocument, approveDeleteRequest, rejectDeleteRequest, deleteDocument, deleteDocumentVersion, deleteArchivedVersion, submitForReview, approveDocument, rejectDocument, replaceDocument, updateProjectCover, createSubproject, updateProjectClassification, createDocumentFolder, renameDocumentFolder, deleteDocumentFolder, moveDocumentToFolder, moveFolderToProject } from './actions'
 import { createOficio } from '../oficios/actions'
 import {
   Upload, Download, Trash2, ChevronDown, ChevronRight, ArrowLeft, Package,
@@ -379,27 +379,21 @@ function UploadModal({
     if (docType === 'PLA' && !docView) { setError('Selecciona el tipo de plano'); return }
     if (!authorSel) { setError('Selecciona el autor o empresa'); return }
 
-    // Detectar si ya existe un documento con la misma clave AEC en este proyecto
-    if (!skipDupCheck) {
-      const formDocView = docType !== 'PLA' ? 'NA' : (docView + docViewNum).trim()
-      const troncal = micNomenclatures.find(n => n.segment === 'TRONCAL')?.code
-      // Construir doc_key exactamente igual que el backend para detectar versión
-      const candidateKey = (troncal && identificador && docType && specialtyCode && formDocView)
-        ? `${troncal}-${identificador}-${docType}-${specialtyCode}-${formDocView}`
-        : null
-      const dup = existingDocs.find(d =>
-        d.is_current === true &&
-        d.doc_status !== 'deleted' &&
-        d.doc_status !== 'archived' &&
-        (candidateKey
-          ? d.doc_key === candidateKey
-          : d.project_id === projectId &&
-            d.specialty?.code === specialtyCode &&
-            (d.doc_type || '') === docType &&
-            (d.doc_view || '') === formDocView &&
-            (d.doc_element?.toLowerCase().trim() || '') === (docElement.toLowerCase().trim() || ''))
-      )
-      if (dup) { setDupDoc(dup); return }
+    // Detectar si ya existe un documento con la misma clave AEC (server-side, incluye structure_type_code)
+    if (!skipDupCheck && identificador && specialtyCode && docType) {
+      const formDocView = docView ? (docView + docViewNum).trim() : ''
+      const fileType = detectFileFormat(file.name) || 'PDF'
+      const dupCheck = await checkDocumentDuplicate({
+        workspace_id:   workspaceId,
+        project_id:     projectId,
+        doc_type:       docType,
+        specialty_code: specialtyCode,
+        doc_view:       formDocView,
+        identificador:  identificador,
+        file_type:      fileType,
+      })
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if (dupCheck.exists && dupCheck.doc) { setDupDoc(dupCheck.doc as any); return }
     }
 
     setUploading(true); setError(null); setUploadPct(0)

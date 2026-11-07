@@ -35,6 +35,62 @@ async function getUser() {
   return { supabase, user }
 }
 
+export async function checkDocumentDuplicate(data: {
+  workspace_id: string
+  project_id:   string
+  doc_type:     string
+  specialty_code: string
+  doc_view:     string
+  identificador: string
+  file_type:    string
+}): Promise<{ exists: boolean; doc?: { id: string; version_number: number; file_name: string | null; display_name: string | null; doc_key: string | null } }> {
+  await getUser()
+  const admin = getAdminClient()
+
+  const { data: troncalRow } = await admin
+    .from('mic_nomenclatures')
+    .select('code')
+    .eq('workspace_id', data.workspace_id)
+    .eq('segment', 'TRONCAL')
+    .limit(1)
+    .maybeSingle()
+
+  const troncal = troncalRow?.code
+  if (!troncal) return { exists: false }
+
+  let structureTypeCode: string | null = null
+  const { data: projectRow } = await admin
+    .from('projects')
+    .select('structure_type_id')
+    .eq('id', data.project_id)
+    .maybeSingle()
+
+  if (projectRow?.structure_type_id) {
+    const { data: stRow } = await admin
+      .from('structure_types')
+      .select('code')
+      .eq('id', projectRow.structure_type_id)
+      .maybeSingle()
+    structureTypeCode = stRow?.code ?? null
+  }
+
+  const docKey = structureTypeCode
+    ? `${troncal}-${structureTypeCode}-${data.identificador}-${data.doc_type}-${data.specialty_code}-${data.doc_view}`
+    : `${troncal}-${data.identificador}-${data.doc_type}-${data.specialty_code}-${data.doc_view}`
+
+  const { data: existing } = await admin
+    .from('documents')
+    .select('id, version_number, file_name, display_name, doc_key, name, status, file_type')
+    .eq('workspace_id', data.workspace_id)
+    .eq('doc_key', docKey)
+    .eq('file_type', data.file_type)
+    .eq('is_current', true)
+    .maybeSingle()
+
+  if (existing) return { exists: true, doc: existing }
+  return { exists: false }
+}
+
 export async function saveDocument(data: {
   project_id:     string
   workspace_id:   string

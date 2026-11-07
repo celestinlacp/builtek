@@ -7,7 +7,7 @@ import {
   Calendar, Weight, Tag, FileText, MessageSquare, Loader2, History, CheckCircle2, XCircle, Clock, Eye,
   Share2, Pencil, Check, Upload, Edit2, Zap, Sparkles, ChevronDown, ChevronRight, Plus, Save,
 } from 'lucide-react'
-import { addDocumentComment, deleteDocumentComment, getDocumentVersions, createDocumentShare, renameDocument, updateDocumentMeta, deleteArchivedVersion } from './actions'
+import { addDocumentComment, deleteDocumentComment, getDocumentVersions, createDocumentShare, renameDocument, updateDocumentMeta, deleteArchivedVersion, deleteDocumentVersion } from './actions'
 
 type Doc = {
   id: string
@@ -1064,14 +1064,23 @@ export default function DocumentSlideOver({
                                 <Download className="w-3 h-3" />
                                 Descargar
                               </a>
-                              {!isCurrent && ['owner', 'admin'].includes(userRole ?? '') && (
+                              {['owner', 'admin'].includes(userRole ?? '') && (
                                 <button
                                   onClick={async () => {
-                                    if (!confirm(`¿Eliminar la versión v${String(v.version_number ?? idx + 1).padStart(4, '0')} permanentemente? Esta acción no se puede deshacer.`)) return
-                                    await deleteArchivedVersion(v.id)
-                                    setVersions(prev => prev.filter(x => x.id !== v.id))
+                                    const vLabel = `v${String(v.version_number ?? idx + 1).padStart(4, '0')}`
+                                    const msg = isCurrent
+                                      ? `¿Eliminar la versión vigente ${vLabel}? La versión anterior quedará como vigente. Esta acción no se puede deshacer.`
+                                      : `¿Eliminar la versión archivada ${vLabel} permanentemente? Esta acción no se puede deshacer.`
+                                    if (!confirm(msg)) return
+                                    if (isCurrent) {
+                                      await deleteDocumentVersion(v.id)
+                                      onClose()
+                                    } else {
+                                      await deleteArchivedVersion(v.id)
+                                      setVersions(prev => prev.filter(x => x.id !== v.id))
+                                    }
                                   }}
-                                  title="Eliminar versión archivada"
+                                  title={isCurrent ? 'Eliminar versión vigente' : 'Eliminar versión archivada'}
                                   className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-red-50 hover:bg-red-100 text-red-400 hover:text-red-600 transition-colors">
                                   <Trash2 className="w-3 h-3" />
                                   Eliminar

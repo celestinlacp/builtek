@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import {
   Upload, CheckSquare, Clock, Share2, UserPlus, FileText,
-  HardDrive, RefreshCw, Filter, Users, MessageCircle, AlertCircle
+  HardDrive, RefreshCw, Filter, Users, MessageCircle, AlertCircle,
+  Copy, Check
 } from 'lucide-react'
 
 type LogEntry = {
@@ -76,6 +77,53 @@ const ACTION_GROUPS: { label: string; values: string[] }[] = [
 export default function LogsPanel({ logs, members }: { logs: LogEntry[]; members: Member[] }) {
   const [filterUser, setFilterUser]     = useState<string>('all')
   const [filterAction, setFilterAction] = useState<string>('all')
+  const [copied, setCopied] = useState(false)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  function handleCopyErrors() {
+    const errorLogs = logs
+      .filter(l => l.action.includes('_error') || l.action === 'error')
+      .slice(0, 20)
+
+    let texto: string
+
+    if (errorLogs.length === 0) {
+      const now = new Date()
+      const yyyy = now.getFullYear()
+      const mm   = String(now.getMonth() + 1).padStart(2, '0')
+      const dd   = String(now.getDate()).padStart(2, '0')
+      texto = `Sin errores en los últimos registros — Builtek ${yyyy}-${mm}-${dd}`
+    } else {
+      texto = errorLogs.map(l => {
+        const d    = new Date(l.created_at)
+        const yyyy = d.getFullYear()
+        const mm   = String(d.getMonth() + 1).padStart(2, '0')
+        const dd   = String(d.getDate()).padStart(2, '0')
+        const hh   = String(d.getHours()).padStart(2, '0')
+        const min  = String(d.getMinutes()).padStart(2, '0')
+        const fecha = `${yyyy}-${mm}-${dd} ${hh}:${min}`
+
+        let detalle = ''
+        if (l.action === 'whatsapp_error' && l.metadata) {
+          detalle = [
+            l.metadata.phone    ? `→ ${l.metadata.phone}`             : null,
+            l.metadata.template ? `plantilla: ${l.metadata.template}` : null,
+            `Error: ${l.metadata.error ?? 'desconocido'}`,
+          ].filter(Boolean).join(' · ')
+        } else if (l.metadata && Object.keys(l.metadata).length > 0) {
+          detalle = JSON.stringify(l.metadata)
+        }
+
+        return `[${fecha}] ERROR ${l.action} — ${l.user_name}${detalle ? ' · ' + detalle : ''}`
+      }).join('\n')
+    }
+
+    navigator.clipboard.writeText(texto)
+
+    if (timerRef.current) clearTimeout(timerRef.current)
+    setCopied(true)
+    timerRef.current = setTimeout(() => setCopied(false), 2000)
+  }
 
   const users = useMemo(() => {
     const map = new Map<string, string>()
@@ -124,6 +172,13 @@ export default function LogsPanel({ logs, members }: { logs: LogEntry[]; members
             ))}
           </select>
           <span className="text-xs text-slate-400 ml-auto">{filtered.length} registro{filtered.length !== 1 ? 's' : ''}</span>
+          <button
+            onClick={handleCopyErrors}
+            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 transition-colors"
+          >
+            {copied ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
+            {copied ? '¡Copiado!' : 'Copiar errores'}
+          </button>
         </div>
 
         {/* Timeline */}
