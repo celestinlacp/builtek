@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdmin } from '@supabase/supabase-js'
 import { GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3'
 import { getR2Client, R2_BUCKET, r2IsConfigured } from '@/lib/r2/client'
@@ -103,6 +104,10 @@ async function processPhotoBackground(params: {
 }
 
 export async function POST(req: NextRequest) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+
   const body = await req.json()
   const {
     workspaceId,
@@ -120,6 +125,16 @@ export async function POST(req: NextRequest) {
   if (!workspaceId || !photoId || !capturedAt || !storageKeyCold) {
     return NextResponse.json({ error: 'Faltan parámetros requeridos' }, { status: 400 })
   }
+
+  // Verificar membresía al workspace
+  const { data: member } = await supabase
+    .from('workspace_members')
+    .select('role')
+    .eq('workspace_id', workspaceId)
+    .eq('user_id', user.id)
+    .single()
+
+  if (!member) return NextResponse.json({ error: 'Sin acceso al workspace' }, { status: 403 })
 
   // Fire and forget — respond 202 immediately
   processPhotoBackground({

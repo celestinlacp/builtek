@@ -122,8 +122,18 @@ export async function createPhotoTag(
   name: string,
   color: string
 ): Promise<{ tag?: PhotoTag; error?: string }> {
-  const { user } = await getUser()
+  const { supabase, user } = await getUser()
   const admin = getAdminClient()
+
+  // Verificar membresía al workspace
+  const { data: member } = await supabase
+    .from('workspace_members')
+    .select('role')
+    .eq('workspace_id', workspaceId)
+    .eq('user_id', user.id)
+    .single()
+
+  if (!member) return { error: 'Sin acceso al workspace' }
 
   const trimmedName = name.trim()
   if (!trimmedName) return { error: 'El nombre del tag no puede estar vacío' }
