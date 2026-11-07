@@ -20,6 +20,7 @@ export default function PinPickerModal({ photo, workspaceId, onPinned, onClose }
   const [previewPin, setPreviewPin] = useState<{ x: number; y: number } | null>(null)
   const [label, setLabel] = useState('')
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   // Close on Escape
   useEffect(() => {
@@ -49,6 +50,7 @@ export default function PinPickerModal({ photo, workspaceId, onPinned, onClose }
   async function handleSavePin() {
     if (!previewPin || !selectedPlano) return
     setSaving(true)
+    setSaveError(null)
     const pin: PinData = {
       document_id: selectedPlano.id,
       page: 1,
@@ -56,7 +58,12 @@ export default function PinPickerModal({ photo, workspaceId, onPinned, onClose }
       y: previewPin.y,
       ...(label.trim() && { label: label.trim() }),
     }
-    await updatePhotoPin(photo.id, pin)
+    const result = await updatePhotoPin(photo.id, pin)
+    if (result.error) {
+      setSaveError(result.error)
+      setSaving(false)
+      return
+    }
     onPinned(pin, selectedPlano.name)
     onClose()
   }
@@ -151,7 +158,11 @@ export default function PinPickerModal({ photo, workspaceId, onPinned, onClose }
 
         {/* Footer — only shown in step 2 */}
         {step === 2 && (
-          <div className="h-16 flex items-center gap-3 px-4 border-t flex-shrink-0">
+          <div className="flex flex-col border-t flex-shrink-0">
+            {saveError && (
+              <p className="text-xs text-red-600 px-4 pt-2">{saveError}</p>
+            )}
+          <div className="h-16 flex items-center gap-3 px-4">
             <button
               onClick={() => { setStep(1); setPreviewPin(null); setLabel('') }}
               className="text-sm text-slate-500 hover:text-slate-700 transition-colors"
@@ -172,6 +183,7 @@ export default function PinPickerModal({ photo, workspaceId, onPinned, onClose }
             >
               {saving ? 'Guardando...' : 'Guardar pin'}
             </button>
+          </div>
           </div>
         )}
       </div>
