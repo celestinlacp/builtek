@@ -190,10 +190,28 @@ export async function getPlanosForProject(
 ): Promise<Array<{ id: string; name: string; display_name: string | null; file_name: string | null }>> {
   const { supabase } = await getUser()
 
+  // Resolver el ID raíz del proyecto (por si la foto está asignada a un subproyecto)
+  const { data: project } = await supabase
+    .from('projects')
+    .select('id, parent_project_id')
+    .eq('id', projectId)
+    .single()
+
+  const rootId = project?.parent_project_id ?? projectId
+
+  // Obtener todos los subproyectos del raíz
+  const { data: subprojects } = await supabase
+    .from('projects')
+    .select('id')
+    .eq('parent_project_id', rootId)
+    .eq('workspace_id', workspaceId)
+
+  const projectIds = [rootId, ...(subprojects ?? []).map(s => s.id)]
+
   const { data } = await supabase
     .from('documents')
     .select('id, name, display_name, file_name')
-    .eq('project_id', projectId)
+    .in('project_id', projectIds)
     .eq('workspace_id', workspaceId)
     .eq('doc_type', 'PLA')
     .eq('is_current', true)
