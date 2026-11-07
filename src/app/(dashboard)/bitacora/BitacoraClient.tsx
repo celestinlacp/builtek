@@ -153,10 +153,12 @@ export default function BitacoraClient({
         <PhotoDetailModal
           photo={detailPhoto}
           photos={photos}
+          workspaceId={workspaceId}
           workspaceProjects={workspaceProjects}
           workspaceTags={workspaceTags}
           onClose={() => setDetailPhoto(null)}
           onUpdate={updated => setDetailPhoto(updated)}
+          onDelete={() => { setDetailPhoto(null); router.refresh() }}
         />
       )}
 

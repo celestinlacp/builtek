@@ -152,7 +152,7 @@ export async function createPhotoTag(
 
 export async function updatePhotoMeta(
   photoId: string,
-  data: { name?: string | null; project_id?: string | null }
+  data: { name?: string | null; project_id?: string | null; captured_at?: string | null }
 ) {
   const { supabase } = await getUser()
   const admin = getAdminClient()
@@ -169,6 +169,7 @@ export async function updatePhotoMeta(
   const updates: Record<string, unknown> = {}
   if ('name' in data) updates.name = data.name ?? null
   if ('project_id' in data) updates.project_id = data.project_id ?? null
+  if ('captured_at' in data && data.captured_at) updates.captured_at = data.captured_at
 
   const { error } = await admin.from('photos').update(updates).eq('id', photoId)
   if (error) return { error: error.message }

@@ -2,7 +2,7 @@
 
 import { useCallback, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { X, Upload, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react'
+import { X, Upload, CheckCircle2, AlertCircle, Loader2, Trash2 } from 'lucide-react'
 
 interface Props {
   workspaceId: string
@@ -34,6 +34,10 @@ export default function PhotoUploadModal({ workspaceId, projectId, projects, onC
 
   function updateEntry(id: string, patch: Partial<FileEntry>) {
     setEntries(prev => prev.map(e => e.id === id ? { ...e, ...patch } : e))
+  }
+
+  function removeEntry(id: string) {
+    setEntries(prev => prev.filter(e => e.id !== id))
   }
 
   function addFiles(newFiles: File[]) {
@@ -241,9 +245,15 @@ export default function PhotoUploadModal({ workspaceId, projectId, projects, onC
                     <p className="text-xs text-red-500 mt-0.5">{entry.error}</p>
                   )}
                 </div>
-                <div className="flex-shrink-0">
+                <div className="flex-shrink-0 flex items-center gap-1.5">
                   {entry.status === 'pending' && (
-                    <div className="w-4 h-4 rounded-full border-2 border-slate-300" />
+                    <button
+                      onClick={() => removeEntry(entry.id)}
+                      className="text-slate-300 hover:text-red-400 transition-colors"
+                      aria-label="Quitar archivo"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
                   )}
                   {entry.status === 'uploading' && (
                     <Loader2 className="w-4 h-4 text-blue-500 animate-spin" />
