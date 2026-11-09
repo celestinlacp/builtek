@@ -4,10 +4,11 @@ import {
   LayoutDashboard, CheckSquare, FileText, HardDrive,
   Bot, Calendar, ArrowRight, ChevronRight, Zap,
   Shield, Users, TrendingUp, QrCode, Upload,
-  Layers, Menu, MessageSquare, Sparkles, BookOpen, Wrench
+  Layers, Menu, MessageSquare, Sparkles, BookOpen, Wrench, Bell
 } from 'lucide-react'
 import PricingSection from '@/components/PricingSection'
 import MobileNav from '@/components/MobileNav'
+import SolucionesDropdown from '@/components/SolucionesDropdown'
 
 // ── Blueprint Animation Background ────────────────────────────────────────────
 function ConstructionBg() {
@@ -125,7 +126,7 @@ function Ticker() {
     'Dashboard por proyecto',
     'Control de versiones',
     'Aprobaciones firmadas',
-    'Empresa mexicana · CDMX',
+    'Empresa mexicana · Querétaro',
     'Trazabilidad total',
     'Drive compartido',
     'Acero · Concreto · Longitudes · Áreas',
@@ -161,7 +162,7 @@ function Navbar() {
           <a href="#ia"       className="text-[#00C2FF]/70 hover:text-[#00C2FF] text-sm font-normal transition-colors flex items-center gap-1">
             <Sparkles className="w-3 h-3" />Kota AI
           </a>
-          <a href="#rag"      className="text-white/50 hover:text-white text-sm font-normal transition-colors">Kota Chat</a>
+          <SolucionesDropdown />
           <a href="#drive"    className="text-white/50 hover:text-white text-sm font-normal transition-colors">Drive</a>
           <a href="#whatsapp" className="text-white/50 hover:text-white text-sm font-normal transition-colors">WhatsApp</a>
           <a href="#partner"  className="text-white/50 hover:text-white text-sm font-normal transition-colors">Partner</a>
@@ -552,85 +553,137 @@ function KotaFeature() {
           </div>
         </div>
 
-        {/* Kota Mock — dashboard view */}
-        <div className="bg-[#1A2744]/60 border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
-          {/* Header */}
-          <div className="bg-gradient-to-r from-[#1A2744] to-[#243660] px-4 py-3 flex items-center gap-2">
-            <Sparkles className="w-3.5 h-3.5 text-[#00C2FF]" />
-            <span className="text-[#00C2FF] text-[10px] font-bold uppercase tracking-wide">Kota</span>
-            <span className="text-white/25 text-[10px] mx-1">·</span>
-            <span className="text-white/45 text-[10px] truncate">Frente 12 — Viaducto Sur</span>
-            <span className="ml-auto text-[9px] bg-green-400/15 text-green-400 px-2 py-0.5 rounded-full font-medium flex-shrink-0">47 planos</span>
+        {/* Kota Mock — replicando UI real */}
+        <div className="bg-white rounded-2xl overflow-hidden shadow-2xl border border-gray-200 flex flex-col">
+
+          {/* Search bar + header */}
+          <div className="bg-white border-b border-gray-100 px-4 py-2.5 flex items-center gap-3">
+            <div className="flex-1 bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 text-[10px] text-gray-400">Buscar tareas, documentos, proyectos...</div>
+            <div className="relative">
+              <div className="w-6 h-6 rounded-full bg-[#00C2FF]/10 flex items-center justify-center">
+                <Bell className="w-3 h-3 text-[#00C2FF]" />
+              </div>
+              <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-[#00C2FF] rounded-full text-[7px] text-white font-black flex items-center justify-center">3</span>
+            </div>
+            <div className="w-6 h-6 rounded-full bg-[#1A2744] flex items-center justify-center text-white text-[9px] font-bold">LC</div>
           </div>
 
-          <div className="p-4 space-y-3">
-            {/* Title block pills */}
-            <div className="flex flex-wrap gap-1.5">
-              {['EST-SEC-002', 'Rev. A', '1:50', 'Estructural'].map(p => (
-                <span key={p} className="text-[9px] bg-white/6 text-white/45 px-2 py-0.5 rounded font-mono border border-white/8">{p}</span>
-              ))}
-            </div>
-
-            {/* Material specs */}
-            <div className="bg-amber-950/50 border border-amber-400/20 rounded-xl p-3">
-              <p className="text-[9px] text-amber-400/80 font-bold uppercase tracking-wide mb-1.5">Especificaciones detectadas</p>
-              <div className="space-y-0.5">
-                {["Concreto f'c=250 kg/cm² clase 1", "Acero de refuerzo fy=4,200 kg/cm²", "Recubrimiento mínimo 4 cm"].map(s => (
-                  <p key={s} className="text-[10px] text-amber-200/50">— {s}</p>
-                ))}
+          <div className="flex flex-1 overflow-hidden">
+            {/* Left panel — project card */}
+            <div className="w-[42%] bg-[#0D1729] p-3 flex-shrink-0 space-y-3 overflow-hidden">
+              {/* Kota header */}
+              <div className="bg-[#1A2744] rounded-xl p-3">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <Sparkles className="w-3 h-3 text-[#00C2FF]" />
+                  <span className="text-[#00C2FF] text-[9px] font-bold uppercase tracking-wide">KOTA</span>
+                </div>
+                <p className="text-white text-[10px] font-bold leading-tight">(MURO) Muro/Pilas en Zona de Anclas</p>
+                <p className="text-white/40 text-[9px] mt-0.5">Muro</p>
+                <div className="mt-2 flex items-center gap-1.5 text-white/35 text-[9px]">
+                  <span>Frente 3</span>
+                  <span>·</span>
+                  <span>3 especialidades</span>
+                </div>
+                <div className="mt-2 flex gap-3">
+                  <div className="text-center"><p className="text-white text-[11px] font-bold">3</p><p className="text-white/30 text-[8px]">DOCS</p></div>
+                  <div className="text-center"><p className="text-[#00C2FF] text-[11px] font-bold">1</p><p className="text-white/30 text-[8px]">PLANOS</p></div>
+                  <div className="text-center"><p className="text-emerald-400 text-[11px] font-bold">0</p><p className="text-white/30 text-[8px]">APR</p></div>
+                </div>
               </div>
-            </div>
 
-            {/* Acero + Concreto */}
-            <div className="grid grid-cols-2 gap-2">
-              <div className="bg-white/3 rounded-xl p-3">
-                <div className="flex items-center gap-1.5 mb-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-red-400 flex-shrink-0" />
-                  <p className="text-[9px] text-red-400 font-bold uppercase tracking-wide">Acero</p>
+              {/* Especialidades */}
+              <div className="bg-[#1A2744] rounded-xl p-2.5">
+                <p className="text-[8px] text-white/30 font-bold uppercase tracking-wide mb-1.5">Especialidades</p>
+                <div className="space-y-1">
+                  {[
+                    { dot: 'bg-[#00C2FF]', label: 'Estructuras' },
+                    { dot: 'bg-gray-800 border border-white/20', label: 'Geométrico' },
+                    { dot: 'bg-emerald-400', label: 'Est. — Detalle Acero M...' },
+                  ].map(s => (
+                    <div key={s.label} className="flex items-center gap-1.5">
+                      <span className={`w-2 h-2 rounded-full flex-shrink-0 ${s.dot}`} />
+                      <span className="text-[9px] text-white/50 truncate">{s.label}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Longitud */}
+              <div className="bg-[#1A2744] rounded-xl p-2.5">
+                <div className="flex items-center justify-between mb-1.5">
+                  <p className="text-[8px] text-emerald-400/70 font-bold uppercase tracking-wide">Longitud</p>
+                  <span className="text-[9px] text-white font-bold">841.5 ml</span>
                 </div>
                 {[
-                  { n: 'Arm. long. MC-01', v: '8.4 ton' },
-                  { n: 'Estribos Ø10mm', v: '2.1 ton' },
-                  { n: 'Arm. zapata Z-3', v: '1.8 ton' },
-                ].map(r => (
-                  <div key={r.n} className="flex justify-between py-0.5">
-                    <span className="text-[9px] text-white/28 truncate pr-1">{r.n}</span>
-                    <span className="text-[9px] text-white/60 font-mono flex-shrink-0">{r.v}</span>
-                  </div>
-                ))}
-              </div>
-              <div className="bg-white/3 rounded-xl p-3">
-                <div className="flex items-center gap-1.5 mb-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#00C2FF] flex-shrink-0" />
-                  <p className="text-[9px] text-[#00C2FF] font-bold uppercase tracking-wide">Concreto</p>
-                </div>
-                {[
-                  { n: "Muro MC-01 f'c=250", v: '42.8 m³' },
-                  { n: 'Zapata Z-03', v: '12.6 m³' },
-                  { n: 'Losa N+5.50', v: '68.4 m³' },
-                ].map(r => (
-                  <div key={r.n} className="flex justify-between py-0.5">
-                    <span className="text-[9px] text-white/28 truncate pr-1">{r.n}</span>
-                    <span className="text-[9px] text-white/60 font-mono flex-shrink-0">{r.v}</span>
+                  ['Long. Total Muros Cont...', '280', 'ml'],
+                  ['Muros Cont. Lado CDMX...', '160', 'ml'],
+                  ['Muros Cont. Lado Querét...', '120', 'ml'],
+                  ['Muro MC-01 (Lado ...)', '60', 'ml'],
+                ].map(([n, v, u]) => (
+                  <div key={n} className="flex items-center justify-between py-0.5">
+                    <span className="text-[8px] text-white/30 truncate pr-1">{n}</span>
+                    <span className="text-[8px] text-white/60 font-mono flex-shrink-0">{v} <span className="text-white/25">{u}</span></span>
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* Project totals */}
-            <div className="bg-[#00C2FF]/5 border border-[#00C2FF]/15 rounded-xl px-3 py-2.5">
-              <p className="text-[9px] text-[#00C2FF]/50 font-bold uppercase tracking-wide mb-2">Proyecto · Acumulado 47 planos · sin doble conteo</p>
-              <div className="flex justify-between">
-                {[
-                  { label: 'Acero', val: '842.3 ton', color: 'text-red-300' },
-                  { label: 'Concreto', val: '12,840 m³', color: 'text-[#00C2FF]' },
-                  { label: 'Longitud', val: '3,220 ml', color: 'text-emerald-300' },
-                ].map(k => (
-                  <div key={k.label} className="text-center">
-                    <p className={`text-[12px] font-bold font-mono ${k.color}`}>{k.val}</p>
-                    <p className="text-[8px] text-white/25 mt-0.5">{k.label}</p>
+            {/* Right panel — bar charts */}
+            <div className="flex-1 bg-white p-3 overflow-hidden space-y-4">
+              {/* ACERO */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-red-500" />
+                    <span className="text-[9px] font-bold text-gray-700 uppercase tracking-wide">Acero</span>
                   </div>
-                ))}
+                  <span className="text-[8px] text-gray-400">7 elem.</span>
+                </div>
+                <div className="space-y-1">
+                  {[
+                    { label: 'Acero fy=4200 kg/c...', val: 106444, pct: 100 },
+                    { label: 'Acero fy=4200 kg/c...', val: 62720,  pct: 59 },
+                    { label: 'Acero fy=4200 kg/c...', val: 31020,  pct: 29 },
+                    { label: 'Acero fy=4200 kg/c...', val: 12704,  pct: 12 },
+                    { label: 'Acero fy=4200 kg/c...', val: 3136,   pct: 3 },
+                  ].map((r, i) => (
+                    <div key={i} className="flex items-center gap-1.5">
+                      <span className="text-[8px] text-gray-400 w-24 truncate flex-shrink-0">{r.label}</span>
+                      <div className="flex-1 h-3.5 bg-gray-100 rounded-sm overflow-hidden">
+                        <div className="h-full bg-red-500 rounded-sm" style={{ width: `${r.pct}%` }} />
+                      </div>
+                      <span className="text-[8px] text-gray-500 font-mono w-14 text-right flex-shrink-0">{r.val.toLocaleString()}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* CONCRETO */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-[#1A2744]" />
+                    <span className="text-[9px] font-bold text-gray-700 uppercase tracking-wide">Concreto</span>
+                  </div>
+                  <span className="text-[8px] text-gray-400">11 elem.</span>
+                </div>
+                <div className="space-y-1">
+                  {[
+                    { label: "Concreto f'c=300 kg/cm²", val: 1185, pct: 100 },
+                    { label: "Concreto f'c=300 kg/cm²", val: 635,  pct: 54 },
+                    { label: "Concreto f'c=300 kg/cm²", val: 366,  pct: 31 },
+                    { label: "Concreto f'c=300 kg/cm²", val: 184,  pct: 16 },
+                    { label: "Concreto f'c=150 kg/cm²", val: 58,   pct: 5 },
+                  ].map((r, i) => (
+                    <div key={i} className="flex items-center gap-1.5">
+                      <span className="text-[8px] text-gray-400 w-24 truncate flex-shrink-0">{r.label}</span>
+                      <div className="flex-1 h-3.5 bg-gray-100 rounded-sm overflow-hidden">
+                        <div className="h-full bg-[#1A2744] rounded-sm" style={{ width: `${r.pct}%` }} />
+                      </div>
+                      <span className="text-[8px] text-gray-500 font-mono w-14 text-right flex-shrink-0">{r.val.toLocaleString()}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
@@ -638,8 +691,38 @@ function KotaFeature() {
       </div>
       </AnimateIn>
 
+      {/* Próximamente — callout compacto RAG + MCP */}
+      <div className="max-w-7xl mx-auto mt-10 px-6">
+        <div className="grid sm:grid-cols-2 gap-3">
+          <div className="flex items-center gap-4 bg-[#00C2FF]/5 border border-[#00C2FF]/15 rounded-2xl px-5 py-4">
+            <div className="w-9 h-9 rounded-xl bg-[#00C2FF]/15 flex items-center justify-center flex-shrink-0">
+              <MessageSquare className="w-4 h-4 text-[#00C2FF]" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 mb-0.5">
+                <p className="text-white/70 text-sm font-semibold">Kota Chat</p>
+                <span className="text-[9px] bg-[#00C2FF]/10 text-[#00C2FF] border border-[#00C2FF]/20 px-2 py-0.5 rounded-full font-semibold">Beta privada</span>
+              </div>
+              <p className="text-white/30 text-xs font-light">Pregunta a todos tus planos a la vez en lenguaje natural.</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-4 bg-violet-500/5 border border-violet-500/15 rounded-2xl px-5 py-4">
+            <div className="w-9 h-9 rounded-xl bg-violet-500/15 flex items-center justify-center flex-shrink-0">
+              <Wrench className="w-4 h-4 text-violet-400" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 mb-0.5">
+                <p className="text-white/70 text-sm font-semibold">MCP — Claude & ChatGPT</p>
+                <span className="text-[9px] bg-violet-500/10 text-violet-400 border border-violet-500/20 px-2 py-0.5 rounded-full font-semibold">Próximamente</span>
+              </div>
+              <p className="text-white/30 text-xs font-light">Conecta tu IA favorita directamente a tus proyectos.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Inline CTA */}
-      <div className="max-w-7xl mx-auto mt-14 px-6">
+      <div className="max-w-7xl mx-auto mt-6 px-6">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-[#00C2FF]/5 border border-[#00C2FF]/15 rounded-2xl px-7 py-5">
           <div>
             <p className="text-white/65 text-sm font-semibold mb-0.5">¿Quieres ver Kota en acción con un plano tuyo?</p>
@@ -654,171 +737,70 @@ function KotaFeature() {
   )
 }
 
-// ── Kota Chat (RAG) Feature ────────────────────────────────────────────────────
-function RAGFeature() {
-  return (
-    <section id="rag" className="bg-[#060e1c] px-4 md:px-6 py-12">
-      <AnimateIn>
-      <div className="max-w-7xl mx-auto">
-        <div className="grid lg:grid-cols-[1fr_auto] gap-6 bg-gradient-to-br from-[#00C2FF]/6 to-[#0077FF]/3 border border-[#00C2FF]/15 rounded-2xl px-7 py-7 items-center">
-          <div className="flex items-start gap-5">
-            <div className="w-10 h-10 rounded-xl bg-[#00C2FF]/15 flex items-center justify-center flex-shrink-0 mt-0.5">
-              <MessageSquare className="w-5 h-5 text-[#00C2FF]" />
-            </div>
-            <div>
-              <div className="flex items-center flex-wrap gap-2 mb-2">
-                <p className="text-white/80 text-base font-semibold">Kota Chat — Pregunta a tus documentos</p>
-                <span className="text-[10px] bg-[#00C2FF]/10 text-[#00C2FF] border border-[#00C2FF]/20 px-2.5 py-1 rounded-full font-semibold">Beta privada</span>
-              </div>
-              <p className="text-white/35 text-sm font-light leading-relaxed max-w-2xl mb-3">
-                El siguiente nivel de Kota: pregúntale a todos tus planos y documentos a la vez.
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {[
-                  "¿Cuánto acero hay en el frente 3?",
-                  "¿Qué planos no están aprobados aún?",
-                  "¿Cuál es el f'c de los muros MC-01?",
-                ].map(q => (
-                  <span key={q} className="text-[10px] text-white/40 bg-white/4 border border-white/8 rounded-full px-3 py-1 italic font-light">{q}</span>
-                ))}
-              </div>
-              <p className="text-white/25 text-xs font-light mt-3">Respuesta inmediata, con la fuente exacta. Acceso anticipado para clientes Pro y Contractor.</p>
-            </div>
-          </div>
-          <Link href="/demo" className="flex-shrink-0 flex items-center gap-2 bg-[#00C2FF]/10 text-[#00C2FF] border border-[#00C2FF]/20 px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#00C2FF]/20 transition-colors whitespace-nowrap">
-            Quiero acceso anticipado <ChevronRight className="w-4 h-4" />
-          </Link>
-        </div>
-      </div>
-      </AnimateIn>
-    </section>
-  )
-}
-
-// ── MCP Feature ───────────────────────────────────────────────────────────────
-function MCPFeature() {
-  return (
-    <section id="mcp" className="bg-[#060e1c] px-4 md:px-6 pb-12">
-      <AnimateIn>
-      <div className="max-w-7xl mx-auto">
-        <div className="grid lg:grid-cols-[1fr_auto] gap-6 bg-gradient-to-br from-violet-500/6 to-violet-800/3 border border-violet-500/15 rounded-2xl px-7 py-7 items-center">
-          <div className="flex items-start gap-5">
-            <div className="w-10 h-10 rounded-xl bg-violet-500/15 flex items-center justify-center flex-shrink-0 mt-0.5">
-              <Wrench className="w-5 h-5 text-violet-400" />
-            </div>
-            <div>
-              <div className="flex items-center flex-wrap gap-2 mb-2">
-                <p className="text-white/80 text-base font-semibold">Usa Claude o ChatGPT para preguntarle a tu proyecto</p>
-                <span className="text-[10px] bg-violet-500/10 text-violet-400 border border-violet-500/20 px-2.5 py-1 rounded-full font-semibold">Próximamente</span>
-              </div>
-              <p className="text-white/35 text-sm font-light leading-relaxed max-w-2xl mb-3">
-                ¿Ya usas IA en tu día a día? Conecta tu asistente favorito a Builtek y pregúntale directamente a tus proyectos — sin copiar datos, sin pantallas intermedias, sin perder contexto.
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {[
-                  '"¿Cuánto acero hay en Puente Norte?"',
-                  '"Analiza este plano y agrégalo al proyecto"',
-                  '"¿Qué documentos faltan por aprobar?"',
-                ].map(q => (
-                  <span key={q} className="text-[10px] text-white/40 bg-white/4 border border-white/8 rounded-full px-3 py-1 italic font-light">{q}</span>
-                ))}
-              </div>
-              <p className="text-white/25 text-xs font-light mt-3">Sistema de gestión de obra con conector nativo para agentes IA. Lista de espera abierta.</p>
-            </div>
-          </div>
-          <Link href="/demo" className="flex-shrink-0 flex items-center gap-2 bg-violet-500/10 text-violet-400 border border-violet-500/20 px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-violet-500/20 transition-colors whitespace-nowrap">
-            Quiero acceso anticipado <ChevronRight className="w-4 h-4" />
-          </Link>
-        </div>
-      </div>
-      </AnimateIn>
-    </section>
-  )
-}
+// RAGFeature y MCPFeature consolidados en KotaFeature ↑
+function RAGFeature() { return null }
+function MCPFeature() { return null }
 
 // ── Drive Feature ─────────────────────────────────────────────────────────────
 function DriveFeature() {
   return (
     <section id="drive" className="bg-[#0D1729] py-14 md:py-24 px-4 md:px-6">
       <AnimateIn>
-      <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-8 lg:gap-16 items-center">
-        {/* Drive Mock */}
-        <div className="bg-[#1A2744]/60 border border-white/10 rounded-2xl overflow-hidden shadow-2xl order-2 lg:order-1">
-          <div className="flex items-center gap-2 px-4 py-3 border-b border-white/5 bg-white/3">
-            <HardDrive className="w-4 h-4 text-purple-400" />
-            <span className="text-white/50 text-xs font-medium">Builtek Drive — Compartir archivo</span>
-          </div>
-          <div className="p-5 space-y-4">
-            <div className="space-y-2">
-              {[
-                { icon: '📄', name: 'Planos_Arq_Rev3.pdf', size: '8.4 MB', type: 'PDF' },
-                { icon: '📐', name: 'Estructuras_Frente12.dwg', size: '22 MB', type: 'DWG' },
-                { icon: '📊', name: 'Presupuesto_v4.xlsx', size: '1.1 MB', type: 'XLSX' },
-              ].map(f => (
-                <div key={f.name} className="flex items-center gap-3 bg-white/3 rounded-lg px-3 py-2.5">
-                  <span className="text-base">{f.icon}</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs text-white/65 font-normal truncate">{f.name}</p>
-                    <p className="text-[10px] text-white/25 font-light">{f.type} · {f.size}</p>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <div className="px-2 py-1 rounded-md bg-purple-400/10 text-purple-400 text-[10px] font-semibold">Compartir</div>
-                  </div>
-                </div>
-              ))}
-            </div>
 
-            <div className="bg-white/3 rounded-xl p-4 flex items-center gap-4">
-              <div className="w-16 h-16 bg-white rounded-lg flex items-center justify-center flex-shrink-0">
-                <QrCode className="w-10 h-10 text-[#1A2744]" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs text-white/55 font-medium mb-1">Link público generado</p>
-                <p className="text-[10px] text-white/25 font-mono truncate">builtek.app/share/a8f2-...</p>
-                <div className="flex gap-2 mt-2">
-                  <div className="px-2 py-1 rounded-md bg-[#00C2FF]/10 text-[#00C2FF] text-[10px] font-semibold">Copiar link</div>
-                  <div className="px-2 py-1 rounded-md bg-white/5 text-white/35 text-[10px] font-normal">Descargar QR</div>
-                </div>
-              </div>
-            </div>
-          </div>
+      {/* Texto centrado */}
+      <div className="max-w-3xl mx-auto text-center mb-12">
+        <div className="inline-flex items-center gap-2 bg-purple-400/10 border border-purple-400/20 rounded-full px-4 py-1.5 mb-8">
+          <HardDrive className="w-3.5 h-3.5 text-purple-400" />
+          <span className="text-purple-400 text-xs font-medium">Builtek Drive</span>
         </div>
 
-        {/* Text */}
-        <div className="order-1 lg:order-2">
-          <div className="inline-flex items-center gap-2 bg-purple-400/10 border border-purple-400/20 rounded-full px-4 py-1.5 mb-8">
-            <QrCode className="w-3.5 h-3.5 text-purple-400" />
-            <span className="text-purple-400 text-xs font-medium">Builtek Drive</span>
-          </div>
+        <h2 className="text-2xl md:text-4xl text-white leading-tight mb-5">
+          <span className="font-light">El expediente digital</span><br />
+          <span className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-[#00C2FF]">
+            de tu obra.
+          </span>
+        </h2>
 
-          <h2 className="text-2xl md:text-4xl text-white leading-tight mb-5">
-            <span className="font-light">Comparte planos</span><br />
-            <span className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-[#00C2FF]">
-              sin dar acceso a todo.
-            </span>
-          </h2>
+        <p className="text-white/40 text-lg leading-relaxed mb-3 font-light">
+          Control documental. No solo almacenamiento. Cada archivo tiene historial completo: quién lo subió, quién lo descargó, quién lo aprobó y cuándo.
+        </p>
+        <p className="text-white/40 text-base leading-relaxed font-light">
+          Comparte con subcontratistas y supervisores externos mediante un link o QR — sin que necesiten cuenta en Builtek.
+        </p>
 
-          <p className="text-white/40 text-lg leading-relaxed mb-8 font-light">
-            Un espacio compartido donde todo el equipo sube, organiza y accede a los archivos del proyecto. Genera links públicos o QR para compartir con subcontratistas, supervisores o clientes — sin que necesiten cuenta en Builtek.
-          </p>
-
-          <div className="space-y-4">
-            {[
-              'Carpetas organizadas por frente o disciplina',
-              'Links con fecha de expiración opcional',
-              'Contador de accesos por link',
-              'Revoca el acceso en cualquier momento',
-            ].map(f => (
-              <div key={f} className="flex items-start gap-3">
-                <div className="w-5 h-5 rounded-full bg-purple-400/20 flex items-center justify-center flex-shrink-0 mt-0.5">
-                  <div className="w-2 h-2 rounded-full bg-purple-400" />
-                </div>
-                <p className="text-white/50 text-sm font-light">{f}</p>
+        <div className="grid sm:grid-cols-2 gap-3 mt-8 text-left">
+          {[
+            'Bitácora por archivo: quién subió, editó, descargó o eliminó',
+            'Permisos por proyecto, carpeta o documento',
+            'Carpetas organizadas por frente o disciplina',
+            'Comparte con link público o QR (sin cuenta)',
+            'Links con fecha de expiración y contador de accesos',
+            'Revoca el acceso en cualquier momento',
+          ].map(f => (
+            <div key={f} className="flex items-start gap-3">
+              <div className="w-5 h-5 rounded-full bg-purple-400/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <div className="w-2 h-2 rounded-full bg-purple-400" />
               </div>
-            ))}
-          </div>
+              <p className="text-white/50 text-sm font-light">{f}</p>
+            </div>
+          ))}
         </div>
       </div>
+
+      {/* Vista compartida — lo que ve el cliente */}
+      <div className="max-w-7xl mx-auto mt-14">
+        <div className="text-center mb-6">
+          <p className="text-white/30 text-sm font-light">Esto es lo que ve tu cliente, supervisor o subcontratista cuando compartes un link</p>
+        </div>
+        <div className="rounded-2xl overflow-hidden shadow-2xl border border-white/10">
+          <img
+            src="/builtek-planos.png"
+            alt="Vista compartida de proyecto en Builtek — Centro Comercial BS"
+            className="w-full block"
+          />
+        </div>
+      </div>
+
       </AnimateIn>
     </section>
   )
@@ -826,25 +808,25 @@ function DriveFeature() {
 
 // ── WhatsApp Feature ──────────────────────────────────────────────────────────
 function WhatsAppFeature() {
-  const messages = [
-    {
-      time: '09:14',
-      msg: '📋 *Builtek* — Nueva tarea asignada\n*Colado losa N+3.50 — Frente 3*\nProyecto: Viaducto Norte · EST\nVence: 12 oct\n→ Ver tarea: builtek.app/t/...',
-    },
-    {
-      time: '11:32',
-      msg: '📄 *Builtek* — Plano actualizado\n*Planos_Estructuras_Rev4.pdf* fue subido\nProyecto: Viaducto Norte\nPor: L. Celestin\n→ Ver archivo: builtek.app/drive/...',
-    },
-    {
-      time: '15:05',
-      msg: '⏰ *Builtek* — Aprobación pendiente\n*ET-003 Especificaciones Hid.* lleva 48h esperando tu firma.\n→ Aprobar ahora: builtek.app/doc/...',
-    },
-  ]
-
   return (
     <section id="whatsapp" className="bg-[#0a1220] py-14 md:py-24 px-4 md:px-6">
+      <style>{`
+        @keyframes wa-slide-up {
+          from { opacity: 0; transform: translateY(16px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes wa-ping {
+          0%, 100% { transform: scale(1); opacity: 1; }
+          50%       { transform: scale(1.4); opacity: 0.6; }
+        }
+        .wa-msg-1 { opacity: 0; animation: wa-slide-up 0.5s ease-out 0.6s forwards; }
+        .wa-msg-2 { opacity: 0; animation: wa-slide-up 0.5s ease-out 1.4s forwards; }
+        .wa-msg-3 { opacity: 0; animation: wa-slide-up 0.5s ease-out 2.4s forwards; }
+        .wa-ping  { animation: wa-ping 1.4s ease-in-out 2.9s infinite; }
+      `}</style>
       <AnimateIn>
       <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-8 lg:gap-16 items-center">
+
         {/* Text */}
         <div>
           <div className="inline-flex items-center gap-2 bg-emerald-400/10 border border-emerald-400/20 rounded-full px-4 py-1.5 mb-8">
@@ -853,34 +835,23 @@ function WhatsAppFeature() {
           </div>
 
           <h2 className="text-2xl md:text-4xl text-white leading-tight mb-5">
-            <span className="font-light">Tu equipo ya está</span><br />
+            <span className="font-light">Asignas una tarea.</span><br />
             <span className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-[#00C2FF]">
-              en WhatsApp.
+              Llega al WhatsApp.
             </span>
           </h2>
 
-          <div className="bg-white/3 border border-white/8 rounded-xl p-5 mb-6 space-y-2">
-            <p className="text-white/25 text-[10px] font-semibold uppercase tracking-widest mb-3">¿Te suena esto?</p>
-            {[
-              '¿Tu buzón está lleno de correos con "Rev del plano actualizada"?',
-              '¿Tienes que recordarle a tu equipo las tareas que ya ordenaste?',
-              '¿Nunca sabes si ya vieron el documento que subiste?',
-            ].map(q => (
-              <p key={q} className="text-white/40 text-sm italic font-light leading-relaxed">— {q}</p>
-            ))}
-          </div>
-
           <p className="text-white/40 text-base leading-relaxed mb-8 font-light">
-            Builtek envía las notificaciones por WhatsApp automáticamente — donde ya trabaja tu equipo, en el momento exacto que necesitan saber.
+            En el momento que asignas una tarea en Builtek, el responsable recibe un mensaje de WhatsApp con el nombre de la tarea, el proyecto y la fecha límite — sin que nadie tenga que recordarle nada.
           </p>
 
-          <div className="space-y-4">
+          <div className="space-y-4 mb-8">
             {[
-              'Alerta al responsable cuando le asignan una tarea',
-              'Aviso al equipo cuando se sube un plano nuevo o una revisión',
-              'Recordatorio cuando una tarea está próxima a vencer',
-              'Notificación al aprobador cuando un documento espera su firma',
-              'Integración nativa con WhatsApp Business — sin apps externas ni configuración técnica',
+              'Notificación inmediata al responsable al ser asignado',
+              'Incluye nombre de tarea, proyecto, especialidad y fecha límite',
+              'Link directo para ver la tarea en Builtek',
+              'Recordatorio automático cuando la fecha límite se acerca',
+              'Funciona con WhatsApp Business — sin apps externas',
             ].map(f => (
               <div key={f} className="flex items-start gap-3">
                 <div className="w-5 h-5 rounded-full bg-emerald-400/20 flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -890,38 +861,116 @@ function WhatsAppFeature() {
               </div>
             ))}
           </div>
-        </div>
 
-        {/* WhatsApp Mock */}
-        <div className="bg-[#0b1a0b]/90 border border-emerald-400/15 rounded-2xl overflow-hidden shadow-2xl">
-          <div className="flex items-center gap-3 px-4 py-3 border-b border-white/5 bg-[#111f11]">
-            <div className="w-9 h-9 rounded-full bg-emerald-400/20 flex items-center justify-center flex-shrink-0">
-              <MessageSquare className="w-4 h-4 text-emerald-400" />
-            </div>
-            <div>
-              <p className="text-white/70 text-xs font-semibold">Builtek Notificaciones</p>
-              <p className="text-emerald-400/60 text-[10px]">En línea</p>
-            </div>
-          </div>
-          <div className="p-4 space-y-3 min-h-[280px] bg-[url('data:image/svg+xml;base64,')]">
-            {messages.map((m, i) => (
-              <div key={i} className="flex justify-start">
-                <div className="max-w-[88%] bg-[#1a3a1a] border border-emerald-400/10 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm">
-                  <p className="text-xs text-white/70 leading-relaxed whitespace-pre-line font-light">{m.msg}</p>
-                  <p className="text-[10px] text-white/20 mt-1.5 text-right">{m.time} ✓✓</p>
-                </div>
-              </div>
+          <div className="bg-white/3 border border-white/8 rounded-xl p-5 space-y-2">
+            <p className="text-white/25 text-[10px] font-semibold uppercase tracking-widest mb-3">¿Te suena esto?</p>
+            {[
+              '¿Tienes que recordarle a tu equipo las tareas que ya ordenaste?',
+              '¿Nunca sabes si ya vieron el documento que subiste?',
+              '¿Tus planos viven en grupos de WhatsApp sin control?',
+            ].map(q => (
+              <p key={q} className="text-white/40 text-sm italic font-light leading-relaxed">— {q}</p>
             ))}
           </div>
-          <div className="px-4 pb-4 pt-2 bg-[#111f11] border-t border-white/5">
-            <div className="flex items-center gap-2 bg-white/5 border border-white/8 rounded-xl px-4 py-2.5">
-              <span className="text-xs text-white/15 font-light flex-1">Escribe un mensaje...</span>
-              <div className="w-6 h-6 rounded-full bg-emerald-400/20 flex items-center justify-center">
-                <ArrowRight className="w-3 h-3 text-emerald-400/60" />
+        </div>
+
+        {/* iPhone mockup */}
+        <div className="flex justify-center lg:justify-end">
+          <div className="relative w-[270px] select-none">
+            {/* Phone frame */}
+            <div className="bg-gray-950 rounded-[42px] border-[7px] border-gray-800 overflow-hidden shadow-[0_30px_80px_rgba(0,0,0,0.6)]">
+
+              {/* Status bar */}
+              <div className="bg-[#1a2535] px-5 pt-2.5 pb-1 flex items-center justify-between">
+                <span className="text-white text-[11px] font-semibold">8:02</span>
+                <div className="flex items-center gap-1 text-white">
+                  <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-current opacity-80"><path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3c-1.65-1.66-4.34-1.66-6 0zm-4-4l2 2c2.76-2.76 7.24-2.76 10 0l2-2C15.14 9.14 8.87 9.14 5 13z"/></svg>
+                  <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-current opacity-80"><path d="M15.67 4H14V2h-4v2H8.33C7.6 4 7 4.6 7 5.33v15.33C7 21.4 7.6 22 8.33 22h7.33c.74 0 1.34-.6 1.34-1.33V5.33C17 4.6 16.4 4 15.67 4z"/></svg>
+                </div>
               </div>
+
+              {/* WhatsApp header */}
+              <div className="bg-[#1a2535] px-3 py-2 flex items-center gap-2.5 border-b border-white/5">
+                <span className="text-[#00C2FF] text-[11px] font-semibold">← 12</span>
+                <div className="w-8 h-8 rounded-full bg-[#25D366] flex items-center justify-center flex-shrink-0">
+                  <span className="text-white text-[10px] font-black">BM</span>
+                </div>
+                <div className="min-w-0">
+                  <p className="text-white text-[11px] font-semibold leading-tight truncate">Builtek-Menvio</p>
+                  <p className="text-white/40 text-[9px]">menvio.</p>
+                </div>
+              </div>
+
+              {/* Chat background */}
+              <div className="bg-[#0d1b2a] px-2.5 pt-3 pb-2 space-y-2.5" style={{ minHeight: '340px' }}>
+
+                {/* Message 1 */}
+                <div className="wa-msg-1 max-w-[92%]">
+                  <div className="bg-white rounded-2xl rounded-tl-none p-3 shadow-sm">
+                    <p className="text-gray-800 text-[10px] leading-relaxed">
+                      Hola Mariana, tienes una nueva tarea asignada en Builtek: <strong>Coordinar con topografía el replanteo de ejes en Torre B</strong> en el proyecto (TOP) Torre B. Fecha límite: 11 nov 2026.
+                    </p>
+                    <p className="text-gray-400 text-[9px] mt-1">Responde STOP para no recibir mensajes</p>
+                    <p className="text-gray-400 text-[9px] text-right mt-0.5">1:13 p.m.</p>
+                    <div className="border-t border-gray-200 mt-2 pt-1.5 text-center">
+                      <span className="text-[#25D366] text-[10px] font-semibold">↗ Ver tarea</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Message 2 */}
+                <div className="wa-msg-2 max-w-[92%]">
+                  <div className="bg-white rounded-2xl rounded-tl-none p-3 shadow-sm">
+                    <p className="text-gray-800 text-[10px] leading-relaxed">
+                      Hola Mariana, tienes una nueva tarea asignada en Builtek: <strong>Programar el colado de columnas del Nivel 5</strong> en el proyecto (EST) Columnas Nivel 5. Fecha límite: 12 nov 2026.
+                    </p>
+                    <p className="text-gray-400 text-[9px] mt-1">Responde STOP para no recibir mensajes</p>
+                    <p className="text-gray-400 text-[9px] text-right mt-0.5">1:32 p.m.</p>
+                    <div className="border-t border-gray-200 mt-2 pt-1.5 text-center">
+                      <span className="text-[#25D366] text-[10px] font-semibold">↗ Ver tarea</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Message 3 — incoming animation */}
+                <div className="wa-msg-3 max-w-[92%] relative">
+                  {/* New notification dot */}
+                  <div className="wa-ping absolute -top-1 -right-1 w-3.5 h-3.5 bg-[#25D366] rounded-full z-10 flex items-center justify-center">
+                    <span className="text-white text-[7px] font-black">1</span>
+                  </div>
+                  <div className="bg-white rounded-2xl rounded-tl-none p-3 shadow-sm ring-1 ring-[#25D366]/30">
+                    <p className="text-gray-800 text-[10px] leading-relaxed">
+                      Hola Mariana, tienes una nueva tarea asignada en Builtek: <strong>Validar memoria de cálculo de muros de contención</strong> en el proyecto (EST) Muros. Fecha límite: 18 nov 2026.
+                    </p>
+                    <p className="text-gray-400 text-[9px] mt-1">Responde STOP para no recibir mensajes</p>
+                    <p className="text-gray-400 text-[9px] text-right mt-0.5">ahora</p>
+                    <div className="border-t border-gray-200 mt-2 pt-1.5 text-center">
+                      <span className="text-[#25D366] text-[10px] font-semibold">↗ Ver tarea</span>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+
+              {/* Input bar */}
+              <div className="bg-[#1a2535] px-2.5 py-2 flex items-center gap-2">
+                <div className="flex-1 bg-white/8 rounded-full px-3 py-1.5">
+                  <span className="text-white/20 text-[10px]">Escribe un mensaje...</span>
+                </div>
+                <div className="w-7 h-7 rounded-full bg-[#25D366] flex items-center justify-center flex-shrink-0">
+                  <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-white"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+                </div>
+              </div>
+
+              {/* Home bar */}
+              <div className="bg-[#1a2535] flex justify-center pb-2 pt-1">
+                <div className="w-24 h-1 bg-white/20 rounded-full" />
+              </div>
+
             </div>
           </div>
         </div>
+
       </div>
       </AnimateIn>
 
@@ -954,7 +1003,7 @@ function PartnerSection() {
         <div className="max-w-3xl mx-auto text-center mb-14">
           <div className="inline-flex items-center gap-2 bg-white/5 border border-white/10 rounded-full px-4 py-1.5 mb-6">
             <Wrench className="w-3.5 h-3.5 text-white/40" />
-            <span className="text-white/40 text-xs font-medium">Builtek a la medida · Desarrollo personalizado</span>
+            <span className="text-white/40 text-xs font-medium">Software built-to-suit · Plan Partner</span>
           </div>
           <h2 className="text-2xl md:text-4xl text-white leading-tight mb-5">
             <span className="font-light">No somos software genérico.</span><br />
@@ -963,7 +1012,7 @@ function PartnerSection() {
             </span>
           </h2>
           <p className="text-white/40 text-lg leading-relaxed font-light">
-            Builtek nació para la industria AEC en LATAM — no es un Excel disfrazado ni un Jira con otro logo. Entendemos planos estructurales, flujos de aprobación, cadenas de subcontratistas y el caos real de una obra. Con el Plan Partner, personalizamos el sistema para que funcione exactamente como trabaja tu empresa.
+            Builtek está hecho para la industria AEC (Arquitectura, Ingeniería y Construcción) en LATAM. No es un Excel disfrazado ni un software con precio de rascacielos. Entiende planos estructurales, flujos de aprobación, cadenas de subcontratistas y el caos real de una obra, y lo convierte en control: cada tarea, documento y responsable en un solo lugar. Con el Plan Partner, personalizamos el sistema para que funcione exactamente como trabaja tu empresa.
           </p>
         </div>
 
@@ -1019,7 +1068,7 @@ function PartnerSection() {
             </p>
           </div>
           <a
-            href="mailto:hola@menvio.app?subject=Plan Partner"
+            href="/contact"
             className="flex-shrink-0 flex items-center gap-2 border border-[#00C2FF]/30 text-[#00C2FF] px-6 py-3 rounded-xl text-sm font-semibold hover:bg-[#00C2FF]/10 transition-colors whitespace-nowrap"
           >
             Hablar con nuestros desarrolladores
@@ -1147,7 +1196,7 @@ function CTA() {
           Solicitar demo gratis
           <ArrowRight className="w-5 h-5" />
         </Link>
-        <p className="text-white/25 text-sm mt-4 font-light">Respuesta en menos de 24 horas · hola@menvio.app</p>
+        <p className="text-white/25 text-sm mt-4 font-light">Respuesta en menos de 24 horas · <Link href="/contact" className="hover:text-white/50 transition-colors">¿Tienes preguntas?</Link></p>
       </div>
     </section>
   )
@@ -1176,7 +1225,7 @@ function Footer() {
 
         <div className="text-right">
           <p className="text-white/20 text-sm font-light">© 2026 Builtek · builtek.app</p>
-          <p className="text-white/12 text-xs font-light mt-0.5">Powered by Ingenium Analytics · Empresa 100% mexicana · CDMX</p>
+          <p className="text-white/12 text-xs font-light mt-0.5">Powered by Ingenium Analytics · Empresa 100% mexicana · Querétaro, México</p>
         </div>
       </div>
     </footer>
@@ -1304,74 +1353,135 @@ function TasksFeature() {
           </div>
         </div>
 
-        {/* Mock TaskBoard */}
-        <div className="bg-[#1A2744]/60 border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
-          <div className="flex items-center gap-2 px-4 py-3 border-b border-white/5 bg-white/3">
-            <CheckSquare className="w-4 h-4 text-emerald-400" />
-            <span className="text-white/50 text-xs font-medium">TaskBoard — Frente 3 · Todas las especialidades</span>
-          </div>
-          <div className="p-4 space-y-3">
-            {/* Specialty filter chips */}
-            <div className="flex gap-1.5 flex-wrap">
-              {['Todas', 'EST', 'ARQ', 'HID', 'SAN'].map((s, i) => (
-                <span key={s} className={`px-2.5 py-1 rounded-full text-[10px] font-semibold ${i === 0 ? 'bg-emerald-400/20 text-emerald-400' : 'bg-white/5 text-white/30'}`}>{s}</span>
-              ))}
-            </div>
+        {/* Mock Kanban — vista real de la app */}
+        <div className="bg-[#0D1729] border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
 
-            {/* Kanban 2×2 */}
-            <div className="grid grid-cols-2 gap-2">
-              {[
-                { label: 'Pendiente',  dot: 'bg-slate-500',   tasks: [{ name: 'Trazo ejes N+0.00', spec: 'TOP', who: 'CG' }, { name: 'Excavación Z-3', spec: 'CIV', who: 'LA' }] },
-                { label: 'En proceso', dot: 'bg-[#00C2FF]',   tasks: [{ name: 'Colado losa N+3.50', spec: 'EST', who: 'SR' }, { name: 'Armado muros', spec: 'EST', who: 'MR' }] },
-                { label: 'Revisión',   dot: 'bg-amber-400',   tasks: [{ name: 'Planos Arq. Rev.B', spec: 'ARQ', who: 'PM' }] },
-                { label: 'Listo',      dot: 'bg-emerald-400', tasks: [{ name: 'Topografía gral.', spec: 'TOP', who: 'CG' }, { name: 'Permisos IMSS', spec: 'ADM', who: 'LA' }] },
-              ].map(col => (
-                <div key={col.label} className="bg-white/3 rounded-xl p-2.5">
-                  <div className="flex items-center gap-1.5 mb-2">
-                    <div className={`w-1.5 h-1.5 rounded-full ${col.dot}`} />
-                    <span className="text-[10px] text-white/40 font-semibold">{col.label}</span>
-                    <span className="ml-auto text-[9px] text-white/20">{col.tasks.length}</span>
-                  </div>
-                  <div className="space-y-1.5">
-                    {col.tasks.map(t => (
-                      <div key={t.name} className="bg-white/4 rounded-lg px-2 py-1.5">
-                        <p className="text-[10px] text-white/60 font-normal leading-tight mb-1">{t.name}</p>
-                        <div className="flex items-center justify-between">
-                          <span className="text-[9px] bg-[#00C2FF]/10 text-[#00C2FF] px-1.5 py-0.5 rounded font-semibold">{t.spec}</span>
-                          <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-white/10 text-[9px] text-white/40 font-semibold">{t.who}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Team dashboard mini */}
-            <div className="border-t border-white/5 pt-3">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-[10px] text-white/25 font-semibold uppercase tracking-wide">Rendimiento del equipo</p>
-                <span className="text-[9px] text-emerald-400/60 font-semibold">Score promedio: 74%</span>
+          {/* App header */}
+          <div className="flex items-center gap-2 px-3 py-2 border-b border-white/5 bg-[#09111f]">
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              <div className="w-5 h-5 bg-[#00C2FF] rounded flex items-center justify-center text-[#0D1729] text-[8px] font-black">BT</div>
+              <div>
+                <p className="text-white text-[10px] font-semibold leading-none">Builtek</p>
+                <p className="text-white/30 text-[8px] leading-none mt-0.5">Torre Bosques</p>
               </div>
-              {[
-                { name: 'Carlos G.', role: 'Manager', score: 88, overdue: 0, color: 'bg-emerald-500' },
-                { name: 'Luis A.',   role: 'Engineer', score: 61, overdue: 2, color: 'bg-amber-400' },
-                { name: 'Sofía R.', role: 'Engineer', score: 74, overdue: 0, color: 'bg-emerald-500' },
-                { name: 'Pedro M.', role: 'Viewer',   score: 30, overdue: 3, color: 'bg-red-500' },
-              ].map(p => (
-                <div key={p.name} className="flex items-center gap-2 py-1.5 border-b border-white/5 last:border-0">
-                  <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-400/15 text-[9px] text-emerald-400 font-semibold flex-shrink-0">{p.name[0]}</span>
-                  <span className="text-[11px] text-white/45 font-light w-16 truncate">{p.name}</span>
-                  <div className="flex-1 h-1.5 bg-white/5 rounded-full overflow-hidden">
-                    <div className={`h-full rounded-full ${p.color}`} style={{ width: `${p.score}%` }} />
-                  </div>
-                  <span className="text-[10px] text-white/35 w-7 text-right font-semibold">{p.score}%</span>
-                  {p.overdue > 0
-                    ? <span className="text-[9px] text-red-400 font-bold w-12 text-right">{p.overdue} venc.</span>
-                    : <span className="text-[9px] text-emerald-400/50 w-12 text-right">al día</span>
-                  }
-                </div>
+            </div>
+            <div className="flex-1 mx-2 bg-white/5 rounded-lg px-2 py-1 text-[9px] text-white/20">Buscar tareas, documentos...</div>
+            <div className="relative flex-shrink-0">
+              <Bell className="w-3.5 h-3.5 text-white/30" />
+              <span className="absolute -top-1 -right-1 w-3 h-3 bg-[#00C2FF] rounded-full text-[7px] text-[#0D1729] font-black flex items-center justify-center">3</span>
+            </div>
+            <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-500 to-[#00C2FF] flex items-center justify-center text-white text-[8px] font-bold flex-shrink-0 ml-1">MS</div>
+          </div>
+
+          {/* Status tabs */}
+          <div className="flex items-center gap-1 px-3 py-2 border-b border-white/5 overflow-x-hidden">
+            <span className="bg-[#00C2FF] text-[#0D1729] text-[9px] font-bold px-2.5 py-1 rounded-full whitespace-nowrap">Activas 27</span>
+            <span className="text-white/25 text-[9px] px-2 py-1 whitespace-nowrap">Todas 214</span>
+            <span className="text-white/25 text-[9px] px-2 py-1 whitespace-nowrap">Pendientes 48</span>
+            <span className="text-white/25 text-[9px] px-2 py-1 whitespace-nowrap hidden sm:inline">En curso 9</span>
+            <div className="ml-auto flex-shrink-0 bg-[#00C2FF] text-[#0D1729] text-[9px] font-bold px-2.5 py-1 rounded-lg whitespace-nowrap">+ Nueva tarea</div>
+          </div>
+
+          {/* Filters + view switcher */}
+          <div className="flex items-center gap-1.5 px-3 py-2 border-b border-white/5">
+            <span className="text-[9px] text-white/25 bg-white/5 rounded-md px-2 py-1 whitespace-nowrap">Todos los proyectos ▾</span>
+            <span className="text-[9px] text-white/25 bg-white/5 rounded-md px-2 py-1 whitespace-nowrap hidden sm:inline">Todos los usuarios ▾</span>
+            <div className="ml-auto flex items-center bg-white/5 rounded-lg p-0.5 gap-0.5">
+              {['Tablero','Lista','Usuarios'].map(v => (
+                <span key={v} className="text-[8px] text-white/20 px-1.5 py-0.5 whitespace-nowrap">{v}</span>
               ))}
+              <span className="text-[8px] bg-[#00C2FF]/20 text-[#00C2FF] px-2 py-0.5 rounded font-bold whitespace-nowrap">Kanban</span>
+            </div>
+          </div>
+
+          {/* Kanban columns (person view) */}
+          <div className="p-3 grid grid-cols-2 gap-2.5">
+            {/* Column MSR */}
+            <div>
+              <div className="flex items-center gap-1.5 mb-2 bg-[#152238] rounded-xl px-2.5 py-2">
+                <div className="w-7 h-7 rounded-full bg-teal-500 flex items-center justify-center text-white text-[8px] font-bold flex-shrink-0">MSR</div>
+                <div className="min-w-0">
+                  <p className="text-white text-[10px] font-semibold leading-none truncate">Mariana S. R.</p>
+                  <p className="text-white/30 text-[8px]">6 activas</p>
+                </div>
+                <span className="ml-auto text-[9px] text-white/30 font-bold">6</span>
+              </div>
+              <div className="space-y-1.5">
+                <div className="bg-white rounded-lg p-2 border-l-2 border-blue-400">
+                  <p className="text-gray-800 text-[9px] font-semibold leading-tight mb-1">Enviar cilindros colado losa Nivel 4</p>
+                  <span className="text-[8px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-full font-medium">En revisión</span>
+                  <div className="flex items-center gap-1 mt-1">
+                    <Calendar className="w-2.5 h-2.5 text-red-400" />
+                    <span className="text-[8px] text-red-500 font-semibold">Vencida · 5 nov</span>
+                  </div>
+                  <div className="mt-1.5 h-0.5 bg-red-400 rounded-full w-3/4" />
+                  <p className="text-[8px] text-gray-400 mt-1">(EST) Losa Nivel 4</p>
+                </div>
+                <div className="bg-white rounded-lg p-2 border-l-2 border-amber-400">
+                  <p className="text-gray-800 text-[9px] font-semibold leading-tight mb-1">Coordinar replanteo de ejes Torre B</p>
+                  <span className="text-[8px] bg-cyan-100 text-cyan-700 px-1.5 py-0.5 rounded-full font-medium">En curso</span>
+                  <div className="flex items-center gap-1 mt-1">
+                    <Calendar className="w-2.5 h-2.5 text-gray-400" />
+                    <span className="text-[8px] text-gray-400">11 nov</span>
+                  </div>
+                  <div className="mt-1.5 h-0.5 bg-amber-400 rounded-full w-1/2" />
+                  <p className="text-[8px] text-gray-400 mt-1">(TOP) Torre B</p>
+                </div>
+                <div className="bg-white rounded-lg p-2 border-l-2 border-amber-400">
+                  <p className="text-gray-800 text-[9px] font-semibold leading-tight mb-1">Programar colado columnas Nivel 5</p>
+                  <span className="text-[8px] bg-cyan-100 text-cyan-700 px-1.5 py-0.5 rounded-full font-medium">En curso</span>
+                  <div className="flex items-center gap-1 mt-1">
+                    <Calendar className="w-2.5 h-2.5 text-gray-400" />
+                    <span className="text-[8px] text-gray-400">12 nov</span>
+                  </div>
+                  <div className="mt-1.5 h-0.5 bg-amber-400 rounded-full w-1/2" />
+                  <p className="text-[8px] text-gray-400 mt-1">(EST) Columnas Nivel 5</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Column DAF */}
+            <div>
+              <div className="flex items-center gap-1.5 mb-2 bg-[#152238] rounded-xl px-2.5 py-2">
+                <div className="w-7 h-7 rounded-full bg-blue-500 flex items-center justify-center text-white text-[8px] font-bold flex-shrink-0">DAF</div>
+                <div className="min-w-0">
+                  <p className="text-white text-[10px] font-semibold leading-none truncate">Diego A. F.</p>
+                  <p className="text-white/30 text-[8px]">5 activas</p>
+                </div>
+                <span className="ml-auto text-[9px] text-white/30 font-bold">5</span>
+              </div>
+              <div className="space-y-1.5">
+                <div className="bg-white rounded-lg p-2 border-l-2 border-blue-400">
+                  <p className="text-gray-800 text-[9px] font-semibold leading-tight mb-1">Atender obs. DRO plano hidráulica</p>
+                  <span className="text-[8px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-full font-medium">En revisión</span>
+                  <div className="flex items-center gap-1 mt-1">
+                    <Calendar className="w-2.5 h-2.5 text-red-400" />
+                    <span className="text-[8px] text-red-500 font-semibold">Vencida · 4 nov</span>
+                  </div>
+                  <div className="mt-1.5 h-0.5 bg-red-400 rounded-full w-3/4" />
+                  <p className="text-[8px] text-gray-400 mt-1">(HID) Red general</p>
+                </div>
+                <div className="bg-white rounded-lg p-2 border-l-2 border-amber-400">
+                  <p className="text-gray-800 text-[9px] font-semibold leading-tight mb-1">Prueba hermeticidad cisterna principal</p>
+                  <span className="text-[8px] bg-cyan-100 text-cyan-700 px-1.5 py-0.5 rounded-full font-medium">En curso</span>
+                  <div className="flex items-center gap-1 mt-1">
+                    <Calendar className="w-2.5 h-2.5 text-gray-400" />
+                    <span className="text-[8px] text-gray-400">10 nov</span>
+                  </div>
+                  <div className="mt-1.5 h-0.5 bg-amber-400 rounded-full w-1/2" />
+                  <p className="text-[8px] text-gray-400 mt-1">(HID) Cisterna</p>
+                </div>
+                <div className="bg-white rounded-lg p-2 border-l-2 border-gray-200">
+                  <p className="text-gray-800 text-[9px] font-semibold leading-tight mb-1">Actualizar catálogo drenaje pluvial</p>
+                  <span className="text-[8px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full font-medium">Pendiente</span>
+                  <div className="flex items-center gap-1 mt-1">
+                    <Calendar className="w-2.5 h-2.5 text-gray-400" />
+                    <span className="text-[8px] text-gray-400">12 nov</span>
+                  </div>
+                  <div className="mt-1.5 h-0.5 bg-emerald-400 rounded-full w-3/4" />
+                  <p className="text-[8px] text-gray-400 mt-1">(HID) Drenaje pluvial</p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -1403,11 +1513,11 @@ export default function LandingPage() {
       <Problem />
       <Modules />
       <TasksFeature />
+      <WhatsAppFeature />
       <KotaFeature />
       <RAGFeature />
       <MCPFeature />
       <DriveFeature />
-      <WhatsAppFeature />
       <PartnerSection />
       <CostCallout />
       <PricingSection />
