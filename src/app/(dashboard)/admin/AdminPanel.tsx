@@ -2782,7 +2782,14 @@ export default function AdminPanel({
           .sort()
         const q = searchProjects.toLowerCase().trim()
         const rootProjects = allRootProjects
-          .filter(p => !q || [p.name, p.builtek_id, p.frente, p.project_type, p.description].some(v => v?.toLowerCase().includes(q)))
+          .filter(p => {
+            if (!q) return true
+            const selfMatch = [p.name, p.builtek_id, p.frente, p.project_type, p.description].some(v => v?.toLowerCase().includes(q))
+            if (selfMatch) return true
+            return projects.some(s => s.parent_project_id === p.id &&
+              [s.name, s.builtek_id, s.frente, s.project_type, s.description].some(v => v?.toLowerCase().includes(q))
+            )
+          })
           .filter(p => !filterInah           || p.is_inah)
           .filter(p => !filterCaucesFederales || p.cauces_federales)
           .filter(p => !filterCruceVial      || p.cruce_vial === filterCruceVial)
