@@ -25,7 +25,7 @@ async function getWorkspaceData(userId: string) {
     supabase.from('projects').select('id, name, status, frente, cover_image_url').eq('workspace_id', wsId).eq('status', 'active').is('parent_project_id', null).order('name'),
     supabase.from('projects').select('id, parent_project_id, status').eq('workspace_id', wsId),
     supabase.from('tasks').select('id, name, status, priority, due_date, project_id, assignee_id').order('created_at', { ascending: false }),
-    supabase.from('documents').select('id, name, status, created_at, project_id, uploaded_by').eq('workspace_id', wsId).neq('doc_status', 'deleted').order('created_at', { ascending: false }).limit(5),
+    supabase.from('documents').select('id, name, status, created_at, project_id, uploaded_by, projects(id, name, parent_project_id)').eq('workspace_id', wsId).neq('doc_status', 'deleted').order('created_at', { ascending: false }).limit(5),
     supabase.from('documents').select('id, project_id, created_at').eq('workspace_id', wsId).eq('file_type', 'img').order('created_at', { ascending: false }),
     supabase.from('documents').select('project_id, created_at').eq('workspace_id', wsId).neq('doc_status', 'deleted').neq('is_current', false),
     supabase.from('workspace_members').select('user_id').eq('workspace_id', wsId),
@@ -79,10 +79,12 @@ async function getWorkspaceData(userId: string) {
     if (!cur || d.created_at > cur) latestActivityByRootProject[root] = d.created_at
   }
 
-  // Conteo de documentos vigentes por proyecto
+  // Conteo de documentos vigentes por proyecto raíz (agrega subproyectos)
   const docCountByProject: Record<string, number> = {}
   for (const d of (allDocs.data ?? [])) {
-    if (d.project_id) docCountByProject[d.project_id] = (docCountByProject[d.project_id] ?? 0) + 1
+    if (!d.project_id) continue
+    const rootId = getRootId(d.project_id)
+    docCountByProject[rootId] = (docCountByProject[rootId] ?? 0) + 1
   }
 
   // Sort root projects by most recent document activity
@@ -541,7 +543,12 @@ export default async function DashboardPage() {
                     <Link key={doc.id} href={`/documents${doc.project_id ? `?project=${doc.project_id}` : ''}`}
                       className="flex items-center gap-2 text-sm hover:bg-slate-50 rounded-lg px-1 py-1 -mx-1 transition-colors">
                       <FileText className="w-3.5 h-3.5 text-slate-300 flex-shrink-0" />
-                      <span className="text-slate-600 truncate text-xs flex-1">{doc.name}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-slate-600 truncate text-xs font-medium">{doc.name}</p>
+                        {(doc as any).projects?.name && (
+                          <p className="text-[10px] text-slate-400 truncate">{(doc as any).projects.name}</p>
+                        )}
+                      </div>
                       {initials && (
                         <span className="w-5 h-5 rounded-full bg-[#1A2744] text-white text-[9px] font-bold flex items-center justify-center flex-shrink-0">
                           {initials}
